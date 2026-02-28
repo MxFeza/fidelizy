@@ -59,6 +59,8 @@ export default async function CardPage({ params }: PageProps) {
   const stampsCount = card.current_stamps ?? 0
   const pointsBalance = card.current_points ?? 0
   const shortCode = `${card.qr_code_id.slice(0, 4).toUpperCase()}-${card.qr_code_id.slice(4, 8).toUpperCase()}`
+  // Adaptive grid: prefer 4 cols for multiples of 4, 5 cols otherwise, single row for ≤5
+  const stampCols = stampsRequired <= 5 ? stampsRequired : stampsRequired % 4 === 0 ? 4 : 5
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -85,54 +87,104 @@ export default async function CardPage({ params }: PageProps) {
       <div className="max-w-sm mx-auto px-5 pb-10 space-y-5">
         {/* Stamps card */}
         {business.loyalty_type === 'stamps' && (
-          <div className="-mt-4 bg-white rounded-2xl shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="font-semibold text-gray-900">
-                  {stampsCount} / {stampsRequired} tampons
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {stampsRequired - stampsCount > 0
-                    ? `Plus que ${stampsRequired - stampsCount} tampon${stampsRequired - stampsCount > 1 ? 's' : ''} !`
-                    : '🎉 Récompense disponible !'}
-                </p>
-              </div>
-              {stampsCount >= stampsRequired && (
-                <span className="text-xs font-semibold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
-                  À réclamer
-                </span>
-              )}
-            </div>
+          <div className="-mt-4">
+            <div
+              className="bg-white rounded-2xl overflow-hidden"
+              style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)' }}
+            >
+              {/* Brand color accent bar */}
+              <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
 
-            {/* Stamp grid */}
-            <div className="grid grid-cols-5 gap-2 mb-4">
-              {Array.from({ length: stampsRequired }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`aspect-square rounded-xl flex items-center justify-center transition-all ${
-                    i < stampsCount ? 'shadow-sm' : 'bg-gray-100'
-                  }`}
-                  style={i < stampsCount ? { backgroundColor: `${color}20`, border: `2px solid ${color}` } : {}}
-                >
-                  {i < stampsCount ? (
-                    <svg className="w-5 h-5" style={{ color }} fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  ) : (
-                    <span className="text-gray-300 text-lg">○</span>
-                  )}
+              <div className="p-5 space-y-5">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+                      Carte à tampons
+                    </p>
+                    {stampsCount >= stampsRequired ? (
+                      <p className="text-sm font-bold text-green-700">🎉 Récompense débloquée !</p>
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        Encore{' '}
+                        <span className="font-bold" style={{ color }}>
+                          {stampsRequired - stampsCount} tampon{stampsRequired - stampsCount > 1 ? 's' : ''}
+                        </span>{' '}
+                        pour votre récompense
+                      </p>
+                    )}
+                  </div>
+                  {/* Progress circle */}
+                  <div
+                    className="w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shrink-0"
+                    style={{ backgroundColor: stampsCount >= stampsRequired ? '#16a34a' : color }}
+                  >
+                    <span className="text-lg font-black leading-none">{stampsCount}</span>
+                    <span className="text-[9px] font-semibold leading-none opacity-75">/{stampsRequired}</span>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {business.stamps_reward && (
-              <div
-                className="text-center text-sm font-medium py-2 px-3 rounded-xl"
-                style={{ backgroundColor: `${color}15`, color }}
-              >
-                🎁 Récompense : {business.stamps_reward}
+                {/* Stamp grid */}
+                <div
+                  className="grid gap-2.5"
+                  style={{ gridTemplateColumns: `repeat(${stampCols}, 1fr)` }}
+                >
+                  {Array.from({ length: stampsRequired }).map((_, i) => {
+                    const filled = i < stampsCount
+                    return (
+                      <div
+                        key={i}
+                        className="aspect-square rounded-full flex items-center justify-center transition-all duration-200"
+                        style={
+                          filled
+                            ? { backgroundColor: color, boxShadow: `0 2px 6px ${color}55` }
+                            : { backgroundColor: '#f9fafb', border: '2px dashed #e5e7eb' }
+                        }
+                      >
+                        {filled ? (
+                          <svg
+                            className="text-white"
+                            style={{ width: '52%', height: '52%' }}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <span className="text-xs text-gray-300 font-medium select-none">{i + 1}</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Reward pill */}
+                {business.stamps_reward && (
+                  <div
+                    className="text-sm font-semibold text-center py-2.5 px-4 rounded-xl"
+                    style={
+                      stampsCount >= stampsRequired
+                        ? { backgroundColor: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }
+                        : { backgroundColor: `${color}12`, color, border: `1px solid ${color}28` }
+                    }
+                  >
+                    {stampsCount >= stampsRequired ? '🎁 Récompense disponible : ' : '🎯 '}
+                    {business.stamps_reward}
+                  </div>
+                )}
+
+                {/* Celebration hint */}
+                {stampsCount >= stampsRequired && (
+                  <p className="text-center text-xs text-green-600 font-medium -mt-2">
+                    Présentez cette carte au commerçant pour en profiter
+                  </p>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
 

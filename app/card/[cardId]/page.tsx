@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import type { Transaction, RewardTier } from '@/lib/types'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
+import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 
 interface PageProps {
   params: Promise<{ cardId: string }>
@@ -57,6 +58,7 @@ export default async function CardPage({ params }: PageProps) {
   const stampsRequired = business.stamps_required ?? 10
   const stampsCount = card.current_stamps ?? 0
   const pointsBalance = card.current_points ?? 0
+  const shortCode = `${card.qr_code_id.slice(0, 4).toUpperCase()}-${card.qr_code_id.slice(4, 8).toUpperCase()}`
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -192,6 +194,9 @@ export default async function CardPage({ params }: PageProps) {
             Présentez ce code au commerçant à chaque visite
           </p>
         </div>
+
+        {/* Short code */}
+        <ShortCodeDisplay code={shortCode} />
 
         {/* Transaction history */}
         {recentTransactions && recentTransactions.length > 0 && (

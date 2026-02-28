@@ -252,11 +252,11 @@ export default function DashboardClient({
               {manualState.status === 'idle' && (
                 <form onSubmit={handleManualSubmit} className="space-y-4">
                   <p className="text-sm text-gray-500">
-                    Collez ou saisissez l'identifiant QR du client pour enregistrer son passage.
+                    Saisissez le code court du client (ex&nbsp;: <span className="font-mono font-semibold">A1B2-C3D4</span>) ou collez son identifiant QR complet.
                   </p>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Identifiant QR
+                      Code fidélité
                     </label>
                     <input
                       type="text"
@@ -264,7 +264,7 @@ export default function DashboardClient({
                       onChange={(e) => setManualInput(e.target.value)}
                       autoFocus
                       required
-                      placeholder="Collez l'identifiant ici…"
+                      placeholder="Code court (ex: A1B2-C3D4) ou ID complet…"
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>

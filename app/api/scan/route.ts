@@ -33,13 +33,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
     }
 
-    // Trouver la carte par qr_code_id et vérifier qu'elle appartient à ce commerce
-    const { data: card } = await supabase
-      .from('loyalty_cards')
-      .select('*, customers(*)')
-      .eq('qr_code_id', qr_code_id)
-      .eq('business_id', business.id)
-      .single()
+    // Trouver la carte : code court (8 chars sans tiret) ou UUID complet
+    const cleaned = qr_code_id.replace(/-/g, '')
+    const isShortCode = cleaned.length === 8
+
+    let card
+    if (isShortCode) {
+      // Recherche par les 8 premiers caractères du qr_code_id (ILIKE pour ignorer la casse)
+      const { data } = await supabase
+        .from('loyalty_cards')
+        .select('*, customers(*)')
+        .ilike('qr_code_id', `${cleaned}%`)
+        .eq('business_id', business.id)
+        .single()
+      card = data
+    } else {
+      const { data } = await supabase
+        .from('loyalty_cards')
+        .select('*, customers(*)')
+        .eq('qr_code_id', qr_code_id)
+        .eq('business_id', business.id)
+        .single()
+      card = data
+    }
 
     if (!card) {
       return NextResponse.json(

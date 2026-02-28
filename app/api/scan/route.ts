@@ -1,0 +1,120 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { qr_code_id } = body
+
+    if (!qr_code_id) {
+      return NextResponse.json({ error: 'qr_code_id requis' }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+
+    // Vérifier l'authentification du commerçant
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (!user || authError) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    }
+
+    // businesses.id = auth.users.id (relation 1:1)
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    if (!business) {
+      return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
+    }
+
+    // Trouver la carte par qr_code_id et vérifier qu'elle appartient à ce commerce
+    const { data: card } = await supabase
+      .from('loyalty_cards')
+      .select('*, customers(*)')
+      .eq('qr_code_id', qr_code_id)
+      .eq('business_id', business.id)
+      .single()
+
+    if (!card) {
+      return NextResponse.json(
+        { error: 'Carte introuvable ou ne correspond pas à ce commerce.' },
+        { status: 404 }
+      )
+    }
+
+    let updatedCard
+    let message = ''
+
+    if (business.loyalty_type === 'stamps') {
+      const newStamps = (card.current_stamps ?? 0) + 1
+      const { data } = await supabase
+        .from('loyalty_cards')
+        .update({
+          current_stamps: newStamps,
+          total_visits: (card.total_visits ?? 0) + 1,
+          last_visit_at: new Date().toISOString(),
+        })
+        .eq('id', card.id)
+        .select()
+        .single()
+
+      updatedCard = data
+
+      await supabase.from('transactions').insert({
+        loyalty_card_id: card.id,
+        business_id: business.id,
+        type: 'earn',
+        stamps_added: 1,
+        points_added: null,
+        description: `Tampon ajouté (${newStamps}/${business.stamps_required})`,
+      })
+
+      const isComplete = newStamps >= business.stamps_required
+      message = isComplete
+        ? `🎉 Carte complète ! ${card.customers?.first_name} a gagné : ${business.stamps_reward}`
+        : `Tampon ajouté pour ${card.customers?.first_name} ! (${newStamps}/${business.stamps_required})`
+    } else {
+      const pointsToAdd = business.points_per_euro ?? 1
+      const newPoints = (card.current_points ?? 0) + pointsToAdd
+
+      const { data } = await supabase
+        .from('loyalty_cards')
+        .update({
+          current_points: newPoints,
+          total_visits: (card.total_visits ?? 0) + 1,
+          last_visit_at: new Date().toISOString(),
+        })
+        .eq('id', card.id)
+        .select()
+        .single()
+
+      updatedCard = data
+
+      await supabase.from('transactions').insert({
+        loyalty_card_id: card.id,
+        business_id: business.id,
+        type: 'earn',
+        stamps_added: null,
+        points_added: pointsToAdd,
+        description: `${pointsToAdd} points ajoutés`,
+      })
+
+      message = `+${pointsToAdd} pts pour ${card.customers?.first_name} ! Total : ${newPoints} pts`
+    }
+
+    return NextResponse.json({
+      success: true,
+      customer: card.customers,
+      card: updatedCard,
+      message,
+    })
+  } catch {
+    return NextResponse.json({ error: 'Erreur serveur inattendue' }, { status: 500 })
+  }
+}

@@ -23,16 +23,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Auth check failed — treat as unauthenticated
+  }
 
   const { pathname } = request.nextUrl
   const isAuthPage =
     pathname === '/dashboard/login' || pathname === '/dashboard/register'
-  const isDashboard = pathname.startsWith('/dashboard')
 
-  if (isDashboard && !isAuthPage && !user) {
+  if (!isAuthPage && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard/login'
     return NextResponse.redirect(url)

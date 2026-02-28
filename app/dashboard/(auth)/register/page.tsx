@@ -13,6 +13,12 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  function generateShortCode(): string {
+    // 6-char alphanumeric code (excludes confusable chars I/O/0/1)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -42,6 +48,7 @@ export default function RegisterPage() {
         stamps_required: 10,
         stamps_reward: 'Cadeau au choix',
         points_per_euro: 1,
+        short_code: generateShortCode(),
       })
 
       if (businessError) {

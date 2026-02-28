@@ -36,6 +36,9 @@ function relativeDate(ds: string | null) {
 export default function ClientDetailClient({ card, business, transactions }: Props) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [deducting, setDeducting] = useState(false)
+  const [showDeductPoints, setShowDeductPoints] = useState(false)
+  const [deductAmount, setDeductAmount] = useState(1)
   const [resetting, setResetting] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -64,6 +67,35 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
       setFeedback({ type: 'error', message: 'Erreur de connexion. Veuillez réessayer.' })
     }
     setAdding(false)
+  }
+
+  async function handleDeduct(amount: number, type: 'stamps' | 'points') {
+    setDeducting(true)
+    setFeedback(null)
+    try {
+      const res = await fetch('/api/card/deduct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_id: card.id, type, amount }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFeedback({
+          type: 'success',
+          message:
+            type === 'stamps'
+              ? '1 tampon retiré.'
+              : `${amount} point${amount > 1 ? 's' : ''} retirés.`,
+        })
+        setShowDeductPoints(false)
+        router.refresh()
+      } else {
+        setFeedback({ type: 'error', message: data.error ?? 'Erreur lors du retrait.' })
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Erreur de connexion. Veuillez réessayer.' })
+    }
+    setDeducting(false)
   }
 
   async function handleReset() {
@@ -267,6 +299,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
 
         {/* Action buttons */}
         <div className="flex flex-wrap gap-3">
+          {/* Add */}
           <button
             onClick={handleAddStamp}
             disabled={adding}
@@ -282,6 +315,34 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
               : `Ajouter ${business.points_per_euro} pt${business.points_per_euro > 1 ? 's' : ''}`}
           </button>
 
+          {/* Deduct stamp */}
+          {business.loyalty_type === 'stamps' && card.current_stamps > 0 && (
+            <button
+              onClick={() => handleDeduct(1, 'stamps')}
+              disabled={deducting}
+              className="flex items-center gap-2 bg-white hover:bg-orange-50 border border-gray-200 hover:border-orange-200 text-gray-600 hover:text-orange-600 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm disabled:opacity-60"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+              {deducting ? '…' : 'Retirer 1 tampon'}
+            </button>
+          )}
+
+          {/* Deduct points toggle */}
+          {business.loyalty_type === 'points' && card.current_points > 0 && !showDeductPoints && (
+            <button
+              onClick={() => { setShowDeductPoints(true); setDeductAmount(1) }}
+              className="flex items-center gap-2 bg-white hover:bg-orange-50 border border-gray-200 hover:border-orange-200 text-gray-600 hover:text-orange-600 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+              Retirer des points
+            </button>
+          )}
+
+          {/* Reset (stamps only) */}
           {business.loyalty_type === 'stamps' && card.current_stamps > 0 && !confirmReset && (
             <button
               onClick={() => setConfirmReset(true)}
@@ -295,6 +356,39 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
             </button>
           )}
         </div>
+
+        {/* Deduct points inline form */}
+        {business.loyalty_type === 'points' && showDeductPoints && (
+          <div className="flex items-center gap-3 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
+            <span className="text-sm text-orange-800 font-medium shrink-0">Retirer</span>
+            <input
+              type="number"
+              min={1}
+              max={card.current_points ?? 0}
+              value={deductAmount}
+              onChange={(e) => setDeductAmount(Math.max(1, Number(e.target.value)))}
+              className="w-20 px-3 py-1.5 border border-orange-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+            />
+            <span className="text-sm text-orange-800 font-medium shrink-0">
+              point{deductAmount > 1 ? 's' : ''}
+            </span>
+            <div className="flex gap-2 ml-auto">
+              <button
+                onClick={() => handleDeduct(deductAmount, 'points')}
+                disabled={deducting}
+                className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-colors"
+              >
+                {deducting ? '…' : 'Confirmer'}
+              </button>
+              <button
+                onClick={() => setShowDeductPoints(false)}
+                className="px-4 py-1.5 border border-orange-200 text-orange-700 rounded-lg text-xs font-medium hover:bg-orange-100 transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Reset confirmation */}
         {confirmReset && (

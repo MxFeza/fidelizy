@@ -62,7 +62,14 @@ export default function DashboardClient({
   const [manualOpen, setManualOpen] = useState(false)
   const [manualInput, setManualInput] = useState('')
   const [manualState, setManualState] = useState<ManualModalState>({ status: 'idle' })
+  const [codeCopied, setCodeCopied] = useState(false)
   const router = useRouter()
+
+  function copyShortCode() {
+    navigator.clipboard.writeText(business.short_code ?? '')
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
+  }
 
   const handleScanSuccess = useCallback(() => {
     router.refresh()
@@ -160,22 +167,49 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {/* Link to share */}
-      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-8 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-indigo-900">Lien d'inscription client</p>
-          <p className="text-xs text-indigo-600 mt-0.5">
-            {typeof window !== 'undefined' ? `${window.location.origin}/join/${business.id}` : `/join/${business.id}`}
+      {/* Short code + join link */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        {/* Short code */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Code commerce
+          </p>
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-mono text-3xl font-black text-gray-900 tracking-widest">
+              {business.short_code ?? '—'}
+            </span>
+            <button
+              onClick={copyShortCode}
+              className="shrink-0 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+            >
+              {codeCopied ? '✓ Copié' : 'Copier'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Vos clients entrent ce code sur{' '}
+            <span className="font-medium text-gray-600">fidelizy.vercel.app</span>
           </p>
         </div>
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(`${window.location.origin}/join/${business.id}`)
-          }}
-          className="shrink-0 text-xs font-medium text-indigo-700 bg-white border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
-        >
-          Copier
-        </button>
+
+        {/* Join link */}
+        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 flex flex-col justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-indigo-900">Lien d&apos;inscription direct</p>
+            <p className="text-xs text-indigo-500 mt-0.5 break-all">
+              {typeof window !== 'undefined'
+                ? `${window.location.origin}/join/${business.id}`
+                : `/join/${business.id}`}
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              navigator.clipboard.writeText(`${window.location.origin}/join/${business.id}`)
+            }
+            className="self-start text-xs font-medium text-indigo-700 bg-white border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+          >
+            Copier le lien
+          </button>
+        </div>
       </div>
 
       {/* Recent scans */}

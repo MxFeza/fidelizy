@@ -12,6 +12,7 @@ export interface Business {
   stamps_reward: string
   points_per_euro: number
   is_active: boolean
+  short_code: string | null
   created_at: string
 }
 

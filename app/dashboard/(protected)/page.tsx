@@ -3,6 +3,11 @@ import { redirect } from 'next/navigation'
 import DashboardClient from './DashboardClient'
 import type { Business } from '@/lib/types'
 
+function generateShortCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
@@ -12,13 +17,21 @@ export default async function DashboardPage() {
   if (!user) redirect('/dashboard/login')
 
   // businesses.id = auth.users.id (relation 1:1)
-  const { data: business } = await supabase
+  const { data: rawBusiness } = await supabase
     .from('businesses')
     .select('*')
     .eq('id', user.id)
     .single()
 
-  if (!business) redirect('/dashboard/settings')
+  if (!rawBusiness) redirect('/dashboard/settings')
+
+  // Backfill short_code for existing businesses that don't have one yet
+  let business = rawBusiness
+  if (!business.short_code) {
+    const code = generateShortCode()
+    await supabase.from('businesses').update({ short_code: code }).eq('id', business.id)
+    business = { ...business, short_code: code }
+  }
 
   // Total clients
   const { count: totalCustomers } = await supabase

@@ -219,8 +219,15 @@ export default function CardPageClient({ card, business, transactions, rewardTie
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold mb-0.5">Installer l&apos;application</p>
             <p className="text-xs text-gray-300 leading-relaxed">
-              Appuyez sur <span className="font-bold">⎙</span> puis{' '}
-              <span className="font-bold">Sur l&apos;écran d&apos;accueil</span>
+              Appuyez sur{' '}
+              <span className="inline-flex items-center align-middle mx-0.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v12M8 7l4-4 4 4" />
+                  <path d="M20 16v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3" />
+                </svg>
+              </span>{' '}
+              en bas, puis{' '}
+              <span className="font-bold">Ajouter à l&apos;écran d&apos;accueil</span>
             </p>
           </div>
           <button
@@ -462,7 +469,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                     className="w-full flex items-center justify-center gap-2.5 bg-black text-white font-semibold py-3 px-4 rounded-xl text-sm"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+                      <path d="M2.273 5.625A4.483 4.483 0 015.25 4.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0018.75 3H5.25a3 3 0 00-2.977 2.625zM2.273 8.125A4.483 4.483 0 015.25 7.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0018.75 6H5.25a3 3 0 00-2.977 2.125zM5.25 9a3 3 0 00-3 3v6a3 3 0 003 3h13.5a3 3 0 003-3v-6a3 3 0 00-3-3H5.25zm10.5 6.75a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" />
                     </svg>
                     Ajouter au Wallet Apple
                   </a>

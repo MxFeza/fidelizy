@@ -246,7 +246,7 @@ export async function GET(
 
   const filename = `${business.business_name.toLowerCase().replace(/[^a-z0-9]/g, '-')}.pkpass`
 
-  return new NextResponse(pkpassBuf, {
+  return new NextResponse(new Uint8Array(pkpassBuf), {
     headers: {
       'Content-Type': 'application/vnd.apple.pkpass',
       'Content-Disposition': `attachment; filename="${filename}"`,

@@ -112,6 +112,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const [showIOSBanner, setShowIOSBanner] = useState(false)
   const [notification, setNotification] = useState<string | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [walletAvailable, setWalletAvailable] = useState(false)
 
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
@@ -131,10 +132,11 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  // iOS install suggestion
+  // iOS install suggestion + wallet availability
   useEffect(() => {
-    if (isIOS() && !isInStandaloneMode()) {
-      if (!sessionStorage.getItem('ios_install_dismissed')) {
+    if (isIOS()) {
+      setWalletAvailable(true)
+      if (!isInStandaloneMode() && !sessionStorage.getItem('ios_install_dismissed')) {
         setShowIOSBanner(true)
       }
     }
@@ -452,28 +454,40 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                 </div>
               )}
 
-              {/* Add to Wallet placeholder */}
+              {/* Add to Wallet */}
               <div className="bg-white rounded-2xl shadow-sm p-4">
-                <button
-                  disabled
-                  title="Bientôt disponible"
-                  className="w-full flex items-center justify-center gap-2.5 bg-gray-50 text-gray-400 font-medium py-3 px-4 rounded-xl cursor-not-allowed text-sm border border-gray-100"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24"
+                {walletAvailable ? (
+                  <a
+                    href={`/api/wallet/${card.qr_code_id}`}
+                    className="w-full flex items-center justify-center gap-2.5 bg-black text-white font-semibold py-3 px-4 rounded-xl text-sm"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V9M3 9V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v3"
-                    />
-                  </svg>
-                  Ajouter au Wallet — bientôt disponible
-                </button>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+                    </svg>
+                    Ajouter au Wallet Apple
+                  </a>
+                ) : (
+                  <button
+                    disabled
+                    title="Disponible sur iOS uniquement"
+                    className="w-full flex items-center justify-center gap-2.5 bg-gray-50 text-gray-400 font-medium py-3 px-4 rounded-xl cursor-not-allowed text-sm border border-gray-100"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V9M3 9V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v3"
+                      />
+                    </svg>
+                    Wallet Apple — iOS uniquement
+                  </button>
+                )}
               </div>
             </>
           )}

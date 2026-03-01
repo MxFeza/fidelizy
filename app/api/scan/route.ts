@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { notifyWalletDevices } from '@/lib/wallet/push'
 
 export async function POST(request: NextRequest) {
   try {
@@ -95,6 +96,11 @@ export async function POST(request: NextRequest) {
       message = isComplete
         ? `🎉 Carte complète ! ${card.customers?.first_name} a gagné : ${business.stamps_reward}`
         : `Tampon ajouté pour ${card.customers?.first_name} ! (${newStamps}/${business.stamps_required})`
+
+      // Notify Apple Wallet devices (fire-and-forget)
+      notifyWalletDevices(card.qr_code_id).catch((err) =>
+        console.error('Wallet push error (stamps):', err)
+      )
     } else {
       const pointsToAdd = business.points_per_euro ?? 1
       const newPoints = (card.current_points ?? 0) + pointsToAdd
@@ -122,6 +128,11 @@ export async function POST(request: NextRequest) {
       })
 
       message = `+${pointsToAdd} pts pour ${card.customers?.first_name} ! Total : ${newPoints} pts`
+
+      // Notify Apple Wallet devices (fire-and-forget)
+      notifyWalletDevices(card.qr_code_id).catch((err) =>
+        console.error('Wallet push error (points):', err)
+      )
     }
 
     return NextResponse.json({

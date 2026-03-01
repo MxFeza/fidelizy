@@ -7,7 +7,10 @@ export async function GET(
   { params }: { params: Promise<{ deviceLibraryId: string; passTypeId: string }> }
 ) {
   const { deviceLibraryId, passTypeId } = await params
-  const passesUpdatedSince = request.nextUrl.searchParams.get('passesUpdatedSince')
+  const raw = request.nextUrl.searchParams.get('passesUpdatedSince')
+  // Apple sends "2026-03-01T17:21:36+00:00" but the + gets URL-decoded to a space.
+  // Replace any space before the UTC offset back to + so PostgreSQL can parse it.
+  const passesUpdatedSince = raw ? raw.replace(' ', '+') : null
 
   console.log(`[WalletV1] GET registrations — device=${deviceLibraryId.slice(0, 8)}... passTypeId=${passTypeId} updatedSince=${passesUpdatedSince ?? 'none'}`)
 

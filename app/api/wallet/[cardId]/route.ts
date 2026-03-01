@@ -97,10 +97,12 @@ function signManifest(
   // Make the signature detached: strip eContent from encapContentInfo
   // ASN.1 path: ContentInfo > [0] EXPLICIT > SignedData > encapContentInfo
   const asn1 = p7.toAsn1()
-  const encapContentInfo = (asn1.value as forge.asn1.Asn1[])[1]
-    .value[0].value[2] as forge.asn1.Asn1
-  if ((encapContentInfo.value as forge.asn1.Asn1[]).length > 1) {
-    ;(encapContentInfo.value as forge.asn1.Asn1[]).splice(1, 1)
+  type Asn1 = forge.asn1.Asn1
+  const v = (n: Asn1) => n.value as Asn1[]
+  const signedData = v(v(asn1)[1])[0]
+  const encapContentInfo = v(signedData)[2]
+  if (v(encapContentInfo).length > 1) {
+    v(encapContentInfo).splice(1, 1)
   }
 
   const der = forge.asn1.toDer(asn1)

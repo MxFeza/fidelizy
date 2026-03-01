@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { notifyWalletDevices } from '@/lib/wallet/push'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     const { data: card } = await supabase
       .from('loyalty_cards')
-      .select('id, current_stamps, current_points, business_id')
+      .select('id, current_stamps, current_points, business_id, qr_code_id')
       .eq('id', card_id)
       .eq('business_id', business.id)
       .single()
@@ -61,6 +62,10 @@ export async function POST(request: NextRequest) {
         description: `${amount} tampon${amount > 1 ? 's' : ''} retiré${amount > 1 ? 's' : ''} (correction)`,
       })
 
+      await notifyWalletDevices(card.qr_code_id).catch((err) =>
+        console.error('Wallet push error (deduct stamps):', err)
+      )
+
       return NextResponse.json({ success: true, new_value: newStamps })
     } else {
       const newPoints = Math.max(0, (card.current_points ?? 0) - amount)
@@ -77,6 +82,10 @@ export async function POST(request: NextRequest) {
         points_added: null,
         description: `${amount} point${amount > 1 ? 's' : ''} retirés (correction)`,
       })
+
+      await notifyWalletDevices(card.qr_code_id).catch((err) =>
+        console.error('Wallet push error (deduct points):', err)
+      )
 
       return NextResponse.json({ success: true, new_value: newPoints })
     }

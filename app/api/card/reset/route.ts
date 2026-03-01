@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { notifyWalletDevices } from '@/lib/wallet/push'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Verify the card belongs to this merchant
     const { data: card } = await supabase
       .from('loyalty_cards')
-      .select('id, business_id, current_stamps')
+      .select('id, business_id, current_stamps, qr_code_id')
       .eq('id', card_id)
       .eq('business_id', business.id)
       .single()
@@ -54,6 +55,10 @@ export async function POST(request: NextRequest) {
       points_added: null,
       description: 'Récompense accordée — carte réinitialisée',
     })
+
+    await notifyWalletDevices(card.qr_code_id).catch((err) =>
+      console.error('Wallet push error (reset):', err)
+    )
 
     return NextResponse.json({ success: true })
   } catch {

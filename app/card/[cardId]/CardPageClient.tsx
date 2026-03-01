@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@/lib/types'
@@ -116,8 +116,9 @@ export default function CardPageClient({ card, business, transactions, rewardTie
 
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
-  const stampsCount = card.current_stamps ?? 0
-  const pointsBalance = card.current_points ?? 0
+  const [stampsCount, setStampsCount] = useState(card.current_stamps ?? 0)
+  const [pointsBalance, setPointsBalance] = useState(card.current_points ?? 0)
+  const stampsRef = useRef(stampsCount)
   const shortCode = `${card.qr_code_id.slice(0, 4).toUpperCase()}-${card.qr_code_id.slice(4, 8).toUpperCase()}`
   const stampCols = stampsRequired <= 5 ? stampsRequired : stampsRequired % 4 === 0 ? 4 : 5
 
@@ -141,6 +142,36 @@ export default function CardPageClient({ card, business, transactions, rewardTie
       }
     }
   }, [])
+
+  // Live polling — fetch stamp/points every 8s and update state when they change
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/card/${card.qr_code_id}/live`, { cache: 'no-store' })
+        if (!res.ok) return
+        const data: { stamps: number; points: number } = await res.json()
+
+        const prev = stampsRef.current
+        if (data.stamps > prev) {
+          const diff = data.stamps - prev
+          setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
+          setTimeout(() => setNotification(null), 4000)
+          if (data.stamps >= stampsRequired && prev < stampsRequired) {
+            setShowConfetti(true)
+            setTimeout(() => setShowConfetti(false), 3500)
+          }
+          localStorage.setItem(`fidelizy_stamps_${card.id}`, String(data.stamps))
+        }
+
+        stampsRef.current = data.stamps
+        setStampsCount(data.stamps)
+        setPointsBalance(data.points)
+      } catch {
+        // ignore transient network errors
+      }
+    }, 8000)
+    return () => clearInterval(interval)
+  }, [card.qr_code_id, card.id, stampsRequired])
 
   // Stamp notification + confetti on reward unlock
   useEffect(() => {

@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
         ? `🎉 Carte complète ! ${card.customers?.first_name} a gagné : ${business.stamps_reward}`
         : `Tampon ajouté pour ${card.customers?.first_name} ! (${newStamps}/${business.stamps_required})`
 
-      // Notify Apple Wallet devices (fire-and-forget)
-      notifyWalletDevices(card.qr_code_id).catch((err) =>
+      // Await so Vercel doesn't kill the process before the push completes
+      await notifyWalletDevices(card.qr_code_id).catch((err) =>
         console.error('Wallet push error (stamps):', err)
       )
     } else {
@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
 
       message = `+${pointsToAdd} pts pour ${card.customers?.first_name} ! Total : ${newPoints} pts`
 
-      // Notify Apple Wallet devices (fire-and-forget)
-      notifyWalletDevices(card.qr_code_id).catch((err) =>
+      // Await so Vercel doesn't kill the process before the push completes
+      await notifyWalletDevices(card.qr_code_id).catch((err) =>
         console.error('Wallet push error (points):', err)
       )
     }

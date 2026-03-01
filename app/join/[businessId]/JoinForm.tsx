@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 
 interface Business {
@@ -16,7 +15,6 @@ interface JoinFormProps {
 }
 
 export default function JoinForm({ business }: JoinFormProps) {
-  const supabase = createClient()
   const [firstName, setFirstName] = useState('')
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
@@ -29,72 +27,22 @@ export default function JoinForm({ business }: JoinFormProps) {
     setError('')
     setLoading(true)
 
-    // Vérifier si le client existe déjà avec ce numéro
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('phone', phone)
-      .maybeSingle()
+    const res = await fetch('/api/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId: business.id, firstName, phone }),
+    })
 
-    let customerId: string
+    const data = await res.json()
 
-    if (existingCustomer) {
-      customerId = existingCustomer.id
-
-      // Vérifier s'il a déjà une carte pour ce commerce
-      const { data: existingCard } = await supabase
-        .from('loyalty_cards')
-        .select('id, qr_code_id')
-        .eq('customer_id', customerId)
-        .eq('business_id', business.id)
-        .maybeSingle()
-
-      if (existingCard) {
-        setQrCodeId(existingCard.qr_code_id)
-        setCardId(existingCard.id)
-        setLoading(false)
-        return
-      }
-    } else {
-      // Créer le client
-      const { data: newCustomer, error: customerError } = await supabase
-        .from('customers')
-        .insert({ first_name: firstName, phone })
-        .select('id')
-        .single()
-
-      if (customerError || !newCustomer) {
-        setError('Erreur lors de la création du profil. Veuillez réessayer.')
-        setLoading(false)
-        return
-      }
-
-      customerId = newCustomer.id
-    }
-
-    // Créer la carte de fidélité
-    const newQrCodeId = crypto.randomUUID()
-    const { data: newCard, error: cardError } = await supabase
-      .from('loyalty_cards')
-      .insert({
-        customer_id: customerId,
-        business_id: business.id,
-        current_stamps: 0,
-        current_points: 0,
-        total_visits: 0,
-        qr_code_id: newQrCodeId,
-      })
-      .select('id, qr_code_id')
-      .single()
-
-    if (cardError || !newCard) {
-      setError('Erreur lors de la création de la carte. Veuillez réessayer.')
+    if (!res.ok) {
+      setError(data.error || 'Erreur lors de la création de la carte. Veuillez réessayer.')
       setLoading(false)
       return
     }
 
-    setQrCodeId(newCard.qr_code_id)
-    setCardId(newCard.id)
+    setQrCodeId(data.qrCodeId)
+    setCardId(data.cardId)
     setLoading(false)
   }
 

@@ -1,0 +1,75 @@
+import { createServiceClient } from '@/lib/supabase/service'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  const { businessId, firstName, phone } = await request.json()
+
+  if (!businessId || !firstName || !phone) {
+    return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+  }
+
+  const supabase = createServiceClient()
+
+  // Check if customer with this phone already exists
+  const { data: existingCustomer } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('phone', phone)
+    .maybeSingle()
+
+  let customerId: string
+
+  if (existingCustomer) {
+    customerId = existingCustomer.id
+
+    // Check if they already have a card for this business
+    const { data: existingCard } = await supabase
+      .from('loyalty_cards')
+      .select('id, qr_code_id')
+      .eq('customer_id', customerId)
+      .eq('business_id', businessId)
+      .maybeSingle()
+
+    if (existingCard) {
+      return NextResponse.json({ qrCodeId: existingCard.qr_code_id, cardId: existingCard.id })
+    }
+  } else {
+    const { data: newCustomer, error: customerError } = await supabase
+      .from('customers')
+      .insert({ first_name: firstName, phone })
+      .select('id')
+      .single()
+
+    if (customerError || !newCustomer) {
+      return NextResponse.json(
+        { error: 'Erreur lors de la création du profil' },
+        { status: 500 }
+      )
+    }
+
+    customerId = newCustomer.id
+  }
+
+  const qrCodeId = crypto.randomUUID()
+  const { data: newCard, error: cardError } = await supabase
+    .from('loyalty_cards')
+    .insert({
+      customer_id: customerId,
+      business_id: businessId,
+      current_stamps: 0,
+      current_points: 0,
+      total_visits: 0,
+      qr_code_id: qrCodeId,
+    })
+    .select('id, qr_code_id')
+    .single()
+
+  if (cardError || !newCard) {
+    return NextResponse.json(
+      { error: 'Erreur lors de la création de la carte' },
+      { status: 500 }
+    )
+  }
+
+  return NextResponse.json({ qrCodeId: newCard.qr_code_id, cardId: newCard.id })
+}

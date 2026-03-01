@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import forge from 'node-forge'
 import JSZip from 'jszip'
@@ -116,7 +116,7 @@ export async function GET(
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   const { cardId } = await params
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: card } = await supabase
     .from('loyalty_cards')

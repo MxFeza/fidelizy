@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import JoinForm from './JoinForm'
 
@@ -8,7 +8,7 @@ interface PageProps {
 
 export default async function JoinPage({ params }: PageProps) {
   const { businessId } = await params
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: business } = await supabase
     .from('businesses')

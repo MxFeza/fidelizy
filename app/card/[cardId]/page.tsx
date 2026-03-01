@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import type { RewardTier } from '@/lib/types'
@@ -10,7 +10,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { cardId } = await params
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: card } = await supabase
     .from('loyalty_cards')
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CardPage({ params }: PageProps) {
   const { cardId } = await params
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: card } = await supabase
     .from('loyalty_cards')

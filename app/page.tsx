@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 export default function HomePage() {
   const router = useRouter()
@@ -21,20 +20,16 @@ export default function HomePage() {
     setLoading(true)
     setError('')
 
-    const supabase = createClient()
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('short_code', trimmed)
-      .single()
+    const res = await fetch(`/api/business?short_code=${trimmed}`)
 
-    if (!business) {
+    if (!res.ok) {
       setError('Code invalide. Vérifiez le code auprès du commerçant.')
       setLoading(false)
       return
     }
 
-    router.push(`/join/${business.id}`)
+    const { id } = await res.json()
+    router.push(`/join/${id}`)
   }
 
   return (

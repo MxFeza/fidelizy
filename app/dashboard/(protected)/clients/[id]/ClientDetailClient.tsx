@@ -43,12 +43,15 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
   const [confirmReset, setConfirmReset] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  const [cooldown, setCooldown] = useState(false)
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
+  const currentStamps = Math.min(card.current_stamps ?? 0, stampsRequired)
   const stampCols = stampsRequired <= 5 ? stampsRequired : stampsRequired % 4 === 0 ? 4 : 5
 
   async function handleAddStamp() {
     setAdding(true)
+    setCooldown(true)
     setFeedback(null)
     try {
       const res = await fetch('/api/scan', {
@@ -67,6 +70,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
       setFeedback({ type: 'error', message: 'Erreur de connexion. Veuillez réessayer.' })
     }
     setAdding(false)
+    setTimeout(() => setCooldown(false), 2000)
   }
 
   async function handleDeduct(amount: number, type: 'stamps' | 'points') {
@@ -177,7 +181,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className="space-y-5" style={{ minHeight: 320 }}>
         {/* Stamp card visual */}
         {business.loyalty_type === 'stamps' && (
           <div
@@ -191,13 +195,13 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
                     Carte à tampons
                   </p>
-                  {card.current_stamps >= stampsRequired ? (
+                  {currentStamps >= stampsRequired ? (
                     <p className="text-sm font-bold text-green-700">🎉 Récompense débloquée !</p>
                   ) : (
                     <p className="text-sm text-gray-600">
                       Encore{' '}
                       <span className="font-bold" style={{ color }}>
-                        {stampsRequired - card.current_stamps} tampon
+                        {stampsRequired - currentStamps} tampon
                         {stampsRequired - card.current_stamps > 1 ? 's' : ''}
                       </span>{' '}
                       pour la récompense
@@ -206,16 +210,16 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
                 </div>
                 <div
                   className="w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shrink-0"
-                  style={{ backgroundColor: card.current_stamps >= stampsRequired ? '#16a34a' : color }}
+                  style={{ backgroundColor: currentStamps >= stampsRequired ? '#16a34a' : color }}
                 >
-                  <span className="text-lg font-black leading-none">{card.current_stamps}</span>
+                  <span className="text-lg font-black leading-none">{currentStamps}</span>
                   <span className="text-[9px] font-semibold leading-none opacity-75">/{stampsRequired}</span>
                 </div>
               </div>
 
               <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${stampCols}, 1fr)` }}>
                 {Array.from({ length: stampsRequired }).map((_, i) => {
-                  const filled = i < card.current_stamps
+                  const filled = i < currentStamps
                   return (
                     <div
                       key={i}
@@ -251,12 +255,12 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
                 <div
                   className="text-sm font-semibold text-center py-2.5 px-4 rounded-xl"
                   style={
-                    card.current_stamps >= stampsRequired
+                    currentStamps >= stampsRequired
                       ? { backgroundColor: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }
                       : { backgroundColor: `${color}12`, color, border: `1px solid ${color}28` }
                   }
                 >
-                  {card.current_stamps >= stampsRequired ? '🎁 Récompense disponible : ' : '🎯 '}
+                  {currentStamps >= stampsRequired ? '🎁 Récompense disponible : ' : '🎯 '}
                   {business.stamps_reward}
                 </div>
               )}
@@ -283,7 +287,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-100 text-center">
             <p className="text-2xl font-bold" style={{ color }}>
-              {business.loyalty_type === 'stamps' ? card.current_stamps : card.current_points}
+              {business.loyalty_type === 'stamps' ? currentStamps : card.current_points}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {business.loyalty_type === 'stamps' ? 'Tampons' : 'Points'}
@@ -302,7 +306,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
           {/* Add */}
           <button
             onClick={handleAddStamp}
-            disabled={adding}
+            disabled={adding || cooldown}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm shadow-sm shadow-indigo-200"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,7 +320,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
           </button>
 
           {/* Deduct stamp */}
-          {business.loyalty_type === 'stamps' && card.current_stamps > 0 && (
+          {business.loyalty_type === 'stamps' && currentStamps > 0 && (
             <button
               onClick={() => handleDeduct(1, 'stamps')}
               disabled={deducting}
@@ -343,7 +347,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
           )}
 
           {/* Reset (stamps only) */}
-          {business.loyalty_type === 'stamps' && card.current_stamps > 0 && !confirmReset && (
+          {business.loyalty_type === 'stamps' && currentStamps > 0 && !confirmReset && (
             <button
               onClick={() => setConfirmReset(true)}
               className="flex items-center gap-2 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 text-gray-600 hover:text-red-600 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"

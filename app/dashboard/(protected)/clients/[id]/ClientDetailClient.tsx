@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Business, Customer, LoyaltyCard, Transaction } from '@/lib/types'
+import type { Business, Customer, LoyaltyCard, Transaction, RewardTier } from '@/lib/types'
 
 type ClientCard = LoyaltyCard & { customers: Customer }
 
@@ -10,6 +10,7 @@ interface Props {
   card: ClientCard
   business: Business
   transactions: Transaction[]
+  rewardTiers: RewardTier[]
 }
 
 function formatDate(ds: string) {
@@ -33,7 +34,7 @@ function relativeDate(ds: string | null) {
   return `Il y a ${Math.floor(days / 365)} an${Math.floor(days / 365) > 1 ? 's' : ''}`
 }
 
-export default function ClientDetailClient({ card, business, transactions }: Props) {
+export default function ClientDetailClient({ card, business, transactions, rewardTiers }: Props) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
   const [addAmount, setAddAmount] = useState(1)
@@ -41,6 +42,8 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
   const [deductAmount, setDeductAmount] = useState(1)
   const [resetting, setResetting] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [showClaimReward, setShowClaimReward] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const [cooldown, setCooldown] = useState(false)
@@ -125,6 +128,29 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
       setFeedback({ type: 'error', message: 'Erreur de connexion. Veuillez réessayer.' })
     }
     setResetting(false)
+  }
+
+  async function handleClaimReward(tierId: string) {
+    setClaiming(true)
+    setFeedback(null)
+    try {
+      const res = await fetch('/api/card/claim-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_id: card.id, reward_tier_id: tierId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFeedback({ type: 'success', message: data.message })
+        setShowClaimReward(false)
+        router.refresh()
+      } else {
+        setFeedback({ type: 'error', message: data.error ?? 'Erreur lors de la réclamation.' })
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Erreur de connexion. Veuillez réessayer.' })
+    }
+    setClaiming(false)
   }
 
   return (
@@ -393,6 +419,70 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
               </button>
             </div>
           </div>
+        )}
+
+        {/* Claim reward (points only) */}
+        {business.loyalty_type === 'points' && rewardTiers.length > 0 && (
+          <>
+            {!showClaimReward ? (
+              <button
+                onClick={() => setShowClaimReward(true)}
+                className="flex items-center gap-2 bg-white hover:bg-green-50 border border-gray-200 hover:border-green-200 text-gray-600 hover:text-green-700 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                </svg>
+                Utiliser une récompense
+              </button>
+            ) : (
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-green-800 text-sm">Choisir une récompense</p>
+                  <button
+                    onClick={() => setShowClaimReward(false)}
+                    className="text-green-400 hover:text-green-700 text-sm"
+                  >
+                    Annuler
+                  </button>
+                </div>
+                <p className="text-xs text-green-600">
+                  Solde actuel : <span className="font-bold">{card.current_points ?? 0} pts</span>
+                </p>
+                <div className="space-y-2">
+                  {rewardTiers.map((tier) => {
+                    const canAfford = (card.current_points ?? 0) >= tier.points_required
+                    return (
+                      <div
+                        key={tier.id}
+                        className={`flex items-center justify-between p-3 rounded-xl border ${
+                          canAfford
+                            ? 'bg-white border-green-200'
+                            : 'bg-gray-50 border-gray-100 opacity-60'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className={`text-sm font-medium ${canAfford ? 'text-gray-900' : 'text-gray-500'}`}>
+                            {tier.reward_name}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {tier.points_required} pts
+                            {tier.reward_description && ` — ${tier.reward_description}`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleClaimReward(tier.id)}
+                          disabled={!canAfford || claiming}
+                          className="shrink-0 ml-3 px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          {claiming ? '…' : 'Accorder'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Full transaction history */}

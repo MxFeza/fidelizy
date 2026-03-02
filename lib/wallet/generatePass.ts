@@ -134,7 +134,7 @@ export async function generatePkpass(qrCodeId: string): Promise<Buffer | null> {
   const [r, g, b] = hexToRgb(color)
   const isStamps = business.loyalty_type === 'stamps'
   const stampsRequired = business.stamps_required ?? 10
-  const stampsCount = card.current_stamps ?? 0
+  const stampsCount = Math.min(card.current_stamps ?? 0, stampsRequired)
   const pointsBalance = card.current_points ?? 0
   const clientName: string = card.customers?.first_name ?? 'Client'
 

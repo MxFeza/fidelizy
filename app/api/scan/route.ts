@@ -69,11 +69,14 @@ export async function POST(request: NextRequest) {
     let message = ''
 
     if (business.loyalty_type === 'stamps') {
+      const stampsRequired = business.stamps_required ?? 10
       const newStamps = (card.current_stamps ?? 0) + 1
+      const isComplete = newStamps >= stampsRequired
+
       const { data } = await supabase
         .from('loyalty_cards')
         .update({
-          current_stamps: newStamps,
+          current_stamps: isComplete ? 0 : newStamps,
           total_visits: (card.total_visits ?? 0) + 1,
           last_visit_at: new Date().toISOString(),
         })
@@ -89,13 +92,23 @@ export async function POST(request: NextRequest) {
         type: 'earn',
         stamps_added: 1,
         points_added: null,
-        description: `Tampon ajouté (${newStamps}/${business.stamps_required})`,
+        description: `Tampon ajouté (${newStamps}/${stampsRequired})`,
       })
 
-      const isComplete = newStamps >= business.stamps_required
-      message = isComplete
-        ? `🎉 Carte complète ! ${card.customers?.first_name} a gagné : ${business.stamps_reward}`
-        : `Tampon ajouté pour ${card.customers?.first_name} ! (${newStamps}/${business.stamps_required})`
+      if (isComplete) {
+        await supabase.from('transactions').insert({
+          loyalty_card_id: card.id,
+          business_id: business.id,
+          type: 'redeem',
+          stamps_added: null,
+          points_added: null,
+          description: `Récompense accordée — carte réinitialisée (${stampsRequired}/${stampsRequired})`,
+        })
+
+        message = `🎉 Carte complète ! ${card.customers?.first_name} a gagné : ${business.stamps_reward}. Carte remise à 0.`
+      } else {
+        message = `Tampon ajouté pour ${card.customers?.first_name} ! (${newStamps}/${stampsRequired})`
+      }
 
       // Await so Vercel doesn't kill the process before the push completes
       await notifyWalletDevices(card.qr_code_id).catch((err) =>

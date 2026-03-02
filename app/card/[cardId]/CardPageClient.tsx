@@ -116,7 +116,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
 
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
-  const [stampsCount, setStampsCount] = useState(card.current_stamps ?? 0)
+  const [stampsCount, setStampsCount] = useState(Math.min(card.current_stamps ?? 0, stampsRequired))
   const [pointsBalance, setPointsBalance] = useState(card.current_points ?? 0)
   const stampsRef = useRef(stampsCount)
   const shortCode = `${card.qr_code_id.slice(0, 4).toUpperCase()}-${card.qr_code_id.slice(4, 8).toUpperCase()}`
@@ -152,6 +152,8 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         const data: { stamps: number; points: number } = await res.json()
 
         const prev = stampsRef.current
+        const capped = Math.min(data.stamps, stampsRequired)
+
         if (data.stamps > prev) {
           const diff = data.stamps - prev
           setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
@@ -160,11 +162,18 @@ export default function CardPageClient({ card, business, transactions, rewardTie
             setShowConfetti(true)
             setTimeout(() => setShowConfetti(false), 3500)
           }
-          localStorage.setItem(`fidelizy_stamps_${card.id}`, String(data.stamps))
+          localStorage.setItem(`fidelizy_stamps_${card.id}`, String(capped))
+        } else if (data.stamps === 0 && prev > 0) {
+          // Auto-reset after reward — show celebration
+          setNotification('🎉 Récompense obtenue ! Carte remise à zéro.')
+          setTimeout(() => setNotification(null), 5000)
+          setShowConfetti(true)
+          setTimeout(() => setShowConfetti(false), 3500)
+          localStorage.setItem(`fidelizy_stamps_${card.id}`, '0')
         }
 
         stampsRef.current = data.stamps
-        setStampsCount(data.stamps)
+        setStampsCount(capped)
         setPointsBalance(data.points)
       } catch {
         // ignore transient network errors

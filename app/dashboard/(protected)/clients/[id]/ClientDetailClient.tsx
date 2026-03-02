@@ -36,8 +36,8 @@ function relativeDate(ds: string | null) {
 export default function ClientDetailClient({ card, business, transactions }: Props) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [addAmount, setAddAmount] = useState(1)
   const [deducting, setDeducting] = useState(false)
-  const [showDeductPoints, setShowDeductPoints] = useState(false)
   const [deductAmount, setDeductAmount] = useState(1)
   const [resetting, setResetting] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
@@ -49,19 +49,21 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
   const currentStamps = Math.min(card.current_stamps ?? 0, stampsRequired)
   const stampCols = stampsRequired <= 5 ? stampsRequired : stampsRequired % 4 === 0 ? 4 : 5
 
-  async function handleAddStamp() {
+  async function handleAdd(amount: number, type: 'stamps' | 'points') {
+    if (amount <= 0) return
     setAdding(true)
     setCooldown(true)
     setFeedback(null)
     try {
-      const res = await fetch('/api/scan', {
+      const res = await fetch('/api/card/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qr_code_id: card.qr_code_id }),
+        body: JSON.stringify({ card_id: card.id, type, amount }),
       })
       const data = await res.json()
       if (data.success) {
         setFeedback({ type: 'success', message: data.message })
+        setAddAmount(1)
         router.refresh()
       } else {
         setFeedback({ type: 'error', message: data.error ?? 'Erreur lors du traitement.' })
@@ -88,10 +90,10 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
           type: 'success',
           message:
             type === 'stamps'
-              ? '1 tampon retiré.'
+              ? `${amount} tampon${amount > 1 ? 's' : ''} retiré${amount > 1 ? 's' : ''}.`
               : `${amount} point${amount > 1 ? 's' : ''} retirés.`,
         })
-        setShowDeductPoints(false)
+        setDeductAmount(1)
         router.refresh()
       } else {
         setFeedback({ type: 'error', message: data.error ?? 'Erreur lors du retrait.' })
@@ -301,97 +303,71 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex flex-wrap gap-3">
-          {/* Add */}
+        {/* Add stamps/points */}
+        <div className="flex items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
+          <span className="text-sm text-indigo-800 font-medium shrink-0">Ajouter</span>
+          <input
+            type="number"
+            min={1}
+            max={business.loyalty_type === 'stamps' ? stampsRequired : 9999}
+            value={addAmount}
+            onChange={(e) => setAddAmount(Math.max(1, Number(e.target.value)))}
+            className="w-20 px-3 py-1.5 border border-indigo-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+          <span className="text-sm text-indigo-800 font-medium shrink-0">
+            {business.loyalty_type === 'stamps'
+              ? `tampon${addAmount > 1 ? 's' : ''}`
+              : `point${addAmount > 1 ? 's' : ''}`}
+          </span>
           <button
-            onClick={handleAddStamp}
+            onClick={() => handleAdd(addAmount, business.loyalty_type as 'stamps' | 'points')}
             disabled={adding || cooldown}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm shadow-sm shadow-indigo-200"
+            className="ml-auto px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            {adding
-              ? 'Ajout en cours…'
-              : business.loyalty_type === 'stamps'
-              ? 'Ajouter un tampon'
-              : `Ajouter ${business.points_per_euro} pt${business.points_per_euro > 1 ? 's' : ''}`}
+            {adding ? 'Ajout…' : 'Ajouter'}
           </button>
-
-          {/* Deduct stamp */}
-          {business.loyalty_type === 'stamps' && currentStamps > 0 && (
-            <button
-              onClick={() => handleDeduct(1, 'stamps')}
-              disabled={deducting}
-              className="flex items-center gap-2 bg-white hover:bg-orange-50 border border-gray-200 hover:border-orange-200 text-gray-600 hover:text-orange-600 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm disabled:opacity-60"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-              </svg>
-              {deducting ? '…' : 'Retirer 1 tampon'}
-            </button>
-          )}
-
-          {/* Deduct points toggle */}
-          {business.loyalty_type === 'points' && card.current_points > 0 && !showDeductPoints && (
-            <button
-              onClick={() => { setShowDeductPoints(true); setDeductAmount(1) }}
-              className="flex items-center gap-2 bg-white hover:bg-orange-50 border border-gray-200 hover:border-orange-200 text-gray-600 hover:text-orange-600 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-              </svg>
-              Retirer des points
-            </button>
-          )}
-
-          {/* Reset (stamps only) */}
-          {business.loyalty_type === 'stamps' && currentStamps > 0 && !confirmReset && (
-            <button
-              onClick={() => setConfirmReset(true)}
-              className="flex items-center gap-2 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 text-gray-600 hover:text-red-600 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Réinitialiser la carte
-            </button>
-          )}
         </div>
 
-        {/* Deduct points inline form */}
-        {business.loyalty_type === 'points' && showDeductPoints && (
+        {/* Deduct stamps/points */}
+        {((business.loyalty_type === 'stamps' && currentStamps > 0) ||
+          (business.loyalty_type === 'points' && (card.current_points ?? 0) > 0)) && (
           <div className="flex items-center gap-3 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
             <span className="text-sm text-orange-800 font-medium shrink-0">Retirer</span>
             <input
               type="number"
               min={1}
-              max={card.current_points ?? 0}
+              max={business.loyalty_type === 'stamps' ? currentStamps : (card.current_points ?? 0)}
               value={deductAmount}
               onChange={(e) => setDeductAmount(Math.max(1, Number(e.target.value)))}
               className="w-20 px-3 py-1.5 border border-orange-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
             />
             <span className="text-sm text-orange-800 font-medium shrink-0">
-              point{deductAmount > 1 ? 's' : ''}
+              {business.loyalty_type === 'stamps'
+                ? `tampon${deductAmount > 1 ? 's' : ''}`
+                : `point${deductAmount > 1 ? 's' : ''}`}
             </span>
-            <div className="flex gap-2 ml-auto">
-              <button
-                onClick={() => handleDeduct(deductAmount, 'points')}
-                disabled={deducting}
-                className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-colors"
-              >
-                {deducting ? '…' : 'Confirmer'}
-              </button>
-              <button
-                onClick={() => setShowDeductPoints(false)}
-                className="px-4 py-1.5 border border-orange-200 text-orange-700 rounded-lg text-xs font-medium hover:bg-orange-100 transition-colors"
-              >
-                Annuler
-              </button>
-            </div>
+            <button
+              onClick={() => handleDeduct(deductAmount, business.loyalty_type as 'stamps' | 'points')}
+              disabled={deducting}
+              className="ml-auto px-4 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-colors"
+            >
+              {deducting ? '…' : 'Retirer'}
+            </button>
           </div>
+        )}
+
+        {/* Reset (stamps only) */}
+        {business.loyalty_type === 'stamps' && currentStamps > 0 && !confirmReset && (
+          <button
+            onClick={() => setConfirmReset(true)}
+            className="flex items-center gap-2 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 text-gray-600 hover:text-red-600 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Réinitialiser la carte
+          </button>
         )}
 
         {/* Reset confirmation */}

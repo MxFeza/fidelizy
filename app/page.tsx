@@ -86,8 +86,16 @@ export default function HomePage() {
           </form>
         </div>
 
+        {/* Recover link */}
+        <p className="text-center text-sm text-gray-500 mt-5">
+          Déjà inscrit ?{' '}
+          <a href="/recover" className="text-indigo-600 font-semibold hover:underline">
+            Retrouvez votre carte
+          </a>
+        </p>
+
         {/* Merchant link */}
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs text-gray-400 mt-3">
           Vous êtes commerçant ?{' '}
           <a href="/dashboard" className="text-indigo-600 font-medium hover:underline">
             Accéder au tableau de bord

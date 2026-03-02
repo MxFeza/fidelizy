@@ -83,7 +83,7 @@ export default function RecoverForm() {
                 setCards(null)
               }}
               placeholder="06 00 00 00 00"
-              className="w-full text-center text-lg font-medium tracking-wider px-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-300"
+              className="w-full text-center text-lg font-medium tracking-wider px-4 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-900 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-400"
             />
             {error && (
               <p className="text-red-500 text-xs mt-2 text-center font-medium">{error}</p>

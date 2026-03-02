@@ -371,7 +371,7 @@ export default function ClientDetailClient({ card, business, transactions }: Pro
               max={card.current_points ?? 0}
               value={deductAmount}
               onChange={(e) => setDeductAmount(Math.max(1, Number(e.target.value)))}
-              className="w-20 px-3 py-1.5 border border-orange-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+              className="w-20 px-3 py-1.5 border border-orange-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
             />
             <span className="text-sm text-orange-800 font-medium shrink-0">
               point{deductAmount > 1 ? 's' : ''}

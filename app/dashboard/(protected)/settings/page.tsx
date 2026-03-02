@@ -181,7 +181,7 @@ export default function SettingsPage() {
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
@@ -260,7 +260,7 @@ export default function SettingsPage() {
                   max={50}
                   value={stampsRequired}
                   onChange={(e) => setStampsRequired(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -272,7 +272,7 @@ export default function SettingsPage() {
                   value={stampsReward}
                   onChange={(e) => setStampsReward(e.target.value)}
                   placeholder="Ex: Un café offert, -10% sur la prochaine commande…"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -290,7 +290,7 @@ export default function SettingsPage() {
                   min={1}
                   value={pointsPerEuro}
                   onChange={(e) => setPointsPerEuro(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
 
@@ -321,7 +321,7 @@ export default function SettingsPage() {
                             placeholder="Nom du palier"
                             value={tier.reward_name}
                             onChange={(e) => updateTier(i, 'reward_name', e.target.value)}
-                            className="px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                           <input
                             type="number"
@@ -329,14 +329,14 @@ export default function SettingsPage() {
                             min={1}
                             value={tier.points_required}
                             onChange={(e) => updateTier(i, 'points_required', Number(e.target.value))}
-                            className="px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                           <input
                             type="text"
                             placeholder="Description de la récompense"
                             value={tier.reward_description}
                             onChange={(e) => updateTier(i, 'reward_description', e.target.value)}
-                            className="col-span-2 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="col-span-2 px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         </div>
                         <button

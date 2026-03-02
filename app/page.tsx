@@ -69,7 +69,7 @@ export default function HomePage() {
                 autoCapitalize="characters"
                 autoComplete="off"
                 spellCheck={false}
-                className="w-full text-center font-mono text-3xl font-bold tracking-[0.3em] uppercase px-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-200 placeholder:font-normal placeholder:tracking-normal placeholder:text-lg"
+                className="w-full text-center font-mono text-3xl font-bold tracking-[0.3em] uppercase px-4 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-900 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-400 placeholder:font-normal placeholder:tracking-normal placeholder:text-lg"
               />
               {error && (
                 <p className="text-red-500 text-xs mt-2 text-center font-medium">{error}</p>

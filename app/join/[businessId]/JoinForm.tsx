@@ -106,7 +106,7 @@ export default function JoinForm({ business }: JoinFormProps) {
           onChange={(e) => setFirstName(e.target.value)}
           required
           placeholder="Votre prénom"
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
           style={{ '--tw-ring-color': business.primary_color } as React.CSSProperties}
         />
       </div>
@@ -121,7 +121,7 @@ export default function JoinForm({ business }: JoinFormProps) {
           onChange={(e) => setPhone(e.target.value)}
           required
           placeholder="06 00 00 00 00"
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
           style={{ '--tw-ring-color': business.primary_color } as React.CSSProperties}
         />
       </div>

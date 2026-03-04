@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { otpLimiter, getIP } from '@/lib/ratelimit'
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email invalide' }, { status: 400 })
   }
 
+  // Service client for DB update (bypass RLS)
   const supabase = createServiceClient()
 
   const { error: updateError } = await supabase
@@ -34,12 +36,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Erreur lors de la mise à jour.' }, { status: 500 })
   }
 
-  const { error: otpError } = await supabase.auth.signInWithOtp({
+  // Anon key client for Auth operations
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+
+  const { error: otpError } = await supabaseAuth.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: { shouldCreateUser: true },
   })
 
   if (otpError) {
+    console.error('signInWithOtp error:', otpError.message, otpError.status)
     return NextResponse.json({ error: 'Erreur lors de l\'envoi du code.' }, { status: 500 })
   }
 

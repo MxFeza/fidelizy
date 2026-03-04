@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -12,17 +13,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Code invalide' }, { status: 400 })
   }
 
-  const supabase = createServiceClient()
+  // Use anon key client for Auth operations
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 
-  const { error } = await supabase.auth.verifyOtp({
+  console.log('Tentative verifyOtp:', { email, tokenLength: token?.length })
+
+  const { data, error } = await supabaseAuth.auth.verifyOtp({
     email,
     token,
     type: 'email',
   })
 
+  console.log('Résultat verifyOtp:', { data: data?.user?.id, error: error?.message })
+
   if (error) {
     return NextResponse.json({ status: 'invalid' })
   }
+
+  // Use service client for DB queries (bypass RLS)
+  const supabase = createServiceClient()
 
   // Find customer by email and return their cards
   const { data: customer } = await supabase

@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { otpLimiter, getIP } from '@/lib/ratelimit'
@@ -33,12 +34,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'needs_email' })
   }
 
-  const { error } = await supabase.auth.signInWithOtp({
+  // Use anon key client for Auth operations
+  const supabaseAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+
+  const { error } = await supabaseAuth.auth.signInWithOtp({
     email: customer.email,
     options: { shouldCreateUser: true },
   })
 
   if (error) {
+    console.error('signInWithOtp error:', error.message, error.status)
     return NextResponse.json({ error: 'Erreur lors de l\'envoi du code.' }, { status: 500 })
   }
 

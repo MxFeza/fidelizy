@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import QrCodeDisplay from '@/app/components/QrCodeDisplay'
+import { useRouter } from 'next/navigation'
+import OTPInput from '@/app/components/OTPInput'
 
 interface Business {
   id: string
@@ -14,23 +15,33 @@ interface JoinFormProps {
   business: Business
 }
 
+type Step = 'form' | 'otp'
+
 export default function JoinForm({ business }: JoinFormProps) {
+  const router = useRouter()
+  const [step, setStep] = useState<Step>('form')
   const [firstName, setFirstName] = useState('')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [qrCodeId, setQrCodeId] = useState<string | null>(null)
-  const [cardId, setCardId] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Veuillez entrer un email valide.')
+      return
+    }
+
     setLoading(true)
 
     const res = await fetch('/api/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessId: business.id, firstName, phone }),
+      body: JSON.stringify({ businessId: business.id, firstName, phone, email: trimmedEmail }),
     })
 
     const data = await res.json()
@@ -41,13 +52,54 @@ export default function JoinForm({ business }: JoinFormProps) {
       return
     }
 
-    setQrCodeId(data.qrCodeId)
-    setCardId(data.cardId)
+    // Send OTP to the email
+    const otpRes = await fetch('/api/auth/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone.trim() }),
+    })
+
+    const otpData = await otpRes.json()
+
+    if (otpData.status === 'otp_sent') {
+      setStep('otp')
+    } else {
+      // Fallback: redirect directly (OTP sending failed but card was created)
+      router.push(`/card/${data.qrCodeId}`)
+    }
+
     setLoading(false)
   }
 
-  // Success state — show QR code
-  if (qrCodeId && cardId) {
+  async function handleOTP(token: string) {
+    setLoading(true)
+    setError('')
+
+    const res = await fetch('/api/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), token }),
+    })
+
+    const data = await res.json()
+
+    if (data.status === 'invalid') {
+      setError('Code invalide. Veuillez réessayer.')
+      setLoading(false)
+      return
+    }
+
+    if (data.status === 'verified' && data.cards?.length > 0) {
+      router.push(`/card/${data.cards[0].qr_code_id}`)
+      return
+    }
+
+    // Fallback
+    setError('Erreur de vérification. Veuillez réessayer.')
+    setLoading(false)
+  }
+
+  if (step === 'otp') {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center space-y-5">
         <div
@@ -61,29 +113,25 @@ export default function JoinForm({ business }: JoinFormProps) {
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
 
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Votre carte est prête !</h2>
+          <h2 className="text-lg font-bold text-gray-900">Vérifiez votre email</h2>
           <p className="text-gray-500 text-sm mt-1">
-            Présentez ce QR code à chaque visite chez {business.business_name}
+            Entrez le code reçu à {email.trim().toLowerCase()}
           </p>
         </div>
 
-        <div className="flex justify-center py-2">
-          <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <QrCodeDisplay value={qrCodeId} size={200} />
-          </div>
-        </div>
+        <OTPInput onComplete={handleOTP} disabled={loading} />
 
-        <a
-          href={`/card/${qrCodeId}`}
-          className="block w-full text-center text-sm font-medium py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          Voir ma carte de fidélité →
-        </a>
+        {error && (
+          <p className="text-red-500 text-xs font-medium">{error}</p>
+        )}
+        {loading && (
+          <p className="text-indigo-600 text-xs font-medium">Vérification…</p>
+        )}
       </div>
     )
   }
@@ -126,6 +174,22 @@ export default function JoinForm({ business }: JoinFormProps) {
         />
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Adresse email
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          placeholder="votre@email.com"
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
+          style={{ '--tw-ring-color': business.primary_color } as React.CSSProperties}
+        />
+        <p className="text-xs text-gray-400 mt-1">Utilisé pour sécuriser votre compte</p>
+      </div>
+
       <button
         type="submit"
         disabled={loading}
@@ -136,7 +200,7 @@ export default function JoinForm({ business }: JoinFormProps) {
       </button>
 
       <p className="text-center text-xs text-gray-400">
-        Votre numéro est utilisé uniquement pour identifier votre carte.
+        Un code de vérification sera envoyé à votre email.
       </p>
     </form>
   )

@@ -24,6 +24,12 @@ export const recoverLimiter = new Ratelimit({
   prefix: 'rl:recover',
 })
 
+export const otpLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, '600 s'),
+  prefix: 'rl:otp',
+})
+
 export const cardWriteLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(20, '60 s'),

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import OTPInput from '@/app/components/OTPInput'
 
 interface Card {
   qr_code_id: string
@@ -15,13 +16,18 @@ interface Card {
   }
 }
 
+type Step = 'phone' | 'email' | 'otp' | 'cards'
+
 export default function RecoverForm() {
+  const [step, setStep] = useState<Step>('phone')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [maskedEmail, setMaskedEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const [cards, setCards] = useState<Card[] | null>(null)
+  const [cards, setCards] = useState<Card[]>([])
   const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handlePhone(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = phone.trim()
     if (trimmed.length < 6) {
@@ -31,82 +37,223 @@ export default function RecoverForm() {
 
     setLoading(true)
     setError('')
-    setCards(null)
 
     try {
-      const res = await fetch(`/api/recover?phone=${encodeURIComponent(trimmed)}`)
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: trimmed }),
+      })
+
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Erreur lors de la recherche.')
+        setError(data.error || 'Erreur. Veuillez réessayer.')
         setLoading(false)
         return
       }
 
-      setCards(data.cards)
+      if (data.status === 'not_found') {
+        setError('Aucun compte trouvé avec ce numéro.')
+        setLoading(false)
+        return
+      }
+
+      if (data.status === 'needs_email') {
+        setStep('email')
+        setLoading(false)
+        return
+      }
+
+      if (data.status === 'otp_sent') {
+        setEmail(data.email)
+        setMaskedEmail(data.maskedEmail)
+        setStep('otp')
+        setLoading(false)
+        return
+      }
     } catch {
       setError('Erreur de connexion. Veuillez réessayer.')
     }
     setLoading(false)
   }
 
-  return (
-    <div className="w-full max-w-sm">
-      {/* Logo */}
-      <div className="text-center mb-10">
-        <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
-          <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-          </svg>
-        </div>
-        <h1 className="text-3xl font-black text-gray-900">Fidelizy</h1>
-        <p className="text-gray-500 mt-2 text-sm leading-relaxed">
-          Retrouvez votre carte de fidélité
-        </p>
-      </div>
+  async function handleEmail(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = email.trim()
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError('Veuillez entrer un email valide.')
+      return
+    }
 
-      {/* Search form */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 border border-gray-100 p-8">
-        <h2 className="text-lg font-bold text-gray-900 mb-1">Votre numéro de téléphone</h2>
-        <p className="text-sm text-gray-400 mb-6">
-          Le numéro utilisé lors de votre inscription
-        </p>
+    setLoading(true)
+    setError('')
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value)
-                setError('')
-                setCards(null)
-              }}
-              placeholder="06 00 00 00 00"
-              className="w-full text-center text-lg font-medium tracking-wider px-4 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-900 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-400"
-            />
-            {error && (
-              <p className="text-red-500 text-xs mt-2 text-center font-medium">{error}</p>
-            )}
-          </div>
+    const res = await fetch('/api/auth/add-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone.trim(), email: trimmed }),
+    })
 
-          <button
-            type="submit"
-            disabled={loading || phone.trim().length < 6}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-2xl transition-colors text-sm shadow-sm shadow-indigo-200"
-          >
-            {loading ? 'Recherche...' : 'Rechercher ma carte'}
-          </button>
-        </form>
+    const data = await res.json()
 
-        {/* Results */}
-        {cards !== null && (
-          <div className="mt-6">
+    if (!res.ok) {
+      setError(data.error || 'Erreur. Veuillez réessayer.')
+      setLoading(false)
+      return
+    }
+
+    if (data.status === 'otp_sent') {
+      setStep('otp')
+      setLoading(false)
+    }
+  }
+
+  async function handleOTP(token: string) {
+    setLoading(true)
+    setError('')
+
+    const res = await fetch('/api/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), token }),
+    })
+
+    const data = await res.json()
+
+    if (data.status === 'invalid') {
+      setError('Code invalide. Veuillez réessayer.')
+      setLoading(false)
+      return
+    }
+
+    if (data.status === 'verified') {
+      setCards(data.cards ?? [])
+      setStep('cards')
+      setLoading(false)
+      return
+    }
+  }
+
+  function renderStep() {
+    switch (step) {
+      case 'phone':
+        return (
+          <>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Votre numéro de téléphone</h2>
+            <p className="text-sm text-gray-400 mb-6">
+              Le numéro utilisé lors de votre inscription
+            </p>
+
+            <form onSubmit={handlePhone} className="space-y-4">
+              <div>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    setError('')
+                  }}
+                  placeholder="06 00 00 00 00"
+                  className="w-full text-center text-lg font-medium tracking-wider px-4 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-900 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-400"
+                />
+                {error && (
+                  <p className="text-red-500 text-xs mt-2 text-center font-medium">{error}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || phone.trim().length < 6}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-2xl transition-colors text-sm shadow-sm shadow-indigo-200"
+              >
+                {loading ? 'Recherche...' : 'Continuer →'}
+              </button>
+            </form>
+          </>
+        )
+
+      case 'email':
+        return (
+          <>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Ajoutez votre email</h2>
+            <p className="text-sm text-gray-400 mb-6">
+              Pour sécuriser votre compte, nous avons besoin de votre adresse email
+            </p>
+
+            <form onSubmit={handleEmail} className="space-y-4">
+              <div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setError('')
+                  }}
+                  placeholder="votre@email.com"
+                  autoFocus
+                  className="w-full text-center text-lg font-medium px-4 py-4 border-2 border-gray-200 rounded-2xl bg-white text-gray-900 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-gray-400"
+                />
+                {error && (
+                  <p className="text-red-500 text-xs mt-2 text-center font-medium">{error}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !email.trim()}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-2xl transition-colors text-sm shadow-sm shadow-indigo-200"
+              >
+                {loading ? 'Envoi…' : 'Recevoir le code →'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setStep('phone'); setError('') }}
+                className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                ← Retour
+              </button>
+            </form>
+          </>
+        )
+
+      case 'otp':
+        return (
+          <>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Vérification</h2>
+            <p className="text-sm text-gray-400 mb-6">
+              Entrez le code reçu par email{maskedEmail ? ` (${maskedEmail})` : ''}
+            </p>
+
+            <div className="space-y-4">
+              <OTPInput onComplete={handleOTP} disabled={loading} />
+              {error && (
+                <p className="text-red-500 text-xs text-center font-medium">{error}</p>
+              )}
+              {loading && (
+                <p className="text-indigo-600 text-xs text-center font-medium">Vérification…</p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => { setStep('phone'); setError('') }}
+                className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                ← Retour
+              </button>
+            </div>
+          </>
+        )
+
+      case 'cards':
+        return (
+          <>
             {cards.length === 0 ? (
               <div className="text-center py-4">
-                <p className="text-gray-500 text-sm">Aucun compte trouvé avec ce numéro.</p>
+                <p className="text-gray-500 text-sm">Aucune carte trouvée.</p>
                 <p className="text-gray-400 text-xs mt-1">
-                  Vérifiez le numéro ou inscrivez-vous chez votre commerçant.
+                  Inscrivez-vous chez votre commerçant pour obtenir une carte.
                 </p>
               </div>
             ) : (
@@ -166,8 +313,29 @@ export default function RecoverForm() {
                 })}
               </div>
             )}
-          </div>
-        )}
+          </>
+        )
+    }
+  }
+
+  return (
+    <div className="w-full max-w-sm">
+      {/* Logo */}
+      <div className="text-center mb-10">
+        <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
+          <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+          </svg>
+        </div>
+        <h1 className="text-3xl font-black text-gray-900">Fidelizy</h1>
+        <p className="text-gray-500 mt-2 text-sm leading-relaxed">
+          Retrouvez votre carte de fidélité
+        </p>
+      </div>
+
+      {/* Content */}
+      <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 border border-gray-100 p-8">
+        {renderStep()}
       </div>
 
       {/* Back link */}

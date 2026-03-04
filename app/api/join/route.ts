@@ -8,9 +8,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
   }
 
-  const { businessId, firstName, phone } = await request.json()
+  const { businessId, firstName, phone, email } = await request.json()
 
-  if (!businessId || !firstName || !phone) {
+  if (!businessId || !firstName || !phone || !email) {
     return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
   }
 
@@ -24,6 +24,10 @@ export async function POST(request: NextRequest) {
 
   if (typeof businessId !== 'string' || businessId.length > 100) {
     return NextResponse.json({ error: 'businessId invalide' }, { status: 400 })
+  }
+
+  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return NextResponse.json({ error: 'Email invalide' }, { status: 400 })
   }
 
   const supabase = createServiceClient()
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
   } else {
     const { data: newCustomer, error: customerError } = await supabase
       .from('customers')
-      .insert({ first_name: firstName, phone })
+      .insert({ first_name: firstName, phone, email: email.trim().toLowerCase() })
       .select('id')
       .single()
 

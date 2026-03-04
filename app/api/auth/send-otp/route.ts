@@ -33,7 +33,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'needs_email' })
   }
 
-  const { error } = await supabase.auth.signInWithOtp({ email: customer.email })
+  const { error } = await supabase.auth.signInWithOtp({
+    email: customer.email,
+    options: { shouldCreateUser: false },
+  })
 
   if (error) {
     return NextResponse.json({ error: 'Erreur lors de l\'envoi du code.' }, { status: 500 })

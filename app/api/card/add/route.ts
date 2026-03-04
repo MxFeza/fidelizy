@@ -1,9 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { notifyWalletDevices } from '@/lib/wallet/push'
 import { NextRequest, NextResponse } from 'next/server'
+import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 
 export async function POST(request: NextRequest) {
   try {
+    const { success } = await cardWriteLimiter.limit(getIP(request))
+    if (!success) {
+      return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
+    }
+
     const { card_id, type, amount } = await request.json()
 
     if (!card_id || !type || !amount || amount <= 0) {

@@ -1,7 +1,13 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
+import { joinLimiter, getIP } from '@/lib/ratelimit'
 
 export async function POST(request: NextRequest) {
+  const { success } = await joinLimiter.limit(getIP(request))
+  if (!success) {
+    return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
+  }
+
   const { businessId, firstName, phone } = await request.json()
 
   if (!businessId || !firstName || !phone) {

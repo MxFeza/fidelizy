@@ -1,9 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { notifyWalletDevices } from '@/lib/wallet/push'
+import { scanLimiter, getIP } from '@/lib/ratelimit'
 
 export async function POST(request: NextRequest) {
   try {
+    const { success } = await scanLimiter.limit(getIP(request))
+    if (!success) {
+      return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
+    }
+
     const body = await request.json()
     const { qr_code_id } = body
 

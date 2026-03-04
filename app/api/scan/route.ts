@@ -40,8 +40,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
     }
 
+    if (typeof qr_code_id !== 'string' || qr_code_id.length > 100) {
+      return NextResponse.json({ error: 'qr_code_id invalide' }, { status: 400 })
+    }
+
     // Trouver la carte : code court (8 chars sans tiret) ou UUID complet
-    const cleaned = qr_code_id.replace(/-/g, '')
+    const cleaned = qr_code_id.replace(/-/g, '').replace(/[%_]/g, '')
     const isShortCode = cleaned.length === 8
 
     let card

@@ -14,6 +14,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
   }
 
+  if (typeof firstName !== 'string' || firstName.trim().length < 1 || firstName.trim().length > 100) {
+    return NextResponse.json({ error: 'Prénom invalide' }, { status: 400 })
+  }
+
+  if (typeof phone !== 'string' || phone.trim().length < 6 || phone.trim().length > 20) {
+    return NextResponse.json({ error: 'Numéro de téléphone invalide' }, { status: 400 })
+  }
+
+  if (typeof businessId !== 'string' || businessId.length > 100) {
+    return NextResponse.json({ error: 'businessId invalide' }, { status: 400 })
+  }
+
   const supabase = createServiceClient()
 
   // Check if customer with this phone already exists

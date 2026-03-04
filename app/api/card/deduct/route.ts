@@ -20,6 +20,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Type invalide (stamps ou points)' }, { status: 400 })
     }
 
+    if (!Number.isInteger(amount) || amount > 1000) {
+      return NextResponse.json({ error: 'Montant invalide (entier entre 1 et 1000)' }, { status: 400 })
+    }
+
     const supabase = await createClient()
 
     const {

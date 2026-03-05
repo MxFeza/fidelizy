@@ -7,6 +7,7 @@ import type { Business, Customer, LoyaltyCard } from '@/lib/types'
 type ClientWithCard = LoyaltyCard & { customers: Customer }
 type SortKey = 'name' | 'loyalty' | 'visits' | 'last_visit' | 'status'
 type SortDir = 'asc' | 'desc'
+type StatusFilter = 'all' | 'active' | 'at_risk' | 'inactive' | 'lost'
 
 interface Stats {
   active: number
@@ -21,16 +22,18 @@ interface Props {
   stats: Stats
 }
 
+const MS_20 = 20 * 24 * 60 * 60 * 1000
 const MS_30 = 30 * 24 * 60 * 60 * 1000
 const MS_60 = 60 * 24 * 60 * 60 * 1000
 const PAGE_SIZE = 20
 
-function getStatus(c: ClientWithCard): 'active' | 'inactive' | 'lost' {
+function getStatus(c: ClientWithCard): 'active' | 'at_risk' | 'inactive' | 'lost' {
   const ref = c.last_visit_at
     ? new Date(c.last_visit_at).getTime()
     : new Date(c.created_at).getTime()
   const diff = Date.now() - ref
-  if (diff < MS_30) return 'active'
+  if (diff < MS_20) return 'active'
+  if (diff < MS_30) return 'at_risk'
   if (diff < MS_60) return 'inactive'
   return 'lost'
 }
@@ -50,6 +53,7 @@ function relativeDate(dateString: string | null): string {
 
 const STATUS_CONFIG = {
   active: { label: 'Actif', cls: 'bg-green-100 text-green-700' },
+  at_risk: { label: 'À risque', cls: 'bg-orange-100 text-orange-700' },
   inactive: { label: 'Inactif', cls: 'bg-amber-100 text-amber-700' },
   lost: { label: 'Perdu', cls: 'bg-red-100 text-red-700' },
 }
@@ -57,6 +61,7 @@ const STATUS_CONFIG = {
 export default function ClientsClient({ clients, business, stats }: Props) {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sortKey, setSortKey] = useState<SortKey>('last_visit')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
@@ -72,14 +77,20 @@ export default function ClientsClient({ clients, business, stats }: Props) {
   }
 
   const filtered = useMemo(() => {
+    let result = clients
+    if (statusFilter !== 'all') {
+      result = result.filter((c) => getStatus(c) === statusFilter)
+    }
     const q = search.toLowerCase().trim()
-    if (!q) return clients
-    return clients.filter((c) => {
-      const name = (c.customers?.first_name ?? '').toLowerCase()
-      const phone = (c.customers?.phone ?? '').toLowerCase()
-      return name.includes(q) || phone.includes(q)
-    })
-  }, [clients, search])
+    if (q) {
+      result = result.filter((c) => {
+        const name = (c.customers?.first_name ?? '').toLowerCase()
+        const phone = (c.customers?.phone ?? '').toLowerCase()
+        return name.includes(q) || phone.includes(q)
+      })
+    }
+    return result
+  }, [clients, search, statusFilter])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -104,7 +115,7 @@ export default function ClientsClient({ clients, business, stats }: Props) {
           break
         }
         case 'status': {
-          const order = { active: 0, inactive: 1, lost: 2 }
+          const order = { active: 0, at_risk: 1, inactive: 2, lost: 3 }
           diff = order[getStatus(a)] - order[getStatus(b)]
           break
         }
@@ -133,6 +144,29 @@ export default function ClientsClient({ clients, business, stats }: Props) {
         <StatCard label="Inactifs" value={stats.inactive} hint="30–60 jours" color="amber" />
         <StatCard label="Perdus" value={stats.lost} hint="> 60 jours" color="red" />
         <StatCard label="Taux de retour" value={`${stats.returnRate}%`} hint="2+ visites" color="indigo" />
+      </div>
+
+      {/* Status filters */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {([
+          { key: 'all', label: 'Tous' },
+          { key: 'active', label: 'Actifs' },
+          { key: 'at_risk', label: 'À risque' },
+          { key: 'inactive', label: 'Inactifs' },
+          { key: 'lost', label: 'Perdus' },
+        ] as const).map((f) => (
+          <button
+            key={f.key}
+            onClick={() => { setStatusFilter(f.key); setPage(0) }}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              statusFilter === f.key
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* Search */}

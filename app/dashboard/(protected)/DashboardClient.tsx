@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { CalendarDays, UserPlus, Stamp } from 'lucide-react'
 import type { Business } from '@/lib/types'
 
 const QrScanner = dynamic(() => import('@/app/components/QrScanner'), { ssr: false })
@@ -63,7 +64,20 @@ export default function DashboardClient({
   const [manualInput, setManualInput] = useState('')
   const [manualState, setManualState] = useState<ManualModalState>({ status: 'idle' })
   const [codeCopied, setCodeCopied] = useState(false)
+  const [kpis, setKpis] = useState<{
+    visitsToday: number
+    newClientsMonth: number
+    distributedMonth: number
+    loyaltyType: string
+  } | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    fetch('/api/dashboard/kpis')
+      .then((r) => r.json())
+      .then((data) => { if (!data.error) setKpis(data) })
+      .catch(() => {})
+  }, [])
 
   function copyShortCode() {
     navigator.clipboard.writeText(business.short_code ?? '')
@@ -142,6 +156,29 @@ export default function DashboardClient({
           </button>
         </div>
       </div>
+
+      {/* KPIs */}
+      {kpis && (
+        <div className="grid grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
+          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+            <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.visitsToday}</p>
+            <p className="text-xs text-gray-400 mt-1">Visites aujourd&apos;hui</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+            <UserPlus className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.newClientsMonth}</p>
+            <p className="text-xs text-gray-400 mt-1">Nouveaux ce mois</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+            <Stamp className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.distributedMonth}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {kpis.loyaltyType === 'stamps' ? 'Tampons ce mois' : 'Points ce mois'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">

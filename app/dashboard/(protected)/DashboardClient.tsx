@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { CalendarDays, UserPlus, Stamp } from 'lucide-react'
+import { CalendarDays, UserPlus, Stamp, UsersRound } from 'lucide-react'
 import type { Business } from '@/lib/types'
 
 const QrScanner = dynamic(() => import('@/app/components/QrScanner'), { ssr: false })
@@ -158,49 +158,27 @@ export default function DashboardClient({
       </div>
 
       {/* KPIs */}
-      {kpis && (
-        <div className="grid grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
-          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
-            <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
-            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.visitsToday}</p>
-            <p className="text-xs text-gray-400 mt-1">Visites aujourd&apos;hui</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
-            <UserPlus className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
-            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.newClientsMonth}</p>
-            <p className="text-xs text-gray-400 mt-1">Nouveaux ce mois</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
-            <Stamp className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
-            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.distributedMonth}</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {kpis.loyaltyType === 'stamps' ? 'Tampons ce mois' : 'Points ce mois'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
-        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1 md:mb-2">Clients total</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-5 mb-6 md:mb-8">
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+          <UsersRound className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
           <p className="text-2xl md:text-3xl font-bold text-gray-900">{totalCustomers}</p>
-          <p className="text-xs text-gray-400 mt-1 hidden sm:block">inscrits sur cette carte</p>
+          <p className="text-xs text-gray-400 mt-1">Clients total</p>
         </div>
-        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1 md:mb-2">Visites aujourd&apos;hui</p>
-          <p className="text-2xl md:text-3xl font-bold text-indigo-600">{visitsToday}</p>
-          <p className="text-xs text-gray-400 mt-1 hidden sm:block">passages enregistrés</p>
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+          <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+          <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis?.visitsToday ?? visitsToday}</p>
+          <p className="text-xs text-gray-400 mt-1">Visites aujourd&apos;hui</p>
         </div>
-        <div className="col-span-2 sm:col-span-1 bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1 md:mb-2">Type de fidélité</p>
-          <p className="text-2xl md:text-3xl font-bold text-gray-900 capitalize">
-            {business.loyalty_type === 'stamps' ? '🎫 Tampons' : '⭐ Points'}
-          </p>
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+          <UserPlus className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+          <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis?.newClientsMonth ?? 0}</p>
+          <p className="text-xs text-gray-400 mt-1">Nouveaux ce mois</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+          <Stamp className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+          <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis?.distributedMonth ?? 0}</p>
           <p className="text-xs text-gray-400 mt-1">
-            {business.loyalty_type === 'stamps'
-              ? `${business.stamps_required} tampons requis`
-              : `${business.points_per_euro} pts / €`}
+            {business.loyalty_type === 'stamps' ? 'Tampons ce mois' : 'Points ce mois'}
           </p>
         </div>
       </div>

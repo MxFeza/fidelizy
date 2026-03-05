@@ -109,54 +109,55 @@ export default function DashboardClient({
   }
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 md:p-8 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Tableau de bord</h1>
           <p className="text-gray-400 text-sm mt-0.5">
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-3">
           <button
             onClick={openManual}
-            className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
+            className="flex items-center justify-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
           >
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            Saisie manuelle
+            <span className="hidden sm:inline">Saisie manuelle</span>
+            <span className="sm:hidden">Manuel</span>
           </button>
           <button
             onClick={() => setScannerOpen(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm shadow-indigo-200"
+            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm shadow-indigo-200"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5a.5.5 0 11-1 0 .5.5 0 011 0zM6 7h2v2H6V7zm10 0h2v2h-2V7zM6 15h2v2H6v-2z" />
             </svg>
-            Scanner un client
+            Scanner
           </button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Clients total</p>
-          <p className="text-3xl font-bold text-gray-900">{totalCustomers}</p>
-          <p className="text-xs text-gray-400 mt-1">inscrits sur cette carte</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1 md:mb-2">Clients total</p>
+          <p className="text-2xl md:text-3xl font-bold text-gray-900">{totalCustomers}</p>
+          <p className="text-xs text-gray-400 mt-1 hidden sm:block">inscrits sur cette carte</p>
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Visites aujourd'hui</p>
-          <p className="text-3xl font-bold text-indigo-600">{visitsToday}</p>
-          <p className="text-xs text-gray-400 mt-1">passages enregistrés</p>
+        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1 md:mb-2">Visites aujourd&apos;hui</p>
+          <p className="text-2xl md:text-3xl font-bold text-indigo-600">{visitsToday}</p>
+          <p className="text-xs text-gray-400 mt-1 hidden sm:block">passages enregistrés</p>
         </div>
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Type de fidélité</p>
-          <p className="text-3xl font-bold text-gray-900 capitalize">
+        <div className="col-span-2 sm:col-span-1 bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1 md:mb-2">Type de fidélité</p>
+          <p className="text-2xl md:text-3xl font-bold text-gray-900 capitalize">
             {business.loyalty_type === 'stamps' ? '🎫 Tampons' : '⭐ Points'}
           </p>
           <p className="text-xs text-gray-400 mt-1">
@@ -168,7 +169,7 @@ export default function DashboardClient({
       </div>
 
       {/* Short code + join link */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
         {/* Short code */}
         <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -214,8 +215,8 @@ export default function DashboardClient({
 
       {/* Recent scans */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50">
-          <h2 className="font-semibold text-gray-900">Derniers clients scannés</h2>
+        <div className="px-4 md:px-6 py-4 border-b border-gray-50">
+          <h2 className="font-semibold text-gray-900 text-sm md:text-base">Derniers clients scannés</h2>
         </div>
         {recentScans.length === 0 ? (
           <div className="px-6 py-12 text-center">
@@ -229,7 +230,7 @@ export default function DashboardClient({
                 ? `+${scan.stamps_added ?? 0} tampon`
                 : `+${scan.points_added ?? 0} pts`
               return (
-                <li key={scan.id} className="flex items-center justify-between px-6 py-4">
+                <li key={scan.id} className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
                       <span className="text-indigo-700 font-semibold text-sm">

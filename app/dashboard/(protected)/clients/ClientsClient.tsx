@@ -117,18 +117,18 @@ export default function ClientsClient({ clients, business, stats }: Props) {
   const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 md:p-8 max-w-6xl">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6 md:mb-8">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">Mes clients</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mes clients</h1>
           <span className="text-gray-400 text-sm font-normal">{clients.length} client{clients.length !== 1 ? 's' : ''}</span>
         </div>
-        <p className="text-gray-400 text-sm mt-0.5">Base de données de votre programme de fidélité</p>
+        <p className="text-gray-400 text-sm mt-0.5 hidden sm:block">Base de données de votre programme de fidélité</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         <StatCard label="Actifs" value={stats.active} hint="< 30 jours" color="green" />
         <StatCard label="Inactifs" value={stats.inactive} hint="30–60 jours" color="amber" />
         <StatCard label="Perdus" value={stats.lost} hint="> 60 jours" color="red" />
@@ -136,8 +136,8 @@ export default function ClientsClient({ clients, business, stats }: Props) {
       </div>
 
       {/* Search */}
-      <div className="mb-5">
-        <div className="relative max-w-sm">
+      <div className="mb-5 sticky top-0 z-10 bg-gray-50 py-2 -mt-2 md:static md:bg-transparent md:py-0 md:mt-0">
+        <div className="relative max-w-full sm:max-w-sm">
           <svg
             className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
             fill="none"

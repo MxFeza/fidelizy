@@ -154,7 +154,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
   }
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-4 md:p-8 max-w-3xl">
       {/* Back */}
       <button
         onClick={() => router.push('/dashboard/clients')}
@@ -167,15 +167,15 @@ export default function ClientDetailClient({ card, business, transactions, rewar
       </button>
 
       {/* Client header */}
-      <div className="flex items-start justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-            <span className="text-indigo-700 font-bold text-2xl">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+            <span className="text-indigo-700 font-bold text-lg md:text-2xl">
               {card.customers?.first_name?.[0]?.toUpperCase() ?? '?'}
             </span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{card.customers?.first_name ?? 'Client'}</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">{card.customers?.first_name ?? 'Client'}</h1>
             {card.customers?.phone && (
               <p className="text-gray-400 text-sm">{card.customers.phone}</p>
             )}
@@ -184,7 +184,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
             )}
           </div>
         </div>
-        <div className="text-right shrink-0">
+        <div className="text-left sm:text-right shrink-0 pl-15 sm:pl-0">
           <p className="text-xs text-gray-400">Inscrit le</p>
           <p className="text-sm font-medium text-gray-600">
             {new Date(card.customers?.created_at ?? card.created_at).toLocaleDateString('fr-FR', {
@@ -308,29 +308,29 @@ export default function ClientDetailClient({ card, business, transactions, rewar
         )}
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl p-4 border border-gray-100 text-center">
-            <p className="text-2xl font-bold text-gray-900">{card.total_visits ?? 0}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Visites totales</p>
+        <div className="grid grid-cols-3 gap-2 md:gap-4">
+          <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-100 text-center">
+            <p className="text-xl md:text-2xl font-bold text-gray-900">{card.total_visits ?? 0}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Visites</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100 text-center">
-            <p className="text-2xl font-bold" style={{ color }}>
+          <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-100 text-center">
+            <p className="text-xl md:text-2xl font-bold" style={{ color }}>
               {business.loyalty_type === 'stamps' ? currentStamps : card.current_points}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {business.loyalty_type === 'stamps' ? 'Tampons' : 'Points'}
             </p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100 text-center">
-            <p className="text-sm font-semibold text-gray-700 leading-snug">
+          <div className="bg-white rounded-xl p-3 md:p-4 border border-gray-100 text-center">
+            <p className="text-xs md:text-sm font-semibold text-gray-700 leading-snug">
               {relativeDate(card.last_visit_at)}
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">Dernière visite</p>
+            <p className="text-xs text-gray-400 mt-0.5">Dern. visite</p>
           </div>
         </div>
 
         {/* Add stamps/points */}
-        <div className="flex items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
+        <div className="flex flex-wrap items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
           <span className="text-sm text-indigo-800 font-medium shrink-0">Ajouter</span>
           <input
             type="number"
@@ -338,7 +338,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
             max={business.loyalty_type === 'stamps' ? stampsRequired : 9999}
             value={addAmount}
             onChange={(e) => setAddAmount(Math.max(1, Number(e.target.value)))}
-            className="w-20 px-3 py-1.5 border border-indigo-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="w-20 px-3 py-2 border border-indigo-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
           <span className="text-sm text-indigo-800 font-medium shrink-0">
             {business.loyalty_type === 'stamps'
@@ -348,7 +348,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
           <button
             onClick={() => handleAdd(addAmount, business.loyalty_type as 'stamps' | 'points')}
             disabled={adding || cooldown}
-            className="ml-auto px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-colors"
+            className="ml-auto px-4 py-2.5 min-h-[48px] bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
           >
             {adding ? 'Ajout…' : 'Ajouter'}
           </button>
@@ -357,7 +357,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
         {/* Deduct stamps/points */}
         {((business.loyalty_type === 'stamps' && currentStamps > 0) ||
           (business.loyalty_type === 'points' && (card.current_points ?? 0) > 0)) && (
-          <div className="flex items-center gap-3 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
+          <div className="flex flex-wrap items-center gap-3 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
             <span className="text-sm text-orange-800 font-medium shrink-0">Retirer</span>
             <input
               type="number"
@@ -365,7 +365,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
               max={business.loyalty_type === 'stamps' ? currentStamps : (card.current_points ?? 0)}
               value={deductAmount}
               onChange={(e) => setDeductAmount(Math.max(1, Number(e.target.value)))}
-              className="w-20 px-3 py-1.5 border border-orange-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              className="w-20 px-3 py-2 border border-orange-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
             />
             <span className="text-sm text-orange-800 font-medium shrink-0">
               {business.loyalty_type === 'stamps'
@@ -375,7 +375,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
             <button
               onClick={() => handleDeduct(deductAmount, business.loyalty_type as 'stamps' | 'points')}
               disabled={deducting}
-              className="ml-auto px-4 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-colors"
+              className="ml-auto px-4 py-2.5 min-h-[48px] bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
             >
               {deducting ? '…' : 'Retirer'}
             </button>
@@ -407,13 +407,13 @@ export default function ClientDetailClient({ card, business, transactions, rewar
               <button
                 onClick={handleReset}
                 disabled={resetting}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold transition-colors"
+                className="px-4 py-2.5 min-h-[48px] bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
               >
                 {resetting ? 'Réinitialisation…' : 'Confirmer'}
               </button>
               <button
                 onClick={() => setConfirmReset(false)}
-                className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
+                className="px-4 py-2.5 min-h-[48px] border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
               >
                 Annuler
               </button>

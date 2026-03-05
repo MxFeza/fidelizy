@@ -155,9 +155,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
+    <div className="p-4 md:p-8 max-w-2xl">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Paramètres</h1>
         <p className="text-gray-400 text-sm mt-0.5">Configurez votre programme de fidélité</p>
       </div>
 

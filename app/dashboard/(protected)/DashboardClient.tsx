@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { CalendarDays, UserPlus, Stamp, UsersRound } from 'lucide-react'
+import { CalendarDays, UserPlus, Stamp, UsersRound, RefreshCcw, TrendingUp, AlertTriangle, UserX, Trophy } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Business } from '@/lib/types'
 
 const QrScanner = dynamic(() => import('@/app/components/QrScanner'), { ssr: false })
@@ -69,13 +70,34 @@ export default function DashboardClient({
     newClientsMonth: number
     distributedMonth: number
     loyaltyType: string
+    tauxRetour: number
+    frequenceMoyenne: number
+    clientsARisque: number
+    clientsPerdus: number
   } | null>(null)
+  const [weekData, setWeekData] = useState<{ label: string; count: number }[]>([])
+  const [topClients, setTopClients] = useState<{
+    id: string
+    total_visits: number
+    last_visit_at: string | null
+    current_stamps: number
+    current_points: number
+    customers: { first_name: string; phone: string } | null
+  }[]>([])
   const router = useRouter()
 
   useEffect(() => {
     fetch('/api/dashboard/kpis')
       .then((r) => r.json())
       .then((data) => { if (!data.error) setKpis(data) })
+      .catch(() => {})
+    fetch('/api/dashboard/visits-week')
+      .then((r) => r.json())
+      .then((data) => { if (data.days) setWeekData(data.days) })
+      .catch(() => {})
+    fetch('/api/dashboard/top-clients')
+      .then((r) => r.json())
+      .then((data) => { if (data.topClients) setTopClients(data.topClients) })
       .catch(() => {})
   }, [])
 
@@ -180,6 +202,98 @@ export default function DashboardClient({
           <p className="text-xs text-gray-400 mt-1">
             {business.loyalty_type === 'stamps' ? 'Tampons ce mois' : 'Points ce mois'}
           </p>
+        </div>
+      </div>
+
+      {/* KPIs enrichis */}
+      {kpis && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-5 mb-6 md:mb-8">
+          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+            <RefreshCcw className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.tauxRetour}%</p>
+            <p className="text-xs text-gray-400 mt-1">Taux de retour</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+            <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mb-2" />
+            <p className="text-2xl md:text-3xl font-bold text-gray-900">{kpis.frequenceMoyenne}</p>
+            <p className="text-xs text-gray-400 mt-1">Fréquence moy.</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+            <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-orange-400 mb-2" />
+            <p className="text-2xl md:text-3xl font-bold text-orange-600">{kpis.clientsARisque}</p>
+            <p className="text-xs text-gray-400 mt-1">À risque</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+            <UserX className="w-5 h-5 md:w-6 md:h-6 text-red-400 mb-2" />
+            <p className="text-2xl md:text-3xl font-bold text-red-600">{kpis.clientsPerdus}</p>
+            <p className="text-xs text-gray-400 mt-1">Perdus</p>
+          </div>
+        </div>
+      )}
+
+      {/* Weekly visits chart + Top 3 clients */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+        {/* Chart */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6">
+          <h2 className="font-semibold text-gray-900 text-sm md:text-base mb-4">Visites cette semaine</h2>
+          {weekData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={weekData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={30} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+                  labelStyle={{ fontWeight: 600 }}
+                  formatter={(value) => [value, 'Visites']}
+                />
+                <Bar dataKey="count" fill="#6366f1" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[200px] flex items-center justify-center text-gray-300 text-sm">
+              Chargement...
+            </div>
+          )}
+        </div>
+
+        {/* Top 3 clients */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy className="w-4 h-4 text-amber-500" />
+            <h2 className="font-semibold text-gray-900 text-sm md:text-base">Top 3 clients</h2>
+          </div>
+          {topClients.length === 0 ? (
+            <p className="text-gray-300 text-sm text-center py-8">Aucun client</p>
+          ) : (
+            <div className="space-y-3">
+              {topClients.map((c, i) => {
+                const medals = ['text-amber-500', 'text-gray-400', 'text-orange-400']
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => router.push(`/dashboard/clients/${c.id}`)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <span className={`text-lg font-bold ${medals[i] ?? 'text-gray-300'} w-6 text-center`}>
+                      {i + 1}
+                    </span>
+                    <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+                      <span className="text-indigo-700 font-semibold text-xs">
+                        {c.customers?.first_name?.[0]?.toUpperCase() ?? '?'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {c.customers?.first_name ?? 'Client'}
+                      </p>
+                      <p className="text-xs text-gray-400">{c.total_visits} visite{c.total_visits !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 

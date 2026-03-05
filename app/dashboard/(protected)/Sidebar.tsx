@@ -122,8 +122,22 @@ export default function Sidebar({ businessName }: SidebarProps) {
         </div>
       )}
 
-      {/* Logout */}
-      <div className="px-4 py-4 border-t border-gray-200">
+      {/* Profile + Logout */}
+      <div className="px-4 py-4 border-t border-gray-200 space-y-1">
+        <Link
+          href="/dashboard/profile"
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            pathname.startsWith('/dashboard/profile')
+              ? 'bg-indigo-50 text-indigo-700'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+          }`}
+        >
+          <svg className={`w-5 h-5 ${pathname.startsWith('/dashboard/profile') ? 'text-indigo-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Mon profil
+        </Link>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-700 transition-colors"

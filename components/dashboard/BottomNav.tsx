@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { ScanLine, Users, Settings, User, LogOut, BarChart3 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { usePathname } from 'next/navigation'
+import { ScanLine, Users, Settings, User, BarChart3 } from 'lucide-react'
 
 const tabs = [
   { href: '/dashboard', label: 'Scanner', icon: ScanLine },
@@ -17,50 +16,14 @@ interface BottomNavProps {
   businessName: string
 }
 
-export default function BottomNav({ businessName }: BottomNavProps) {
+export default function BottomNav(_props: BottomNavProps) {
   const pathname = usePathname()
-  const router = useRouter()
-  const [profileOpen, setProfileOpen] = useState(false)
   const [toast, setToast] = useState(false)
 
-  async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/dashboard/login')
-  }
+  const isProfileActive = pathname.startsWith('/dashboard/profile')
 
   return (
     <>
-      {/* Profile modal overlay */}
-      {profileOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 md:hidden"
-          onClick={() => setProfileOpen(false)}
-        >
-          <div
-            className="absolute bottom-20 left-4 right-4 bg-white rounded-2xl shadow-xl border border-gray-100 p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{businessName}</p>
-                <p className="text-xs text-gray-400">Compte commerçant</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 min-h-[48px] bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-sm font-semibold transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Se déconnecter
-            </button>
-          </div>
-        </div>
-      )}
-
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 md:hidden">
         <div className="flex items-center justify-around h-16 pb-[env(safe-area-inset-bottom)]">
           {tabs.map((tab) => {
@@ -101,17 +64,17 @@ export default function BottomNav({ businessName }: BottomNavProps) {
               </Link>
             )
           })}
-          <button
-            onClick={() => setProfileOpen(!profileOpen)}
+          <Link
+            href="/dashboard/profile"
             className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
-              profileOpen ? 'text-indigo-600' : 'text-gray-400'
+              isProfileActive ? 'text-indigo-600' : 'text-gray-400'
             }`}
           >
-            <User className="w-6 h-6" strokeWidth={profileOpen ? 2.5 : 2} />
-            <span className={`text-xs ${profileOpen ? 'font-semibold' : 'font-medium'}`}>
+            <User className="w-6 h-6" strokeWidth={isProfileActive ? 2.5 : 2} />
+            <span className={`text-xs ${isProfileActive ? 'font-semibold' : 'font-medium'}`}>
               Profil
             </span>
-          </button>
+          </Link>
         </div>
       </nav>
 

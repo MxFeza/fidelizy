@@ -77,9 +77,11 @@ export default function OTPInput({ length = 6, onComplete, disabled = false }: O
           ref={(el) => { inputsRef.current[i] = el }}
           type="text"
           inputMode="numeric"
+          pattern="[0-9]*"
           maxLength={1}
           value={val}
           disabled={disabled}
+          {...(i === 0 ? { autoComplete: 'one-time-code' } : {})}
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           className="w-11 h-13 text-center text-xl font-bold border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

@@ -37,9 +37,9 @@ function relativeDate(ds: string | null) {
 export default function ClientDetailClient({ card, business, transactions, rewardTiers }: Props) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
-  const [addAmount, setAddAmount] = useState(1)
+  const [addAmount, setAddAmount] = useState<number | ''>(1)
   const [deducting, setDeducting] = useState(false)
-  const [deductAmount, setDeductAmount] = useState(1)
+  const [deductAmount, setDeductAmount] = useState<number | ''>(1)
   const [resetting, setResetting] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [claiming, setClaiming] = useState(false)
@@ -52,8 +52,8 @@ export default function ClientDetailClient({ card, business, transactions, rewar
   const currentStamps = Math.min(card.current_stamps ?? 0, stampsRequired)
   const stampCols = stampsRequired <= 5 ? stampsRequired : stampsRequired % 4 === 0 ? 4 : 5
 
-  async function handleAdd(amount: number, type: 'stamps' | 'points') {
-    if (amount <= 0) return
+  async function handleAdd(amount: number | '', type: 'stamps' | 'points') {
+    if (amount === '' || amount <= 0) return
     setAdding(true)
     setCooldown(true)
     setFeedback(null)
@@ -78,7 +78,8 @@ export default function ClientDetailClient({ card, business, transactions, rewar
     setTimeout(() => setCooldown(false), 2000)
   }
 
-  async function handleDeduct(amount: number, type: 'stamps' | 'points') {
+  async function handleDeduct(amount: number | '', type: 'stamps' | 'points') {
+    if (amount === '' || amount <= 0) return
     setDeducting(true)
     setFeedback(null)
     try {
@@ -336,18 +337,22 @@ export default function ClientDetailClient({ card, business, transactions, rewar
             type="number"
             min={1}
             max={business.loyalty_type === 'stamps' ? stampsRequired : 9999}
-            value={addAmount}
-            onChange={(e) => setAddAmount(Math.max(1, Number(e.target.value)))}
+            value={addAmount === '' ? '' : addAmount}
+            onChange={(e) => {
+              const v = e.target.value
+              setAddAmount(v === '' ? '' : Math.max(1, Number(v)))
+            }}
+            onBlur={() => { if (addAmount === '') setAddAmount(1) }}
             className="w-20 px-3 py-2 border border-indigo-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
           <span className="text-sm text-indigo-800 font-medium shrink-0">
             {business.loyalty_type === 'stamps'
-              ? `tampon${addAmount > 1 ? 's' : ''}`
-              : `point${addAmount > 1 ? 's' : ''}`}
+              ? `tampon${addAmount !== '' && addAmount > 1 ? 's' : ''}`
+              : `point${addAmount !== '' && addAmount > 1 ? 's' : ''}`}
           </span>
           <button
             onClick={() => handleAdd(addAmount, business.loyalty_type as 'stamps' | 'points')}
-            disabled={adding || cooldown}
+            disabled={adding || cooldown || addAmount === ''}
             className="ml-auto px-4 py-2.5 min-h-[48px] bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
           >
             {adding ? 'Ajout…' : 'Ajouter'}
@@ -363,18 +368,22 @@ export default function ClientDetailClient({ card, business, transactions, rewar
               type="number"
               min={1}
               max={business.loyalty_type === 'stamps' ? currentStamps : (card.current_points ?? 0)}
-              value={deductAmount}
-              onChange={(e) => setDeductAmount(Math.max(1, Number(e.target.value)))}
+              value={deductAmount === '' ? '' : deductAmount}
+              onChange={(e) => {
+                const v = e.target.value
+                setDeductAmount(v === '' ? '' : Math.max(1, Number(v)))
+              }}
+              onBlur={() => { if (deductAmount === '') setDeductAmount(1) }}
               className="w-20 px-3 py-2 border border-orange-200 rounded-lg text-sm text-center bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
             />
             <span className="text-sm text-orange-800 font-medium shrink-0">
               {business.loyalty_type === 'stamps'
-                ? `tampon${deductAmount > 1 ? 's' : ''}`
-                : `point${deductAmount > 1 ? 's' : ''}`}
+                ? `tampon${deductAmount !== '' && deductAmount > 1 ? 's' : ''}`
+                : `point${deductAmount !== '' && deductAmount > 1 ? 's' : ''}`}
             </span>
             <button
               onClick={() => handleDeduct(deductAmount, business.loyalty_type as 'stamps' | 'points')}
-              disabled={deducting}
+              disabled={deducting || deductAmount === ''}
               className="ml-auto px-4 py-2.5 min-h-[48px] bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
             >
               {deducting ? '…' : 'Retirer'}

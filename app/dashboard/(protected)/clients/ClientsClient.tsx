@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { Download, Loader2 } from 'lucide-react'
 import type { Business, Customer, LoyaltyCard } from '@/lib/types'
 
 type ClientWithCard = LoyaltyCard & { customers: Customer }
@@ -65,6 +66,7 @@ export default function ClientsClient({ clients, business, stats }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('last_visit')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
+  const [exporting, setExporting] = useState(false)
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -74,6 +76,81 @@ export default function ClientsClient({ clients, business, stats }: Props) {
       setSortDir('desc')
     }
     setPage(0)
+  }
+
+  async function handleExportCsv() {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/dashboard/export-clients')
+      if (!res.ok) throw new Error('Erreur API')
+      const data = await res.json()
+      const biz = data.business
+      const rows: string[][] = []
+
+      const isStamps = biz.loyalty_type === 'stamps'
+      rows.push([
+        'Prenom',
+        'Telephone',
+        'Email',
+        isStamps ? 'Tampons actuels' : 'Points actuels',
+        isStamps ? 'Tampons requis' : 'Max',
+        'Date inscription',
+        'Derniere visite',
+        'Nombre visites',
+        'Statut',
+      ])
+
+      const MS_20_CSV = 20 * 86400000
+      const MS_60_CSV = 60 * 86400000
+      const now = Date.now()
+
+      for (const c of data.clients) {
+        const cust = c.customers
+        const ref = c.last_visit_at
+          ? new Date(c.last_visit_at).getTime()
+          : new Date(c.created_at).getTime()
+        const diff = now - ref
+        let statut = 'actif'
+        if (diff >= MS_60_CSV) statut = 'perdu'
+        else if (diff >= MS_20_CSV) statut = 'a risque'
+
+        rows.push([
+          cust?.first_name ?? '',
+          cust?.phone ?? '',
+          cust?.email ?? '',
+          isStamps ? String(c.current_stamps ?? 0) : String(c.current_points ?? 0),
+          isStamps ? String(biz.stamps_required) : '',
+          new Date(c.created_at).toLocaleDateString('fr-FR'),
+          c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('fr-FR') : 'Jamais',
+          String(c.total_visits ?? 0),
+          statut,
+        ])
+      }
+
+      const csvContent = rows
+        .map((row) =>
+          row.map((cell) => {
+            const escaped = cell.replace(/"/g, '""')
+            return `"${escaped}"`
+          }).join(';')
+        )
+        .join('\n')
+
+      // UTF-8 BOM for Excel compatibility
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const date = new Date().toISOString().slice(0, 10)
+      a.href = url
+      a.download = `clients-${biz.business_name.replace(/\s+/g, '-').toLowerCase()}-${date}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Erreur export CSV:', error)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -131,9 +208,24 @@ export default function ClientsClient({ clients, business, stats }: Props) {
     <div className="p-4 md:p-8 max-w-6xl">
       {/* Header */}
       <div className="mb-6 md:mb-8">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mes clients</h1>
-          <span className="text-gray-400 text-sm font-normal">{clients.length} client{clients.length !== 1 ? 's' : ''}</span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mes clients</h1>
+            <span className="text-gray-400 text-sm font-normal">{clients.length} client{clients.length !== 1 ? 's' : ''}</span>
+          </div>
+          <button
+            onClick={handleExportCsv}
+            disabled={exporting || clients.length === 0}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline">Exporter CSV</span>
+            <span className="sm:hidden">CSV</span>
+          </button>
         </div>
         <p className="text-gray-400 text-sm mt-0.5 hidden sm:block">Base de données de votre programme de fidélité</p>
       </div>

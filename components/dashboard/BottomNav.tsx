@@ -3,12 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ScanLine, Users, Settings, User, BarChart3, Printer } from 'lucide-react'
+import { ScanLine, Users, Settings, User, BarChart3 } from 'lucide-react'
 
 const tabs = [
   { href: '/dashboard', label: 'Scanner', icon: ScanLine },
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
-  { href: '/dashboard/print-qr', label: 'QR Code', icon: Printer },
   { href: '#insights', label: 'Insights', icon: BarChart3, disabled: true },
   { href: '/dashboard/settings', label: 'Réglages', icon: Settings },
 ]

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { CalendarDays, UserPlus, Stamp, UsersRound, RefreshCcw, TrendingUp, AlertTriangle, UserX, Trophy } from 'lucide-react'
+import { CalendarDays, UserPlus, Stamp, UsersRound, RefreshCcw, TrendingUp, AlertTriangle, UserX, Trophy, Download, Loader2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Business } from '@/lib/types'
 
@@ -65,6 +65,8 @@ export default function DashboardClient({
   const [manualInput, setManualInput] = useState('')
   const [manualState, setManualState] = useState<ManualModalState>({ status: 'idle' })
   const [codeCopied, setCodeCopied] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [kpis, setKpis] = useState<{
     visitsToday: number
     newClientsMonth: number
@@ -100,6 +102,77 @@ export default function DashboardClient({
       .then((data) => { if (data.topClients) setTopClients(data.topClients) })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!business.short_code) return
+    import('qrcode').then((QRCode) => {
+      QRCode.toDataURL(`https://fidelizy.vercel.app/join?code=${business.short_code}`, {
+        width: 600,
+        margin: 2,
+        errorCorrectionLevel: 'H',
+      }).then(setQrDataUrl).catch(() => {})
+    })
+  }, [business.short_code])
+
+  async function handleDownloadPdf() {
+    if (!business.short_code) return
+    setPdfLoading(true)
+    try {
+      const [QRCode, { default: jsPDF }] = await Promise.all([
+        import('qrcode'),
+        import('jspdf'),
+      ])
+
+      const qrPng = await QRCode.toDataURL(
+        `https://fidelizy.vercel.app/join?code=${business.short_code}`,
+        { width: 800, margin: 2, errorCorrectionLevel: 'H' }
+      )
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' })
+      const pw = pdf.internal.pageSize.getWidth() // 148mm
+      const ph = pdf.internal.pageSize.getHeight() // 210mm
+      const cx = pw / 2
+
+      // Brand
+      pdf.setFontSize(24)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(79, 70, 229) // indigo-600
+      pdf.text('Fidelizy', cx, 28, { align: 'center' })
+
+      // Business name
+      pdf.setFontSize(20)
+      pdf.setTextColor(17, 24, 39) // gray-900
+      pdf.text(business.business_name ?? 'Mon Commerce', cx, 42, { align: 'center' })
+
+      // QR code
+      const qrSize = 65
+      pdf.addImage(qrPng, 'PNG', cx - qrSize / 2, 52, qrSize, qrSize)
+
+      // Short code
+      pdf.setFontSize(32)
+      pdf.setFont('courier', 'bold')
+      pdf.setTextColor(17, 24, 39)
+      pdf.text(business.short_code, cx, 132, { align: 'center' })
+
+      // CTA
+      pdf.setFontSize(13)
+      pdf.setFont('helvetica', 'normal')
+      pdf.setTextColor(107, 114, 128) // gray-500
+      pdf.text('Scannez pour rejoindre notre', cx, 148, { align: 'center' })
+      pdf.text('programme de fidelite', cx, 155, { align: 'center' })
+
+      // Footer
+      pdf.setFontSize(9)
+      pdf.setTextColor(156, 163, 175) // gray-400
+      pdf.text('fidelizy.vercel.app', cx, ph - 10, { align: 'center' })
+
+      pdf.save(`fidelizy-qr-${business.short_code}.pdf`)
+    } catch (error) {
+      console.error('Erreur PDF:', error)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
 
   function copyShortCode() {
     navigator.clipboard.writeText(business.short_code ?? '')
@@ -297,14 +370,17 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {/* Short code + join link */}
+      {/* Short code + QR + join link */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
-        {/* Short code */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        {/* QR code + short code + PDF */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm flex flex-col items-center text-center">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
             Code commerce
           </p>
-          <div className="flex items-center justify-between gap-3">
+          {qrDataUrl && (
+            <img src={qrDataUrl} alt="QR Code" className="w-[200px] h-[200px] mb-4" />
+          )}
+          <div className="flex items-center gap-3 mb-2">
             <span className="font-mono text-3xl font-black text-gray-900 tracking-widest">
               {business.short_code ?? '—'}
             </span>
@@ -315,10 +391,22 @@ export default function DashboardClient({
               {codeCopied ? '✓ Copié' : 'Copier'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-gray-400 mb-4">
             Vos clients entrent ce code sur{' '}
             <span className="font-medium text-gray-600">fidelizy.vercel.app</span>
           </p>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={pdfLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {pdfLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Telecharger PDF
+          </button>
         </div>
 
         {/* Join link */}

@@ -1,4 +1,4 @@
-import { generatePkpass, verifyAuthToken } from '@/lib/wallet/generatePass'
+import { generatePkpass, verifyAuthToken, consumePendingAction } from '@/lib/wallet/generatePass'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET — Apple downloads the latest version of a pass after receiving a push notification.
@@ -19,9 +19,14 @@ export async function GET(
 
   console.log('[WalletV1] Auth OK — generating updated pkpass...')
 
+  const pending = consumePendingAction(serialNumber)
+  const passOptions = pending
+    ? { action: pending.action, remainingForReward: pending.remainingForReward }
+    : undefined
+
   let buf: Buffer | null
   try {
-    buf = await generatePkpass(serialNumber)
+    buf = await generatePkpass(serialNumber, passOptions)
   } catch (err) {
     console.error('[WalletV1] generatePkpass error:', err)
     return new NextResponse(null, { status: 500 })

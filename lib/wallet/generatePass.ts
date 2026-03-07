@@ -105,13 +105,95 @@ function signManifest(keyPem: string, certPem: string, wwdrPem: string, manifest
   return Buffer.from(forge.asn1.toDer(asn1).getBytes(), 'binary')
 }
 
+// ── Pending action cache ──────────────────────────────────────────────────────
+// Stores the last action per qrCodeId so the wallet download endpoint can
+// include the right changeMessage. Entries expire after 30 seconds.
+
+export type WalletAction = 'add' | 'deduct' | 'reset' | 'claim-reward' | null
+
+interface PendingAction {
+  action: WalletAction
+  remainingForReward?: number
+  expiresAt: number
+}
+
+const pendingActions = new Map<string, PendingAction>()
+
+export function setPendingWalletAction(
+  qrCodeId: string,
+  action: WalletAction,
+  remainingForReward?: number,
+) {
+  pendingActions.set(qrCodeId, {
+    action,
+    remainingForReward,
+    expiresAt: Date.now() + 30_000,
+  })
+}
+
+export function consumePendingAction(qrCodeId: string): PendingAction | null {
+  const entry = pendingActions.get(qrCodeId)
+  if (!entry) return null
+  pendingActions.delete(qrCodeId)
+  if (Date.now() > entry.expiresAt) return null
+  return entry
+}
+
+// ── changeMessage helpers ─────────────────────────────────────────────────────
+
+function getStampsChangeMessage(
+  action: WalletAction,
+  remaining: number | undefined,
+): string | undefined {
+  if (!action) return undefined
+  switch (action) {
+    case 'add':
+      if (remaining !== undefined && remaining <= 0)
+        return 'R\u00e9compense d\u00e9bloqu\u00e9e ! \ud83c\udf89 Montre ce pass au comptoir'
+      return `%@ tampon(s) \u2014 encore ${remaining ?? '?'} avant ta r\u00e9compense ! \ud83c\udfaf`
+    case 'deduct':
+      return 'Carte mise \u00e0 jour \u2014 %@ tampon(s)'
+    case 'reset':
+      return 'R\u00e9compense \u00e9chang\u00e9e ! On repart pour un tour \ud83d\ude80'
+    case 'claim-reward':
+      return 'R\u00e9compense \u00e9chang\u00e9e ! \ud83c\udf89'
+    default:
+      return undefined
+  }
+}
+
+function getPointsChangeMessage(action: WalletAction): string | undefined {
+  if (!action) return undefined
+  switch (action) {
+    case 'add':
+      return '+%@ point(s) cr\u00e9dit\u00e9s sur ta carte \ud83c\udfaf'
+    case 'deduct':
+      return '%@ point(s) d\u00e9bit\u00e9s'
+    case 'claim-reward':
+      return 'R\u00e9compense \u00e9chang\u00e9e ! \ud83c\udf89'
+    default:
+      return undefined
+  }
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
+
+export interface GeneratePassOptions {
+  action?: WalletAction
+  remainingForReward?: number
+}
 
 /**
  * Generates a .pkpass buffer for the loyalty card identified by qrCodeId.
  * Returns null if the card or business is not found.
+ * When action is provided, adds changeMessage to fields for lock screen notifications.
  */
-export async function generatePkpass(qrCodeId: string): Promise<Buffer | null> {
+export async function generatePkpass(
+  qrCodeId: string,
+  options?: GeneratePassOptions,
+): Promise<Buffer | null> {
+  const action = options?.action ?? null
+  const remainingForReward = options?.remainingForReward
   const supabase = createServiceClient()
 
   const { data: card } = await supabase
@@ -154,7 +236,14 @@ export async function generatePkpass(qrCodeId: string): Promise<Buffer | null> {
     storeCard: isStamps
       ? {
           primaryFields: [
-            { key: 'stamps', label: 'TAMPONS', value: `${stampsCount} / ${stampsRequired}` },
+            {
+              key: 'stamps',
+              label: 'TAMPONS',
+              value: `${stampsCount} / ${stampsRequired}`,
+              ...(getStampsChangeMessage(action, remainingForReward) && {
+                changeMessage: getStampsChangeMessage(action, remainingForReward),
+              }),
+            },
           ],
           secondaryFields: business.stamps_reward
             ? [{ key: 'reward', label: 'RÉCOMPENSE', value: business.stamps_reward }]
@@ -170,7 +259,14 @@ export async function generatePkpass(qrCodeId: string): Promise<Buffer | null> {
         }
       : {
           primaryFields: [
-            { key: 'points', label: 'POINTS', value: String(pointsBalance) },
+            {
+              key: 'points',
+              label: 'POINTS',
+              value: String(pointsBalance),
+              ...(getPointsChangeMessage(action) && {
+                changeMessage: getPointsChangeMessage(action),
+              }),
+            },
           ],
           auxiliaryFields: [{ key: 'client', label: 'CLIENT', value: clientName }],
           backFields: [

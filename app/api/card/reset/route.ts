@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notifyWalletDevices } from '@/lib/wallet/push'
+import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 
@@ -61,6 +62,8 @@ export async function POST(request: NextRequest) {
       points_added: null,
       description: 'Récompense accordée — carte réinitialisée',
     })
+
+    setPendingWalletAction(card.qr_code_id, 'reset')
 
     await notifyWalletDevices(card.qr_code_id).catch((err) =>
       console.error('Wallet push error (reset):', err)

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notifyWalletDevices } from '@/lib/wallet/push'
+import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 
@@ -96,6 +97,12 @@ export async function POST(request: NextRequest) {
         message = `+${amount} tampon${amount > 1 ? 's' : ''} (${finalStamps}/${stampsRequired})`
       }
 
+      if (isComplete) {
+        setPendingWalletAction(card.qr_code_id, 'add', 0)
+      } else {
+        setPendingWalletAction(card.qr_code_id, 'add', stampsRequired - finalStamps)
+      }
+
       await notifyWalletDevices(card.qr_code_id).catch((err) =>
         console.error('Wallet push error (add stamps):', err)
       )
@@ -123,6 +130,8 @@ export async function POST(request: NextRequest) {
       })
 
       message = `+${amount} point${amount > 1 ? 's' : ''} (total : ${newPoints})`
+
+      setPendingWalletAction(card.qr_code_id, 'add')
 
       await notifyWalletDevices(card.qr_code_id).catch((err) =>
         console.error('Wallet push error (add points):', err)

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { notifyWalletDevices } from '@/lib/wallet/push'
+import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { scanLimiter, getIP } from '@/lib/ratelimit'
 
 export async function POST(request: NextRequest) {
@@ -120,7 +121,12 @@ export async function POST(request: NextRequest) {
         message = `Tampon ajouté pour ${card.customers?.first_name} ! (${newStamps}/${stampsRequired})`
       }
 
-      // Await so Vercel doesn't kill the process before the push completes
+      if (isComplete) {
+        setPendingWalletAction(card.qr_code_id, 'add', 0)
+      } else {
+        setPendingWalletAction(card.qr_code_id, 'add', stampsRequired - newStamps)
+      }
+
       await notifyWalletDevices(card.qr_code_id).catch((err) =>
         console.error('Wallet push error (stamps):', err)
       )
@@ -152,7 +158,8 @@ export async function POST(request: NextRequest) {
 
       message = `+${pointsToAdd} pts pour ${card.customers?.first_name} ! Total : ${newPoints} pts`
 
-      // Await so Vercel doesn't kill the process before the push completes
+      setPendingWalletAction(card.qr_code_id, 'add')
+
       await notifyWalletDevices(card.qr_code_id).catch((err) =>
         console.error('Wallet push error (points):', err)
       )

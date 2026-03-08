@@ -127,6 +127,30 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
   const [showWheel, setShowWheel] = useState(false)
 
+  // Missions state
+  type MissionData = {
+    id: string
+    template_key: string
+    reward_points: number
+    config: Record<string, unknown>
+    completed: boolean
+    pending?: boolean
+    profile_complete?: boolean
+    progress?: { current: number; target: number }
+    referral_count?: number
+  }
+  const [missions, setMissions] = useState<MissionData[]>([])
+  const [referralCode, setReferralCode] = useState('')
+  const [missionsLoading, setMissionsLoading] = useState(true)
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [reviewUrl, setReviewUrl] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [showProfileForm, setShowProfileForm] = useState(false)
+  const [profileEmail, setProfileEmail] = useState(card.customers?.email || '')
+  const [profileBirthday, setProfileBirthday] = useState('')
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
+
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
   const [stampsCount, setStampsCount] = useState(Math.min(card.current_stamps ?? 0, stampsRequired))
@@ -208,6 +232,23 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     localStorage.setItem('fidelizy_push_dismissed', '1')
     setShowPushBanner(false)
   }
+
+  // Track PWA visit (fire-and-forget)
+  useEffect(() => {
+    fetch(`/api/pwa-visit/${card.qr_code_id}`, { method: 'POST' }).catch(() => {})
+  }, [card.qr_code_id])
+
+  // Fetch missions
+  useEffect(() => {
+    fetch(`/api/missions/${card.qr_code_id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.missions) setMissions(data.missions)
+        if (data.referral_code) setReferralCode(data.referral_code)
+        setMissionsLoading(false)
+      })
+      .catch(() => setMissionsLoading(false))
+  }, [card.qr_code_id])
 
   // Fetch live data immediately on mount (for wheel status) then poll every 8s
   useEffect(() => {
@@ -695,6 +736,221 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                   </button>
                 )}
               </div>
+
+              {/* Missions section */}
+              {!missionsLoading && missions.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Missions</span>
+                  </p>
+
+                  <div className="space-y-3">
+                    {missions.map((m) => {
+                      const isCompleted = m.completed
+                      const isPending = m.pending
+
+                      return (
+                        <div key={m.id} className="flex items-start gap-3">
+                          {/* Status icon */}
+                          <span className="text-base mt-0.5 shrink-0">
+                            {isCompleted ? '\u2705' : isPending ? '\u23F3' : m.template_key === 'monthly_visits' && m.progress ? '\u25D0' : '\u2610'}
+                          </span>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`text-sm font-medium ${isCompleted ? 'text-green-700' : 'text-gray-800'}`}>
+                                {m.template_key === 'google_review' && 'Laisser un avis Google'}
+                                {m.template_key === 'complete_profile' && 'Compléter votre profil'}
+                                {m.template_key === 'referral' && 'Parrainer un ami'}
+                                {m.template_key === 'monthly_visits' && `${(m.config?.target as number) ?? 5} visites ce mois`}
+                              </p>
+                              <span className="text-xs font-semibold shrink-0" style={{ color }}>
+                                +{m.reward_points} pt{m.reward_points > 1 ? 's' : ''}
+                              </span>
+                            </div>
+
+                            {/* Progress bar for monthly visits */}
+                            {m.template_key === 'monthly_visits' && m.progress && !isCompleted && (
+                              <div className="mt-1.5">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500"
+                                      style={{
+                                        width: `${Math.min(100, (m.progress.current / m.progress.target) * 100)}%`,
+                                        backgroundColor: color,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-[11px] text-gray-400 font-medium shrink-0">
+                                    {m.progress.current}/{m.progress.target}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Actions */}
+                            {m.template_key === 'google_review' && !isCompleted && !isPending && (
+                              <div className="mt-2">
+                                {!showReviewForm ? (
+                                  <button
+                                    onClick={() => setShowReviewForm(true)}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
+                                    style={{ backgroundColor: color }}
+                                  >
+                                    Soumettre
+                                  </button>
+                                ) : (
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="url"
+                                      placeholder="Lien de votre avis Google"
+                                      value={reviewUrl}
+                                      onChange={(e) => setReviewUrl(e.target.value)}
+                                      className="flex-1 text-xs px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                    <button
+                                      onClick={async () => {
+                                        if (!reviewUrl.trim()) return
+                                        setReviewSubmitting(true)
+                                        try {
+                                          const res = await fetch('/api/missions/complete', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ cardId: card.id, templateKey: 'google_review', proofUrl: reviewUrl }),
+                                          })
+                                          if (res.ok) {
+                                            setMissions(missions.map((mi) =>
+                                              mi.id === m.id ? { ...mi, pending: true } : mi
+                                            ))
+                                            setShowReviewForm(false)
+                                            setReviewUrl('')
+                                          }
+                                        } catch { /* ignore */ }
+                                        setReviewSubmitting(false)
+                                      }}
+                                      disabled={reviewSubmitting}
+                                      className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white shrink-0"
+                                      style={{ backgroundColor: color }}
+                                    >
+                                      {reviewSubmitting ? '...' : 'Valider'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {m.template_key === 'google_review' && isPending && (
+                              <p className="text-xs text-amber-600 mt-1">En attente de validation</p>
+                            )}
+                            {m.template_key === 'google_review' && isCompleted && (
+                              <p className="text-xs text-green-600 mt-1">Fait !</p>
+                            )}
+
+                            {m.template_key === 'complete_profile' && !isCompleted && (
+                              <div className="mt-2">
+                                {!showProfileForm ? (
+                                  <button
+                                    onClick={() => setShowProfileForm(true)}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
+                                    style={{ backgroundColor: color }}
+                                  >
+                                    Compléter
+                                  </button>
+                                ) : (
+                                  <div className="space-y-2 mt-1">
+                                    <input
+                                      type="email"
+                                      placeholder="Email"
+                                      value={profileEmail}
+                                      onChange={(e) => setProfileEmail(e.target.value)}
+                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                    <input
+                                      type="date"
+                                      placeholder="Date d'anniversaire"
+                                      value={profileBirthday}
+                                      onChange={(e) => setProfileBirthday(e.target.value)}
+                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                    <button
+                                      onClick={async () => {
+                                        setProfileSaving(true)
+                                        try {
+                                          const res = await fetch('/api/card/update-profile', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              cardId: card.id,
+                                              email: profileEmail || undefined,
+                                              birthday: profileBirthday || undefined,
+                                            }),
+                                          })
+                                          const data = await res.json()
+                                          if (data.mission_completed) {
+                                            setMissions(missions.map((mi) =>
+                                              mi.id === m.id ? { ...mi, completed: true } : mi
+                                            ))
+                                            setPointsBalance((prev) => prev + (data.points_awarded ?? 0))
+                                          }
+                                          setShowProfileForm(false)
+                                        } catch { /* ignore */ }
+                                        setProfileSaving(false)
+                                      }}
+                                      disabled={profileSaving}
+                                      className="text-xs font-semibold px-4 py-2 rounded-lg text-white"
+                                      style={{ backgroundColor: color }}
+                                    >
+                                      {profileSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {m.template_key === 'complete_profile' && isCompleted && (
+                              <p className="text-xs text-green-600 mt-1">Fait !</p>
+                            )}
+
+                            {m.template_key === 'referral' && (
+                              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(referralCode).catch(() => {})
+                                    setCodeCopied(true)
+                                    setTimeout(() => setCodeCopied(false), 2000)
+                                  }}
+                                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
+                                  style={{ borderColor: color, color }}
+                                >
+                                  {codeCopied ? 'Copié !' : `Mon code : ${referralCode}`}
+                                </button>
+                                {typeof navigator !== 'undefined' && 'share' in navigator && (
+                                  <button
+                                    onClick={() => {
+                                      navigator.share({
+                                        title: `Rejoins ${business.business_name}`,
+                                        text: `Utilise mon code parrain ${referralCode} pour gagner des points !`,
+                                      }).catch(() => {})
+                                    }}
+                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
+                                    style={{ backgroundColor: color }}
+                                  >
+                                    Partager
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {m.template_key === 'monthly_visits' && isCompleted && (
+                              <p className="text-xs text-green-600 mt-1">Fait !</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
 

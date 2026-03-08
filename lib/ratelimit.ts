@@ -72,6 +72,30 @@ export const wheelPrizesLimiter = new Ratelimit({
   prefix: 'rl:wheel-prizes',
 })
 
+export const missionsLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '60 s'),
+  prefix: 'rl:missions',
+})
+
+export const missionCompleteLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '3600 s'),
+  prefix: 'rl:mission-complete',
+})
+
+export const missionValidateLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '60 s'),
+  prefix: 'rl:mission-validate',
+})
+
+export const profileUpdateLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '3600 s'),
+  prefix: 'rl:profile-update',
+})
+
 export function getIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0].trim()

@@ -23,6 +23,7 @@ export default function JoinForm({ business }: JoinFormProps) {
   const [firstName, setFirstName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
+  const [referralCode, setReferralCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -41,7 +42,7 @@ export default function JoinForm({ business }: JoinFormProps) {
     const res = await fetch('/api/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessId: business.id, firstName, phone, email: trimmedEmail }),
+      body: JSON.stringify({ businessId: business.id, firstName, phone, email: trimmedEmail, referral_code: referralCode.trim() || undefined }),
     })
 
     const data = await res.json()
@@ -188,6 +189,21 @@ export default function JoinForm({ business }: JoinFormProps) {
           style={{ '--tw-ring-color': business.primary_color } as React.CSSProperties}
         />
         <p className="text-xs text-gray-400 mt-1">Utilisé pour sécuriser votre compte</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Code parrain <span className="text-gray-400 font-normal">(optionnel)</span>
+        </label>
+        <input
+          type="text"
+          value={referralCode}
+          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+          placeholder="XXXX-0000"
+          maxLength={9}
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent uppercase"
+          style={{ '--tw-ring-color': business.primary_color } as React.CSSProperties}
+        />
       </div>
 
       <button

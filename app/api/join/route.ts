@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { joinLimiter, getIP } from '@/lib/ratelimit'
+import { findCardByReferralCode } from '@/lib/referral'
+import { sendPushToCard } from '@/lib/push/sendPush'
 
 export async function POST(request: NextRequest) {
   const { success } = await joinLimiter.limit(getIP(request))
@@ -8,7 +10,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
   }
 
-  const { businessId, firstName, phone, email } = await request.json()
+  const { businessId, firstName, phone, email, referral_code } = await request.json()
 
   if (!businessId || !firstName || !phone || !email) {
     return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
@@ -116,6 +118,97 @@ export async function POST(request: NextRequest) {
       points_added: null,
       description: `Bonus de bienvenue : ${initialStamps} tampon${initialStamps > 1 ? 's' : ''}`,
     })
+  }
+
+  // Handle referral
+  if (referral_code && typeof referral_code === 'string') {
+    try {
+      const referrerCard = await findCardByReferralCode(referral_code, businessId, supabase)
+      if (referrerCard) {
+        // Check if referral mission is active for this business
+        const { data: referralMission } = await supabase
+          .from('missions')
+          .select('id, reward_points, config')
+          .eq('business_id', businessId)
+          .eq('template_key', 'referral')
+          .eq('is_active', true)
+          .maybeSingle()
+
+        const referrerPoints = referralMission?.reward_points ?? 5
+        const referredPoints = (referralMission?.config as Record<string, unknown>)?.referred_bonus as number ?? 2
+
+        // Create referral entry
+        await supabase.from('referrals').insert({
+          referrer_card_id: referrerCard.id,
+          referred_card_id: newCard.id,
+          business_id: businessId,
+          referrer_points_awarded: referralMission ? referrerPoints : 0,
+          referred_points_awarded: referralMission ? referredPoints : 0,
+        })
+
+        if (referralMission) {
+          // Update referrer card points
+          const { data: refCard } = await supabase
+            .from('loyalty_cards')
+            .select('current_points')
+            .eq('id', referrerCard.id)
+            .single()
+
+          if (refCard) {
+            await supabase
+              .from('loyalty_cards')
+              .update({ current_points: refCard.current_points + referrerPoints })
+              .eq('id', referrerCard.id)
+
+            await supabase.from('transactions').insert({
+              loyalty_card_id: referrerCard.id,
+              business_id: businessId,
+              type: 'earn',
+              stamps_added: null,
+              points_added: referrerPoints,
+              description: `Parrainage : ${firstName} vous a rapporté ${referrerPoints} points`,
+            })
+
+            // Create mission completion for referrer
+            await supabase.from('mission_completions').insert({
+              card_id: referrerCard.id,
+              mission_id: referralMission.id,
+              status: 'completed',
+              points_awarded: referrerPoints,
+            })
+          }
+
+          // Credit referred (new card)
+          await supabase
+            .from('loyalty_cards')
+            .update({ current_points: (newCard as unknown as { current_points?: number }).current_points ?? 0 + referredPoints })
+            .eq('id', newCard.id)
+
+          // Actually we need to re-read current_points or just set it
+          await supabase
+            .from('loyalty_cards')
+            .update({ current_points: referredPoints })
+            .eq('id', newCard.id)
+
+          await supabase.from('transactions').insert({
+            loyalty_card_id: newCard.id,
+            business_id: businessId,
+            type: 'earn',
+            stamps_added: null,
+            points_added: referredPoints,
+            description: `Bonus de parrainage : +${referredPoints} points`,
+          })
+
+          // Push notification to referrer
+          sendPushToCard(referrerCard.id, {
+            title: 'Parrainage réussi !',
+            body: `Votre ami ${firstName} vous a rapporté ${referrerPoints} points !`,
+          }).catch(() => {})
+        }
+      }
+    } catch {
+      // Ignore referral errors — don't block registration
+    }
   }
 
   return NextResponse.json({ qrCodeId: newCard.qr_code_id, cardId: newCard.id })

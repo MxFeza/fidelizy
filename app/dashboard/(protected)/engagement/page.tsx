@@ -14,6 +14,23 @@ type WheelPrizeDraft = {
   reward_description: string
 }
 
+type MissionDraft = {
+  id: string | null
+  template_key: string
+  reward_points: number
+  is_active: boolean
+  config: Record<string, unknown>
+}
+
+type PendingValidation = {
+  id: string
+  customer_name: string
+  proof_url: string | null
+  points_awarded: number
+  template_key: string
+  created_at: string
+}
+
 export default function EngagementPage() {
   const supabase = createClient()
 
@@ -36,6 +53,13 @@ export default function EngagementPage() {
   const [wheelSaving, setWheelSaving] = useState(false)
   const [wheelSaved, setWheelSaved] = useState(false)
 
+  // Missions state
+  const [missionsList, setMissionsList] = useState<MissionDraft[]>([])
+  const [missionsSaving, setMissionsSaving] = useState(false)
+  const [missionsSaved, setMissionsSaved] = useState(false)
+  const [pendingValidations, setPendingValidations] = useState<PendingValidation[]>([])
+  const [rewardTiers, setRewardTiers] = useState<{ reward_name: string; points_required: number }[]>([])
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -51,9 +75,12 @@ export default function EngagementPage() {
         setLoyaltyType(biz.loyalty_type || 'stamps')
       }
 
-      const [gamifRes, prizesRes] = await Promise.all([
+      const [gamifRes, prizesRes, missionsRes, pendingRes, tiersRes] = await Promise.all([
         fetch('/api/dashboard/gamification').then((r) => r.json()).catch(() => null),
         fetch('/api/dashboard/wheel-prizes').then((r) => r.json()).catch(() => null),
+        fetch('/api/dashboard/missions').then((r) => r.json()).catch(() => null),
+        fetch('/api/dashboard/missions/pending').then((r) => r.json()).catch(() => null),
+        supabase.from('reward_tiers').select('reward_name, points_required').eq('business_id', user.id).order('sort_order'),
       ])
 
       if (gamifRes && !gamifRes.error) {
@@ -78,6 +105,18 @@ export default function EngagementPage() {
             reward_description: (p.reward_description as string) || '',
           }))
         )
+      }
+
+      if (missionsRes?.missions) {
+        setMissionsList(missionsRes.missions)
+      }
+
+      if (pendingRes?.pending) {
+        setPendingValidations(pendingRes.pending)
+      }
+
+      if (tiersRes?.data) {
+        setRewardTiers(tiersRes.data)
       }
 
       setLoading(false)
@@ -167,6 +206,55 @@ export default function EngagementPage() {
       setTimeout(() => setWheelSaved(false), 3000)
     } catch { /* ignore */ }
     setWheelSaving(false)
+  }
+
+  async function handleMissionsSave() {
+    setMissionsSaving(true)
+    setMissionsSaved(false)
+    try {
+      const res = await fetch('/api/dashboard/missions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missions: missionsList }),
+      })
+      if (res.ok) {
+        setMissionsSaved(true)
+        setTimeout(() => setMissionsSaved(false), 3000)
+      }
+    } catch { /* ignore */ }
+    setMissionsSaving(false)
+  }
+
+  function updateMission(templateKey: string, field: string, value: unknown) {
+    setMissionsList(missionsList.map((m) => {
+      if (m.template_key !== templateKey) return m
+      if (field === 'is_active' || field === 'reward_points') {
+        return { ...m, [field]: value }
+      }
+      return { ...m, config: { ...m.config, [field]: value } }
+    }))
+  }
+
+  async function handleValidation(completionId: string, approved: boolean) {
+    try {
+      const res = await fetch('/api/missions/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completionId, approved }),
+      })
+      if (res.ok) {
+        setPendingValidations(pendingValidations.filter((p) => p.id !== completionId))
+      }
+    } catch { /* ignore */ }
+  }
+
+  function getContextualHint(points: number): string {
+    if (!rewardTiers.length) return ''
+    const closest = rewardTiers.reduce((prev, curr) =>
+      Math.abs(curr.points_required - points) < Math.abs(prev.points_required - points) ? curr : prev
+    )
+    const pct = Math.round((points / closest.points_required) * 100)
+    return `${points} pts = ${pct}% de votre palier "${closest.reward_name}" (${closest.points_required} pts)`
   }
 
   function addWheelPrize() {
@@ -507,6 +595,263 @@ export default function EngagementPage() {
                 </button>
               ))}
               <span className="text-xs text-gray-400 ml-1">tampon{initialStamps !== 1 ? 's' : ''}</span>
+            </div>
+          </section>
+        )}
+
+        {/* Missions */}
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+          <div>
+            <h2 className="font-semibold text-gray-900">Missions</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Récompensez vos clients pour leur engagement</p>
+          </div>
+
+          <div className="space-y-4">
+            {/* Google Review */}
+            {(() => {
+              const m = missionsList.find((mi) => mi.template_key === 'google_review')
+              if (!m) return null
+              return (
+                <div className="p-3 bg-gray-50 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Avis Google</p>
+                      <p className="text-xs text-gray-400">Le client soumet un lien, vous validez</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateMission('google_review', 'is_active', !m.is_active)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${m.is_active ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${m.is_active ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                  {m.is_active && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">Récompense :</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={m.reward_points}
+                        onChange={(e) => updateMission('google_review', 'reward_points', Math.max(1, Number(e.target.value)))}
+                        className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <span className="text-xs text-gray-400">points</span>
+                      {loyaltyType === 'points' && rewardTiers.length > 0 && (
+                        <p className="text-[10px] text-indigo-500 ml-2">{getContextualHint(m.reward_points)}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Referral */}
+            {(() => {
+              const m = missionsList.find((mi) => mi.template_key === 'referral')
+              if (!m) return null
+              return (
+                <div className="p-3 bg-gray-50 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Parrainage</p>
+                      <p className="text-xs text-gray-400">Code unique par client, bonus mutuel</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateMission('referral', 'is_active', !m.is_active)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${m.is_active ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${m.is_active ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                  {m.is_active && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500">Récompense parrain :</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={m.reward_points}
+                          onChange={(e) => updateMission('referral', 'reward_points', Math.max(1, Number(e.target.value)))}
+                          className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs text-gray-400">pts</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500">Bonus filleul :</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={(m.config?.referred_bonus as number) ?? 2}
+                          onChange={(e) => updateMission('referral', 'referred_bonus', Math.max(0, Number(e.target.value)))}
+                          className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs text-gray-400">pts</span>
+                      </div>
+                      {loyaltyType === 'points' && rewardTiers.length > 0 && (
+                        <p className="text-[10px] text-indigo-500">{getContextualHint(m.reward_points)}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Complete Profile */}
+            {(() => {
+              const m = missionsList.find((mi) => mi.template_key === 'complete_profile')
+              if (!m) return null
+              return (
+                <div className="p-3 bg-gray-50 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Profil complet</p>
+                      <p className="text-xs text-gray-400">Email + date d&apos;anniversaire renseignés</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateMission('complete_profile', 'is_active', !m.is_active)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${m.is_active ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${m.is_active ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                  {m.is_active && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">Récompense :</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={m.reward_points}
+                        onChange={(e) => updateMission('complete_profile', 'reward_points', Math.max(1, Number(e.target.value)))}
+                        className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <span className="text-xs text-gray-400">points</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Monthly Visits */}
+            {(() => {
+              const m = missionsList.find((mi) => mi.template_key === 'monthly_visits')
+              if (!m) return null
+              return (
+                <div className="p-3 bg-gray-50 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Visites mensuelles</p>
+                      <p className="text-xs text-gray-400">Comptées automatiquement via la PWA</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateMission('monthly_visits', 'is_active', !m.is_active)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${m.is_active ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${m.is_active ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                  {m.is_active && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500">Cible :</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={(m.config?.target as number) ?? 5}
+                          onChange={(e) => updateMission('monthly_visits', 'target', Math.max(1, Number(e.target.value)))}
+                          className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs text-gray-400">visites</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-500">Récompense :</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={m.reward_points}
+                          onChange={(e) => updateMission('monthly_visits', 'reward_points', Math.max(1, Number(e.target.value)))}
+                          className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs text-gray-400">point{(m.reward_points ?? 1) > 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Save missions */}
+          <div className="flex items-center gap-4 pt-2">
+            <button
+              type="button"
+              onClick={handleMissionsSave}
+              disabled={missionsSaving}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold px-5 py-2 rounded-xl transition-colors text-sm"
+            >
+              {missionsSaving ? 'Sauvegarde...' : 'Sauvegarder les missions'}
+            </button>
+            {missionsSaved && (
+              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                Sauvegardé !
+              </span>
+            )}
+          </div>
+        </section>
+
+        {/* Pending validations */}
+        {pendingValidations.length > 0 && (
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Validations en attente</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{pendingValidations.length} avis à valider</p>
+            </div>
+
+            <div className="space-y-3">
+              {pendingValidations.map((pv) => (
+                <div key={pv.id} className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800">{pv.customer_name}</p>
+                    <p className="text-xs text-gray-500">
+                      Avis Google — {pv.points_awarded} pts
+                    </p>
+                    {pv.proof_url && (
+                      <a
+                        href={pv.proof_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-indigo-600 underline mt-0.5 block truncate"
+                      >
+                        {pv.proof_url}
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleValidation(pv.id, true)}
+                      className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-bold"
+                      title="Valider"
+                    >
+                      &#10003;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleValidation(pv.id, false)}
+                      className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-bold"
+                      title="Refuser"
+                    >
+                      &#10007;
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}

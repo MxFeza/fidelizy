@@ -67,3 +67,34 @@ export interface RewardClaim {
   points_spent: number
   created_at: string
 }
+
+export interface Mission {
+  id: string
+  business_id: string
+  template_key: string
+  reward_points: number
+  is_active: boolean
+  config: Record<string, unknown>
+  created_at: string
+}
+
+export interface MissionCompletion {
+  id: string
+  card_id: string
+  mission_id: string
+  proof_url: string | null
+  status: 'completed' | 'pending_review'
+  period: string | null
+  points_awarded: number
+  created_at: string
+}
+
+export interface Referral {
+  id: string
+  referrer_card_id: string
+  referred_card_id: string
+  business_id: string
+  referrer_points_awarded: number
+  referred_points_awarded: number
+  created_at: string
+}

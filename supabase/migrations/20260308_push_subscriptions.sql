@@ -1,6 +1,6 @@
 create table push_subscriptions (
   id uuid default gen_random_uuid() primary key,
-  card_id uuid references cards(id) on delete cascade not null,
+  card_id uuid references loyalty_cards(id) on delete cascade not null,
   business_id uuid references businesses(id) on delete cascade not null,
   subscription jsonb not null,
   created_at timestamptz default now(),

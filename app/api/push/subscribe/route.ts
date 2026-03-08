@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
   // Verify card exists and get business_id
   const { data: card, error: cardError } = await supabase
-    .from('cards')
+    .from('loyalty_cards')
     .select('id, business_id')
     .eq('id', cardId)
     .single()

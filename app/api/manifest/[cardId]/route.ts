@@ -8,7 +8,7 @@ export async function GET(
   const { cardId } = await params
   const supabase = createServiceClient()
 
-  let businessName = 'Fidelizy'
+  let businessName = 'Izou'
   let themeColor = '#4f46e5'
 
   const { data: card } = await supabase

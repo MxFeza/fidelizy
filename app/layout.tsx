@@ -14,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fidelizy – Cartes de fidélité digitales",
+  title: "Izou – Cartes de fidélité digitales",
   description: "La plateforme de fidélité digitale pour les commerçants",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Fidelizy",
+    title: "Izou",
   },
   icons: {
     apple: "/icon.svg",

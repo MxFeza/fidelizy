@@ -137,7 +137,7 @@ export default function DashboardClient({
       pdf.setFontSize(24)
       pdf.setFont('helvetica', 'bold')
       pdf.setTextColor(79, 70, 229) // indigo-600
-      pdf.text('Fidelizy', cx, 28, { align: 'center' })
+      pdf.text('Izou', cx, 28, { align: 'center' })
 
       // Business name
       pdf.setFontSize(20)
@@ -164,9 +164,9 @@ export default function DashboardClient({
       // Footer
       pdf.setFontSize(9)
       pdf.setTextColor(156, 163, 175) // gray-400
-      pdf.text('fidelizy.vercel.app', cx, ph - 10, { align: 'center' })
+      pdf.text('izou.app', cx, ph - 10, { align: 'center' })
 
-      pdf.save(`fidelizy-qr-${business.short_code}.pdf`)
+      pdf.save(`izou-qr-${business.short_code}.pdf`)
     } catch (error) {
       console.error('Erreur PDF:', error)
     } finally {
@@ -393,7 +393,7 @@ export default function DashboardClient({
           </div>
           <p className="text-xs text-gray-400 mb-4">
             Vos clients entrent ce code sur{' '}
-            <span className="font-medium text-gray-600">fidelizy.vercel.app</span>
+            <span className="font-medium text-gray-600">izou.app</span>
           </p>
           <button
             onClick={handleDownloadPdf}

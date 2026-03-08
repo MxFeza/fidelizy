@@ -1,7 +1,7 @@
 import RecoverForm from './RecoverForm'
 
 export const metadata = {
-  title: 'Retrouver ma carte — Fidelizy',
+  title: 'Retrouver ma carte — Izou',
 }
 
 export default function RecoverPage() {

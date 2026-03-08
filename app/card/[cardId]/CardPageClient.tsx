@@ -378,7 +378,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-center gap-3">
           <span className="text-2xl shrink-0">📲</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">Installer Fidelizy</p>
+            <p className="text-sm font-semibold">Installer Izou</p>
             <p className="text-xs text-gray-400">Accédez à votre carte en un tap</p>
           </div>
           <button

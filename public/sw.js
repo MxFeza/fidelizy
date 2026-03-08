@@ -70,7 +70,7 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {}
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Fidelizy', {
+    self.registration.showNotification(data.title || 'Izou', {
       body: data.body || '',
       icon: data.icon || '/icon-192.png',
       badge: '/icon-192.png',

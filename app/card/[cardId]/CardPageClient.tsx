@@ -209,6 +209,21 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     setShowPushBanner(false)
   }
 
+  // Fetch live data immediately on mount (for wheel status) then poll every 8s
+  useEffect(() => {
+    async function fetchLive() {
+      try {
+        const res = await fetch(`/api/card/${card.qr_code_id}/live`, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
+        if (data.wheel !== undefined) setWheelStatus(data.wheel)
+        setPointsBalance(data.points)
+      } catch { /* ignore */ }
+    }
+    fetchLive()
+  }, [card.qr_code_id])
+
   // Live polling — fetch stamp/points every 8s and update state when they change
   useEffect(() => {
     const interval = setInterval(async () => {

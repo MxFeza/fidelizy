@@ -101,41 +101,35 @@ export default function SettingsPage() {
         )
       }
 
-      // Load gamification config
-      fetch('/api/dashboard/gamification')
-        .then((r) => r.json())
-        .then((g) => {
-          if (!g.error) {
-            setInitialStamps(g.initial_stamps ?? 0)
-            setGoalGradient(g.goal_gradient_notification !== false)
-            setSurpriseEnabled(g.surprise_enabled ?? false)
-            setSurpriseProbability(g.surprise_probability ?? 0.2)
-            setSurpriseRewardValue(g.surprise_reward_value ?? 1)
-            setWheelEnabled(g.wheel_enabled ?? false)
-            setWheelCostPoints(g.wheel_cost_points ?? 10)
-          }
-        })
-        .catch(() => {})
+      // Load gamification config + wheel prizes in parallel, await both
+      const [gamifRes, prizesRes] = await Promise.all([
+        fetch('/api/dashboard/gamification').then((r) => r.json()).catch(() => null),
+        fetch('/api/dashboard/wheel-prizes').then((r) => r.json()).catch(() => null),
+      ])
 
-      // Load wheel prizes
-      fetch('/api/dashboard/wheel-prizes')
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.prizes) {
-            setWheelPrizes(
-              data.prizes.map((p: Record<string, unknown>) => ({
-                id: p.id as string,
-                label: p.label as string,
-                emoji: (p.emoji as string) || '🎯',
-                probability: p.probability as number,
-                reward_type: p.reward_type as string,
-                reward_value: (p.reward_value as number) ?? 1,
-                reward_description: (p.reward_description as string) || '',
-              }))
-            )
-          }
-        })
-        .catch(() => {})
+      if (gamifRes && !gamifRes.error) {
+        setInitialStamps(gamifRes.initial_stamps ?? 0)
+        setGoalGradient(gamifRes.goal_gradient_notification !== false)
+        setSurpriseEnabled(gamifRes.surprise_enabled ?? false)
+        setSurpriseProbability(gamifRes.surprise_probability ?? 0.2)
+        setSurpriseRewardValue(gamifRes.surprise_reward_value ?? 1)
+        setWheelEnabled(gamifRes.wheel_enabled ?? false)
+        setWheelCostPoints(gamifRes.wheel_cost_points ?? 10)
+      }
+
+      if (prizesRes?.prizes) {
+        setWheelPrizes(
+          prizesRes.prizes.map((p: Record<string, unknown>) => ({
+            id: p.id as string,
+            label: p.label as string,
+            emoji: (p.emoji as string) || '🎯',
+            probability: p.probability as number,
+            reward_type: p.reward_type as string,
+            reward_value: (p.reward_value as number) ?? 1,
+            reward_description: (p.reward_description as string) || '',
+          }))
+        )
+      }
 
       setLoading(false)
     }
@@ -169,7 +163,13 @@ export default function SettingsPage() {
     }
 
     if (loyaltyType === 'points') {
-      await supabase.from('reward_tiers').delete().eq('business_id', business.id)
+      // Delete ALL existing tiers first, then re-insert from form
+      const { error: delError } = await supabase.from('reward_tiers').delete().eq('business_id', business.id)
+      if (delError) {
+        setError('Erreur lors de la suppression des paliers : ' + delError.message)
+        setSaving(false)
+        return
+      }
 
       const tiersToInsert = tiers
         .filter((t) => t.reward_name.trim() && t.points_required > 0)
@@ -189,6 +189,22 @@ export default function SettingsPage() {
           return
         }
       }
+
+      // Re-fetch tiers to get fresh IDs from DB
+      const { data: freshTiers } = await supabase
+        .from('reward_tiers')
+        .select('*')
+        .eq('business_id', business.id)
+        .order('sort_order', { ascending: true })
+
+      setTiers(
+        (freshTiers ?? []).map((t) => ({
+          id: t.id,
+          reward_name: t.reward_name,
+          points_required: t.points_required,
+          reward_description: t.reward_description ?? '',
+        }))
+      )
     }
 
     setSaving(false)
@@ -783,9 +799,9 @@ export default function SettingsPage() {
                               </svg>
                             </button>
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className={`grid gap-2 ${prize.reward_type === 'custom_reward' ? 'grid-cols-2' : 'grid-cols-3'}`}>
                             <div>
-                              <label className="block text-[10px] text-gray-400 mb-0.5">Poids</label>
+                              <label className="block text-[10px] text-gray-400 mb-0.5">Chance</label>
                               <input
                                 type="number"
                                 min={1}
@@ -794,6 +810,7 @@ export default function SettingsPage() {
                                 onChange={(e) => updateWheelPrize(i, 'probability', Math.max(1, Number(e.target.value)))}
                                 className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                               />
+                              <p className="text-[9px] text-gray-300 mt-0.5">Plus c&apos;est haut, plus ça sort</p>
                             </div>
                             <div>
                               <label className="block text-[10px] text-gray-400 mb-0.5">Type</label>
@@ -802,30 +819,41 @@ export default function SettingsPage() {
                                 onChange={(e) => updateWheelPrize(i, 'reward_type', e.target.value)}
                                 className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                               >
-                                <option value="bonus_points">Points</option>
-                                <option value="bonus_stamps">Tampons</option>
-                                <option value="custom_reward">Custom</option>
+                                <option value="bonus_points">Points bonus</option>
+                                <option value="bonus_stamps">Tampons bonus</option>
+                                <option value="custom_reward">Récompense spéciale</option>
                               </select>
                             </div>
-                            <div>
-                              <label className="block text-[10px] text-gray-400 mb-0.5">Valeur</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={prize.reward_value}
-                                onChange={(e) => updateWheelPrize(i, 'reward_value', Math.max(0, Number(e.target.value)))}
-                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                            </div>
+                            {prize.reward_type !== 'custom_reward' && (
+                              <div>
+                                <label className="block text-[10px] text-gray-400 mb-0.5">
+                                  {prize.reward_type === 'bonus_points' ? 'Points bonus' : 'Tampons bonus'}
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={prize.reward_value}
+                                  onChange={(e) => updateWheelPrize(i, 'reward_value', Math.max(0, Number(e.target.value)))}
+                                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <p className="text-[9px] text-gray-300 mt-0.5">
+                                  {prize.reward_type === 'bonus_points' ? 'Ajoutés automatiquement' : 'Ajoutés automatiquement'}
+                                </p>
+                              </div>
+                            )}
                           </div>
                           {prize.reward_type === 'custom_reward' && (
-                            <input
-                              type="text"
-                              placeholder="Description de la récompense"
-                              value={prize.reward_description}
-                              onChange={(e) => updateWheelPrize(i, 'reward_description', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            />
+                            <div>
+                              <label className="block text-[10px] text-gray-400 mb-0.5">Description de la récompense</label>
+                              <input
+                                type="text"
+                                placeholder="Ex: Un dessert offert, -20% sur la prochaine commande…"
+                                value={prize.reward_description}
+                                onChange={(e) => updateWheelPrize(i, 'reward_description', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              />
+                              <p className="text-[9px] text-gray-300 mt-0.5">Vous offrez manuellement la récompense au client</p>
+                            </div>
                           )}
                         </div>
                       ))}

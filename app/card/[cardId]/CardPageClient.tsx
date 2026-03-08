@@ -105,6 +105,15 @@ function HistoryTabIcon() {
   )
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i)
+  return outputArray
+}
+
 export default function CardPageClient({ card, business, transactions, rewardTiers }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('card')
   const [installEvent, setInstallEvent] = useState<Event | null>(null)
@@ -113,6 +122,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const [notification, setNotification] = useState<string | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [walletAvailable, setWalletAvailable] = useState(false)
+  const [showPushBanner, setShowPushBanner] = useState(false)
 
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
@@ -142,6 +152,59 @@ export default function CardPageClient({ card, business, transactions, rewardTie
       }
     }
   }, [])
+
+  // Push notification permission
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!('PushManager' in window)) return
+    if (!('serviceWorker' in navigator)) return
+    if (Notification.permission === 'granted') return
+    if (Notification.permission === 'denied') return
+    if (localStorage.getItem('fidelizy_push_dismissed')) return
+    setShowPushBanner(true)
+  }, [])
+
+  async function handleEnablePush() {
+    try {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setShowPushBanner(false)
+        return
+      }
+
+      const registration = await navigator.serviceWorker.ready
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidKey) {
+        console.error('VAPID public key not configured')
+        setShowPushBanner(false)
+        return
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      })
+
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardId: card.id,
+          subscription: subscription.toJSON(),
+        }),
+      })
+
+      setShowPushBanner(false)
+    } catch (err) {
+      console.error('Push subscription error:', err)
+      setShowPushBanner(false)
+    }
+  }
+
+  function handleDismissPush() {
+    localStorage.setItem('fidelizy_push_dismissed', '1')
+    setShowPushBanner(false)
+  }
 
   // Live polling — fetch stamp/points every 8s and update state when they change
   useEffect(() => {
@@ -249,6 +312,34 @@ export default function CardPageClient({ card, business, transactions, rewardTie
           className="bg-green-600 text-white px-5 py-3 rounded-2xl shadow-lg text-sm font-semibold"
         >
           {notification}
+        </div>
+      )}
+
+      {/* Push notification banner */}
+      {showPushBanner && (
+        <div className="fixed bottom-20 left-4 right-4 z-50 bg-white rounded-2xl p-4 shadow-2xl border border-gray-100 flex items-start gap-3">
+          <span className="text-2xl shrink-0">🔔</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 mb-0.5">Notifications</p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Recevez des notifications pour vos récompenses
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleDismissPush}
+              className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1.5"
+            >
+              Plus tard
+            </button>
+            <button
+              onClick={handleEnablePush}
+              className="text-xs text-white font-semibold px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: color }}
+            >
+              Activer
+            </button>
+          </div>
         </div>
       )}
 

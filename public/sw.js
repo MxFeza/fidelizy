@@ -45,6 +45,9 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  // Skip push subscription/api requests
+  if (url.pathname.startsWith('/api/')) return
+
   // Static assets: cache first
   if (
     url.pathname.startsWith('/_next/static/') ||
@@ -61,4 +64,24 @@ self.addEventListener('fetch', (event) => {
     )
     return
   }
+})
+
+// Web Push notifications
+self.addEventListener('push', (event) => {
+  const data = event.data?.json() || {}
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Fidelizy', {
+      body: data.body || '',
+      icon: data.icon || '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(
+    clients.openWindow(event.notification.data?.url || '/')
+  )
 })

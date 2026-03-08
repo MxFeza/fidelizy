@@ -54,6 +54,24 @@ export const gamificationLimiter = new Ratelimit({
   prefix: 'rl:gamification',
 })
 
+export const wheelLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '60 s'),
+  prefix: 'rl:wheel',
+})
+
+export const wheelSpinLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, '60 s'),
+  prefix: 'rl:wheel-spin',
+})
+
+export const wheelPrizesLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '60 s'),
+  prefix: 'rl:wheel-prizes',
+})
+
 export function getIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0].trim()

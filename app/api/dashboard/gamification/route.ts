@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
     surprise_reward_value: 1,
     initial_stamps: 0,
     goal_gradient_notification: true,
+    wheel_enabled: false,
+    wheel_cost_points: 10,
   }
 
   return NextResponse.json({ ...defaults, ...business.gamification })
@@ -66,6 +68,8 @@ export async function PUT(request: NextRequest) {
     'surprise_reward_value',
     'initial_stamps',
     'goal_gradient_notification',
+    'wheel_enabled',
+    'wheel_cost_points',
   ]
 
   const update: Record<string, unknown> = {}
@@ -82,6 +86,9 @@ export async function PUT(request: NextRequest) {
   }
   if (typeof update.initial_stamps === 'number') {
     update.initial_stamps = Math.max(0, Math.min(3, Math.floor(update.initial_stamps)))
+  }
+  if (typeof update.wheel_cost_points === 'number') {
+    update.wheel_cost_points = Math.max(1, Math.min(1000, Math.floor(update.wheel_cost_points)))
   }
 
   // Fetch current gamification, merge with update

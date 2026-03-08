@@ -123,6 +123,9 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const [showConfetti, setShowConfetti] = useState(false)
   const [walletAvailable, setWalletAvailable] = useState(false)
   const [showPushBanner, setShowPushBanner] = useState(false)
+  const [liveTiers, setLiveTiers] = useState(rewardTiers)
+  const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
+  const [showWheel, setShowWheel] = useState(false)
 
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
@@ -212,7 +215,12 @@ export default function CardPageClient({ card, business, transactions, rewardTie
       try {
         const res = await fetch(`/api/card/${card.qr_code_id}/live`, { cache: 'no-store' })
         if (!res.ok) return
-        const data: { stamps: number; points: number } = await res.json()
+        const data: {
+          stamps: number
+          points: number
+          rewards?: { id: string; reward_name: string; points_required: number }[]
+          wheel?: { enabled: boolean; cost: number; eligible: boolean } | null
+        } = await res.json()
 
         const prev = stampsRef.current
         const capped = Math.min(data.stamps, stampsRequired)
@@ -238,6 +246,9 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         stampsRef.current = data.stamps
         setStampsCount(capped)
         setPointsBalance(data.points)
+
+        if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
+        if (data.wheel !== undefined) setWheelStatus(data.wheel)
       } catch {
         // ignore transient network errors
       }
@@ -538,7 +549,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                 </div>
               )}
 
-              {/* Points card */}
+              {/* Points card — Tier Chain */}
               {business.loyalty_type === 'points' && (
                 <div className="-mt-4 bg-white rounded-2xl shadow-sm p-6 space-y-5">
                   <div className="text-center">
@@ -547,47 +558,89 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                     </p>
                     <p className="text-gray-400 text-sm mt-1">points cumulés</p>
                   </div>
-                  {rewardTiers.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  {liveTiers.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                         Paliers de récompenses
                       </p>
-                      {rewardTiers.map((tier) => {
-                        const progress = Math.min(
-                          100,
-                          (pointsBalance / tier.points_required) * 100
-                        )
-                        const reached = pointsBalance >= tier.points_required
-                        return (
-                          <div key={tier.id} className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {reached && <span className="text-sm">✅</span>}
-                                <p
-                                  className={`text-sm font-medium ${
-                                    reached ? 'text-green-700' : 'text-gray-700'
-                                  }`}
-                                >
-                                  {tier.reward_name}
-                                </p>
-                              </div>
-                              <span className="text-xs text-gray-400">
-                                {tier.points_required} pts
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className="relative pl-5">
+                        {/* Vertical line */}
+                        <div
+                          className="absolute left-[9px] top-1 bottom-1 w-0.5 rounded-full"
+                          style={{ backgroundColor: `${color}20` }}
+                        />
+                        {/* Progress fill */}
+                        {(() => {
+                          const maxPts = liveTiers[liveTiers.length - 1]?.points_required ?? 1
+                          const fill = Math.min(100, (pointsBalance / maxPts) * 100)
+                          return (
+                            <div
+                              className="absolute left-[9px] top-1 w-0.5 rounded-full transition-all duration-700"
+                              style={{ height: `${fill}%`, backgroundColor: color }}
+                            />
+                          )
+                        })()}
+
+                        {liveTiers.map((tier) => {
+                          const reached = pointsBalance >= tier.points_required
+                          return (
+                            <div key={tier.id} className="relative flex items-start gap-3 pb-5 last:pb-0">
+                              {/* Dot */}
                               <div
-                                className="h-2 rounded-full transition-all"
-                                style={{ width: `${progress}%`, backgroundColor: color }}
-                              />
+                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 -ml-5 bg-white z-10"
+                                style={{
+                                  borderColor: reached ? '#16a34a' : `${color}40`,
+                                  backgroundColor: reached ? '#16a34a' : 'white',
+                                }}
+                              >
+                                {reached && (
+                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                              {/* Content */}
+                              <div className="flex-1 min-w-0 -mt-0.5">
+                                <div className="flex items-center justify-between">
+                                  <p className={`text-sm font-semibold ${reached ? 'text-green-700' : 'text-gray-800'}`}>
+                                    {tier.reward_name}
+                                  </p>
+                                  <span className={`text-xs font-medium ${reached ? 'text-green-600' : 'text-gray-400'}`}>
+                                    {tier.points_required} pts
+                                  </span>
+                                </div>
+                                {!reached && (
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    Encore {tier.points_required - pointsBalance} point{tier.points_required - pointsBalance > 1 ? 's' : ''}
+                                  </p>
+                                )}
+                                {reached && (
+                                  <p className="text-xs text-green-600 mt-0.5">Disponible !</p>
+                                )}
+                              </div>
                             </div>
-                            {tier.reward_description && (
-                              <p className="text-xs text-gray-400">{tier.reward_description}</p>
-                            )}
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Wheel button */}
+                  {wheelStatus?.enabled && (
+                    <button
+                      onClick={() => setShowWheel(true)}
+                      disabled={!wheelStatus.eligible}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundColor: wheelStatus.eligible ? color : `${color}15`,
+                        color: wheelStatus.eligible ? 'white' : color,
+                      }}
+                    >
+                      <span className="text-lg">🎡</span>
+                      {wheelStatus.eligible
+                        ? `Tourner la roue (${wheelStatus.cost} pts)`
+                        : `Roue de la fortune (${wheelStatus.cost} pts requis)`}
+                    </button>
                   )}
                 </div>
               )}
@@ -701,6 +754,22 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         </div>
       </div>
 
+      {/* Wheel modal */}
+      {showWheel && (
+        <WheelModal
+          cardId={card.id}
+          qrCodeId={card.qr_code_id}
+          businessId={business.id}
+          color={color}
+          onClose={() => setShowWheel(false)}
+          onResult={(newPoints) => {
+            setPointsBalance(newPoints)
+            setShowConfetti(true)
+            setTimeout(() => setShowConfetti(false), 3500)
+          }}
+        />
+      )}
+
       {/* Bottom tab bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 z-30">
         <div className="max-w-sm mx-auto flex">
@@ -729,6 +798,210 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         </div>
       </nav>
     </>
+  )
+}
+
+/* ─── Wheel Modal Component ─── */
+
+interface WheelSegment {
+  id: string
+  label: string
+  emoji: string
+  probability: number
+}
+
+interface WheelModalProps {
+  cardId: string
+  qrCodeId: string
+  businessId: string
+  color: string
+  onClose: () => void
+  onResult: (newPoints: number) => void
+}
+
+const WHEEL_COLORS = [
+  '#ef4444', '#f59e0b', '#10b981', '#3b82f6',
+  '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
+]
+
+function WheelModal({ cardId, qrCodeId, businessId, color, onClose, onResult }: WheelModalProps) {
+  const [segments, setSegments] = useState<WheelSegment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [spinning, setSpinning] = useState(false)
+  const [rotation, setRotation] = useState(0)
+  const [result, setResult] = useState<{ label: string; emoji: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/wheel/${qrCodeId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.segments) setSegments(data.segments)
+        else setError(data.error || 'Roue indisponible')
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('Erreur de chargement')
+        setLoading(false)
+      })
+  }, [qrCodeId])
+
+  async function handleSpin() {
+    if (spinning || segments.length < 2) return
+    setSpinning(true)
+    setResult(null)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/wheel/spin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardId, businessId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Erreur')
+        setSpinning(false)
+        return
+      }
+
+      const winnerIdx = data.winner_index ?? 0
+      const segAngle = 360 / segments.length
+      // Target angle: land in the middle of the winning segment
+      // Top of wheel = 0°, segments go clockwise from top
+      const targetAngle = 360 - (winnerIdx * segAngle + segAngle / 2)
+      const totalRotation = rotation + 360 * 5 + targetAngle
+      setRotation(totalRotation)
+
+      // Wait for animation to finish (4s ease-out)
+      setTimeout(() => {
+        setResult({ label: data.prize.label, emoji: data.prize.emoji })
+        onResult(data.new_points)
+        setSpinning(false)
+      }, 4200)
+    } catch {
+      setError('Erreur réseau')
+      setSpinning(false)
+    }
+  }
+
+  const segAngle = segments.length > 0 ? 360 / segments.length : 360
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <style>{`
+        @keyframes wheelSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(var(--wheel-rotation)); }
+        }
+      `}</style>
+      <div className="bg-white rounded-3xl w-full max-w-sm p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
+        >
+          ×
+        </button>
+        <h2 className="text-lg font-bold text-center mb-4">🎡 Roue de la fortune</h2>
+
+        {loading && <p className="text-center text-gray-400 py-8">Chargement...</p>}
+
+        {error && !loading && (
+          <p className="text-center text-red-500 text-sm py-4">{error}</p>
+        )}
+
+        {!loading && segments.length >= 2 && (
+          <div className="flex flex-col items-center gap-4">
+            {/* Pointer */}
+            <div className="relative">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10 text-2xl">▼</div>
+              {/* Wheel SVG */}
+              <svg
+                width="280"
+                height="280"
+                viewBox="0 0 280 280"
+                className="drop-shadow-lg"
+                style={{
+                  transform: `rotate(${rotation}deg)`,
+                  transition: spinning ? 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none',
+                }}
+              >
+                {segments.map((seg, i) => {
+                  const startAngle = (i * segAngle - 90) * (Math.PI / 180)
+                  const endAngle = ((i + 1) * segAngle - 90) * (Math.PI / 180)
+                  const cx = 140, cy = 140, r = 130
+                  const x1 = cx + r * Math.cos(startAngle)
+                  const y1 = cy + r * Math.sin(startAngle)
+                  const x2 = cx + r * Math.cos(endAngle)
+                  const y2 = cy + r * Math.sin(endAngle)
+                  const largeArc = segAngle > 180 ? 1 : 0
+                  const midAngle = ((i + 0.5) * segAngle - 90) * (Math.PI / 180)
+                  const textR = r * 0.65
+                  const tx = cx + textR * Math.cos(midAngle)
+                  const ty = cy + textR * Math.sin(midAngle)
+                  const textAngle = (i + 0.5) * segAngle
+
+                  return (
+                    <g key={seg.id}>
+                      <path
+                        d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`}
+                        fill={WHEEL_COLORS[i % WHEEL_COLORS.length]}
+                        stroke="white"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={tx}
+                        y={ty}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill="white"
+                        fontSize="12"
+                        fontWeight="bold"
+                        transform={`rotate(${textAngle}, ${tx}, ${ty})`}
+                      >
+                        {seg.emoji} {seg.label.length > 10 ? seg.label.slice(0, 9) + '…' : seg.label}
+                      </text>
+                    </g>
+                  )
+                })}
+                <circle cx="140" cy="140" r="18" fill="white" stroke="#e5e7eb" strokeWidth="2" />
+                <text x="140" y="140" textAnchor="middle" dominantBaseline="central" fontSize="16">🎡</text>
+              </svg>
+            </div>
+
+            {/* Result */}
+            {result && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-center">
+                <p className="text-lg font-bold text-green-700">{result.emoji} {result.label}</p>
+                <p className="text-xs text-green-600 mt-1">Félicitations !</p>
+              </div>
+            )}
+
+            {/* Spin button */}
+            {!result && (
+              <button
+                onClick={handleSpin}
+                disabled={spinning}
+                className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-60"
+                style={{ backgroundColor: color }}
+              >
+                {spinning ? 'La roue tourne...' : 'Tourner !'}
+              </button>
+            )}
+
+            {result && (
+              <button
+                onClick={onClose}
+                className="w-full py-3 rounded-xl text-sm font-semibold border-2 transition-all"
+                style={{ borderColor: color, color }}
+              >
+                Fermer
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

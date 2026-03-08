@@ -48,6 +48,12 @@ export const broadcastLimiter = new Ratelimit({
   prefix: 'rl:broadcast',
 })
 
+export const gamificationLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '60 s'),
+  prefix: 'rl:gamification',
+})
+
 export function getIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0].trim()

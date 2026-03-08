@@ -38,6 +38,15 @@ export default function SettingsPage() {
   const [stampsReward, setStampsReward] = useState('')
   const [pointsPerEuro, setPointsPerEuro] = useState(1)
 
+  // Gamification state
+  const [initialStamps, setInitialStamps] = useState(0)
+  const [goalGradient, setGoalGradient] = useState(true)
+  const [surpriseEnabled, setSurpriseEnabled] = useState(false)
+  const [surpriseProbability, setSurpriseProbability] = useState(0.2)
+  const [surpriseRewardValue, setSurpriseRewardValue] = useState(1)
+  const [gamifSaving, setGamifSaving] = useState(false)
+  const [gamifSaved, setGamifSaved] = useState(false)
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -74,6 +83,20 @@ export default function SettingsPage() {
           }))
         )
       }
+
+      // Load gamification config
+      fetch('/api/dashboard/gamification')
+        .then((r) => r.json())
+        .then((g) => {
+          if (!g.error) {
+            setInitialStamps(g.initial_stamps ?? 0)
+            setGoalGradient(g.goal_gradient_notification !== false)
+            setSurpriseEnabled(g.surprise_enabled ?? false)
+            setSurpriseProbability(g.surprise_probability ?? 0.2)
+            setSurpriseRewardValue(g.surprise_reward_value ?? 1)
+          }
+        })
+        .catch(() => {})
 
       setLoading(false)
     }
@@ -132,6 +155,30 @@ export default function SettingsPage() {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
+  }
+
+  async function handleGamifSave() {
+    setGamifSaving(true)
+    setGamifSaved(false)
+    try {
+      const res = await fetch('/api/dashboard/gamification', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initial_stamps: initialStamps,
+          goal_gradient_notification: goalGradient,
+          surprise_enabled: surpriseEnabled,
+          surprise_probability: surpriseProbability,
+          surprise_reward_type: loyaltyType === 'stamps' ? 'bonus_stamp' : 'bonus_points',
+          surprise_reward_value: surpriseRewardValue,
+        }),
+      })
+      if (res.ok) {
+        setGamifSaved(true)
+        setTimeout(() => setGamifSaved(false), 3000)
+      }
+    } catch { /* ignore */ }
+    setGamifSaving(false)
   }
 
   function addTier() {
@@ -375,6 +422,151 @@ export default function SettingsPage() {
           )}
         </div>
       </form>
+
+      {/* Gamification section — separate from main form */}
+      <div className="mt-8 space-y-6">
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+          <div>
+            <h2 className="font-semibold text-gray-900">Gamification</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Augmentez l&apos;engagement de vos clients</p>
+          </div>
+
+          {/* Endowed Progress — initial stamps */}
+          {loyaltyType === 'stamps' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Tampons de bienvenue</p>
+                  <p className="text-xs text-gray-400">Offrir des tampons à l&apos;inscription</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {[0, 1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setInitialStamps(n)}
+                    className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all ${
+                      initialStamps === n
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <span className="text-xs text-gray-400 ml-1">tampon{initialStamps !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Goal Gradient */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Notifications de progression</p>
+              <p className="text-xs text-gray-400">
+                {loyaltyType === 'stamps'
+                  ? 'Notifier le client à 1 tampon de la récompense'
+                  : 'Notifier le client à 1-2 points d\'un palier'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGoalGradient(!goalGradient)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                goalGradient ? 'bg-indigo-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  goalGradient ? 'translate-x-5' : ''
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Surprise */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Surprises au scan</p>
+                <p className="text-xs text-gray-400">
+                  Bonus aléatoire lors d&apos;un scan
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSurpriseEnabled(!surpriseEnabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  surpriseEnabled ? 'bg-indigo-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    surpriseEnabled ? 'translate-x-5' : ''
+                  }`}
+                />
+              </button>
+            </div>
+
+            {surpriseEnabled && (
+              <div className="pl-1 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    Probabilité : {Math.round(surpriseProbability * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={0.3}
+                    step={0.05}
+                    value={surpriseProbability}
+                    onChange={(e) => setSurpriseProbability(Number(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                    <span>10%</span>
+                    <span>30%</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    Bonus : {surpriseRewardValue} {loyaltyType === 'stamps' ? 'tampon' : 'point'}{surpriseRewardValue > 1 ? 's' : ''}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={surpriseRewardValue}
+                    onChange={(e) => setSurpriseRewardValue(Math.max(1, Math.min(10, Number(e.target.value))))}
+                    className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Save gamification */}
+          <div className="flex items-center gap-4 pt-2">
+            <button
+              type="button"
+              onClick={handleGamifSave}
+              disabled={gamifSaving}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold px-5 py-2 rounded-xl transition-colors text-sm"
+            >
+              {gamifSaving ? 'Sauvegarde...' : 'Sauvegarder la gamification'}
+            </button>
+            {gamifSaved && (
+              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                Sauvegardé !
+              </span>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

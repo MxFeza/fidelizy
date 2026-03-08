@@ -32,6 +32,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient()
 
+  // Load business to check gamification config
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('id, loyalty_type, gamification')
+    .eq('id', businessId)
+    .single()
+
+  if (!business) {
+    return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
+  }
+
   // Check if customer with this phone already exists
   const { data: existingCustomer } = await supabase
     .from('customers')
@@ -72,13 +83,15 @@ export async function POST(request: NextRequest) {
     customerId = newCustomer.id
   }
 
+  const initialStamps = (business.loyalty_type === 'stamps' && business.gamification?.initial_stamps) || 0
+
   const qrCodeId = crypto.randomUUID()
   const { data: newCard, error: cardError } = await supabase
     .from('loyalty_cards')
     .insert({
       customer_id: customerId,
       business_id: businessId,
-      current_stamps: 0,
+      current_stamps: initialStamps,
       current_points: 0,
       total_visits: 0,
       qr_code_id: qrCodeId,
@@ -91,6 +104,18 @@ export async function POST(request: NextRequest) {
       { error: 'Erreur lors de la création de la carte' },
       { status: 500 }
     )
+  }
+
+  // Log initial bonus stamps as a transaction
+  if (initialStamps > 0) {
+    await supabase.from('transactions').insert({
+      loyalty_card_id: newCard.id,
+      business_id: businessId,
+      type: 'earn',
+      stamps_added: initialStamps,
+      points_added: null,
+      description: `Bonus de bienvenue : ${initialStamps} tampon${initialStamps > 1 ? 's' : ''}`,
+    })
   }
 
   return NextResponse.json({ qrCodeId: newCard.qr_code_id, cardId: newCard.id })

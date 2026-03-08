@@ -42,6 +42,12 @@ export const pushLimiter = new Ratelimit({
   prefix: 'rl:push',
 })
 
+export const broadcastLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '3600 s'),
+  prefix: 'rl:broadcast',
+})
+
 export function getIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0].trim()

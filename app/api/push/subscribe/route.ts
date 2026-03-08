@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { pushLimiter, getIP } from '@/lib/ratelimit'
+import { sendPushToCard } from '@/lib/push/sendPush'
 
 export async function POST(request: NextRequest) {
   const { success } = await pushLimiter.limit(getIP(request))
@@ -16,16 +17,22 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  // Verify card exists and get business_id
+  // Verify card exists and get business_id + qr_code_id
   const { data: card, error: cardError } = await supabase
     .from('loyalty_cards')
-    .select('id, business_id')
+    .select('id, business_id, qr_code_id')
     .eq('id', cardId)
     .single()
 
   if (cardError || !card) {
     return NextResponse.json({ error: 'Carte introuvable' }, { status: 404 })
   }
+
+  // Check if this is the first subscription for this card (before upsert)
+  const { count: existingCount } = await supabase
+    .from('push_subscriptions')
+    .select('id', { count: 'exact', head: true })
+    .eq('card_id', card.id)
 
   // Upsert subscription (avoid duplicates on endpoint)
   const { error } = await supabase
@@ -60,6 +67,21 @@ export async function POST(request: NextRequest) {
       console.error('Push subscribe error:', insertError)
       return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     }
+  }
+
+  // Send welcome notification for first-time subscription (non-blocking)
+  if (existingCount === 0) {
+    const { data: biz } = await supabase
+      .from('businesses')
+      .select('business_name')
+      .eq('id', card.business_id)
+      .single()
+
+    sendPushToCard(card.id, {
+      title: 'Bienvenue ! 🎉',
+      body: `Votre carte de fidélité ${biz?.business_name || ''} est prête.`,
+      url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+    }).catch((err) => console.error('Welcome push error:', err))
   }
 
   return NextResponse.json({ ok: true })

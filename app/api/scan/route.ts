@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { scanLimiter, getIP } from '@/lib/ratelimit'
+import { sendPushToCard } from '@/lib/push/sendPush'
 
 export async function POST(request: NextRequest) {
   try {
@@ -123,6 +124,12 @@ export async function POST(request: NextRequest) {
 
       if (isComplete) {
         setPendingWalletAction(card.qr_code_id, 'add', 0)
+        // Push notification for reward (non-blocking)
+        sendPushToCard(card.id, {
+          title: business.business_name,
+          body: '🎉 Récompense débloquée ! Montre ta carte au comptoir.',
+          url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+        }).catch((err) => console.error('Reward push error:', err))
       } else {
         setPendingWalletAction(card.qr_code_id, 'add', stampsRequired - newStamps)
       }
@@ -157,6 +164,24 @@ export async function POST(request: NextRequest) {
       })
 
       message = `+${pointsToAdd} pts pour ${card.customers?.first_name} ! Total : ${newPoints} pts`
+
+      // Check if a reward tier threshold was just reached (non-blocking)
+      const previousPoints = card.current_points ?? 0
+      const { data: tiers } = await supabase
+        .from('reward_tiers')
+        .select('points_required')
+        .eq('business_id', business.id)
+        .gt('points_required', previousPoints)
+        .lte('points_required', newPoints)
+        .limit(1)
+
+      if (tiers && tiers.length > 0) {
+        sendPushToCard(card.id, {
+          title: business.business_name,
+          body: '🎉 Récompense débloquée ! Montre ta carte au comptoir.',
+          url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+        }).catch((err) => console.error('Reward push error:', err))
+      }
 
       setPendingWalletAction(card.qr_code_id, 'add')
 

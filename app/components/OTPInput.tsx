@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useCallback } from 'react'
 
 interface OTPInputProps {
   length?: number
@@ -9,83 +9,75 @@ interface OTPInputProps {
 }
 
 export default function OTPInput({ length = 6, onComplete, disabled = false }: OTPInputProps) {
-  const [values, setValues] = useState<string[]>(Array(length).fill(''))
-  const inputsRef = useRef<(HTMLInputElement | null)[]>([])
+  const [value, setValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const submittedRef = useRef(false)
 
-  useEffect(() => {
-    inputsRef.current[0]?.focus()
-  }, [])
-
-  const submitCode = useCallback((vals: string[]) => {
-    const code = vals.join('')
-    if (code.length === length) {
-      onComplete(code)
-    }
-  }, [length, onComplete])
-
-  function handleChange(index: number, value: string) {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return
-    const digit = value.replace(/\D/g, '').slice(-1)
-    const next = [...values]
-    next[index] = digit
-    setValues(next)
+    const digits = e.target.value.replace(/\D/g, '').slice(0, length)
+    setValue(digits)
 
-    if (digit && index < length - 1) {
-      inputsRef.current[index + 1]?.focus()
+    if (digits.length === length && !submittedRef.current) {
+      submittedRef.current = true
+      onComplete(digits)
+      // Reset after a short delay to allow re-entry if code was invalid
+      setTimeout(() => { submittedRef.current = false }, 1000)
     }
+  }, [disabled, length, onComplete])
 
-    if (digit && index === length - 1) {
-      submitCode(next)
-    }
-  }
-
-  function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (disabled) return
-    if (e.key === 'Backspace' && !values[index] && index > 0) {
-      const next = [...values]
-      next[index - 1] = ''
-      setValues(next)
-      inputsRef.current[index - 1]?.focus()
-    }
-  }
-
-  function handlePaste(e: React.ClipboardEvent) {
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
     if (disabled) return
     e.preventDefault()
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length)
     if (!pasted) return
+    setValue(pasted)
 
-    const next = [...values]
-    for (let i = 0; i < length; i++) {
-      next[i] = pasted[i] || ''
+    if (pasted.length === length && !submittedRef.current) {
+      submittedRef.current = true
+      onComplete(pasted)
+      setTimeout(() => { submittedRef.current = false }, 1000)
     }
-    setValues(next)
-
-    const focusIndex = Math.min(pasted.length, length - 1)
-    inputsRef.current[focusIndex]?.focus()
-
-    if (pasted.length >= length) {
-      submitCode(next)
-    }
-  }
+  }, [disabled, length, onComplete])
 
   return (
-    <div className="flex gap-2 justify-center" onPaste={handlePaste}>
-      {values.map((val, i) => (
-        <input
+    <div
+      className="relative flex gap-2 justify-center cursor-text"
+      onClick={() => inputRef.current?.focus()}
+    >
+      {/* Single hidden input for iOS one-time-code autofill */}
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={length}
+        pattern={`\\d{${length}}`}
+        value={value}
+        onChange={handleChange}
+        onPaste={handlePaste}
+        disabled={disabled}
+        autoFocus
+        className="absolute inset-0 w-full h-full opacity-0 z-10"
+        aria-label="Code de vérification"
+      />
+
+      {/* Visual display of boxes */}
+      {Array.from({ length }, (_, i) => (
+        <div
           key={i}
-          ref={(el) => { inputsRef.current[i] = el }}
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={1}
-          value={val}
-          disabled={disabled}
-          {...(i === 0 ? { autoComplete: 'one-time-code' } : {})}
-          onChange={(e) => handleChange(i, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(i, e)}
-          className="w-11 h-13 text-center text-xl font-bold border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        />
+          className={`w-11 h-13 flex items-center justify-center text-xl font-bold border-2 rounded-xl transition-colors ${
+            disabled
+              ? 'border-gray-200 bg-gray-50 text-gray-400'
+              : i === value.length
+                ? 'border-indigo-500 bg-white text-gray-900'
+                : value[i]
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-200 bg-white text-gray-900'
+          }`}
+        >
+          {value[i] || ''}
+        </div>
       ))}
     </div>
   )

@@ -1,6 +1,6 @@
 # Fidelizy — Etat complet du projet
 
-> Derniere mise a jour : 2026-03-06
+> Derniere mise a jour : 2026-03-09
 
 ## Stack technique
 
@@ -36,6 +36,12 @@
 | `APPLE_CERT_PEM`                 | Certificat Apple Wallet (PEM)          |
 | `APPLE_KEY_PEM`                  | Cle privee Apple Wallet (PEM)          |
 | `APPLE_WWDR_PEM`                 | Certificat intermediaire Apple (WWDR)  |
+| `APPLE_PASS_CERT_B64`           | Certificat Apple Wallet (base64)       |
+| `APPLE_PASS_KEY_B64`            | Cle privee Apple Wallet (base64)       |
+| `APPLE_WWDR_CERT_B64`           | Certificat WWDR Apple (base64)         |
+| `VAPID_PUBLIC_KEY`              | Cle publique VAPID (push web)          |
+| `VAPID_PRIVATE_KEY`             | Cle privee VAPID (push web)            |
+| `VAPID_SUBJECT`                 | Contact VAPID (mailto:...)             |
 
 ---
 
@@ -47,8 +53,17 @@
 - **Transaction** : id, loyalty_card_id, business_id, type (earn\|redeem), stamps_added, points_added, description
 - **RewardTier** : id, business_id, points_required, reward_name, reward_description, sort_order
 - **RewardClaim** : id, loyalty_card_id, reward_tier_id, reward_name, points_spent
+- **WheelPrize** : id, business_id, label, emoji, probability, reward_type, reward_value, reward_description, sort_order
+- **WheelSpin** : id, card_id, business_id, points_spent, prize_id, prize_label
+- **Mission** : id, business_id, template_key, reward_points, is_active, config (jsonb)
+- **MissionCompletion** : id, card_id, mission_id, proof_url, status, period, points_awarded
+- **Referral** : id, referrer_card_id, referred_card_id, business_id, referrer_points_awarded, referred_points_awarded
+- **PwaVisit** : card_id, visit_date (PK composite)
+- **PushSubscription** : id, card_id, business_id, subscription (jsonb)
+- **WalletRegistration** : id, device_library_id, serial_number, push_token
 
 Relation cle : `businesses.id = auth.users.id` (1:1)
+Note : `businesses.gamification` (jsonb) contient la config gamification (surprise, roue, initial_stamps, goal_gradient)
 
 ---
 
@@ -105,6 +120,30 @@ Relation cle : `businesses.id = auth.users.id` (1:1)
 | GET     | `/api/wallet/v1/passes/[passTypeId]/[serialNumber]`                              | Telecharger la derniere version du pass (protocole Apple) |
 | POST    | `/api/wallet/v1/log`                                                             | Recevoir les logs d'erreur Apple Wallet          |
 
+### Gamification
+
+| Methode | Chemin                                | Description                                           | Auth            | Rate limit |
+| ------- | ------------------------------------- | ----------------------------------------------------- | --------------- | ---------- |
+| GET/PUT | `/api/dashboard/gamification`         | Config gamification (surprise, roue, goal gradient)    | Commercant auth | 10/60s     |
+| GET/POST/PUT/DELETE | `/api/dashboard/wheel-prizes` | CRUD segments de la roue de la fortune          | Commercant auth | 10/60s     |
+| GET/PUT | `/api/dashboard/missions`             | Config missions (google_review, referral, etc.)        | Commercant auth | 10/60s     |
+| GET     | `/api/dashboard/missions/pending`     | Liste des validations en attente (avis Google)         | Commercant auth | 10/60s     |
+| GET     | `/api/dashboard/engagement-stats`     | Stats engagement (surprises, roue, missions, parrainages) | Commercant auth | 10/60s |
+| POST    | `/api/missions/complete`              | Completer une mission (profil, avis Google)            | Service role    | 5/h        |
+| POST    | `/api/missions/validate`              | Valider/refuser un avis Google soumis                  | Commercant auth | 10/60s     |
+| GET     | `/api/missions/[cardId]`              | Missions disponibles pour une carte                    | Public          | —          |
+| POST    | `/api/wheel/spin`                     | Tourner la roue de la fortune                          | Service role    | 3/60s      |
+| GET     | `/api/wheel/[cardId]`                 | Config roue pour une carte (segments, cout)            | Public          | —          |
+| POST    | `/api/pwa-visit/[cardId]`             | Enregistrer une visite PWA quotidienne                 | Service role    | —          |
+
+### Push & Notifications
+
+| Methode | Chemin                     | Description                                           | Auth            | Rate limit |
+| ------- | -------------------------- | ----------------------------------------------------- | --------------- | ---------- |
+| POST    | `/api/push/subscribe`      | Souscrire aux push web (VAPID)                        | Public          | 10/60s     |
+| POST    | `/api/push/broadcast`      | Envoyer un push a tous les clients d'un commerce      | Commercant auth | 5/h        |
+| GET     | `/api/cron/push-inactive`  | Cron : notifier les clients inactifs                   | Cron (Vercel)   | —          |
+
 ---
 
 ## Pages frontend
@@ -127,6 +166,8 @@ Relation cle : `businesses.id = auth.users.id` (1:1)
 | `/dashboard`              | `app/dashboard/(protected)/page.tsx`, `DashboardClient.tsx` | Tableau de bord : KPIs, graphique semaine, top 3, scanner, saisie manuelle |
 | `/dashboard/clients`      | `app/dashboard/(protected)/clients/page.tsx`, `ClientsClient.tsx` | Liste clients : stats, filtres status, recherche, tri, pagination |
 | `/dashboard/clients/[id]` | `app/dashboard/(protected)/clients/[id]/page.tsx`, `ClientDetailClient.tsx` | Detail client : carte visuelle, stats, ajout/retrait, historique |
+| `/dashboard/engagement`   | `app/dashboard/(protected)/engagement/page.tsx`             | Gamification : surprises, roue, missions, templates, stats |
+| `/dashboard/notifications`| `app/dashboard/(protected)/notifications/page.tsx`          | Configuration des notifications push (broadcast)            |
 | `/dashboard/settings`     | `app/dashboard/(protected)/settings/page.tsx`               | Parametres : infos commerce, type fidelite, paliers recompense |
 | `/dashboard/profile`      | `app/dashboard/(protected)/profile/page.tsx`, `ProfileClient.tsx` | Profil : changer email, changer mot de passe, deconnexion |
 
@@ -275,13 +316,42 @@ Relation cle : `businesses.id = auth.users.id` (1:1)
   - Push notifications APNs (HTTP/2)
   - Endpoint de logs
 
+### Phase Gamification (Sprints 1-4)
+- [x] Config gamification par commerce (jsonb sur businesses)
+- [x] Surprise au scan : bonus aleatoire (probabilite, valeur configurable)
+- [x] Goal gradient : notification quand le client est proche d'une recompense
+- [x] Tampons de bienvenue (initial_stamps configurable, 0-3)
+- [x] Roue de la fortune (mode points) :
+  - Segments configurables (2-8), types : bonus_points, bonus_stamps, custom_reward
+  - Cout en points configurable, selection ponderee aleatoire
+  - Animation cote client, log des spins
+- [x] Missions :
+  - Avis Google (soumission + validation manuelle par le commercant)
+  - Profil complet (email + anniversaire)
+  - Visites mensuelles (comptage automatique via PWA)
+  - Parrainage (code unique, bonus parrain + filleul)
+- [x] Parrainage :
+  - Code parrain genere automatiquement (PREF-1234)
+  - Points configurable pour parrain et filleul
+  - Referral table avec suivi
+- [x] Notifications completes pour tous les events gamification :
+  - Web push (VAPID) + wallet Apple (changeMessage + APNs)
+  - Surprise, goal gradient, roue, mission completee, avis valide, parrainage (parrain + filleul), visite mensuelle
+- [x] Templates commercant (Cafe, Restaurant, Boulangerie) :
+  - Pre-remplissage automatique de toute la config engagement
+  - Gamification + roue + missions en un clic
+- [x] Stats engagement basiques :
+  - Surprises declenchees (mois), tours de roue (mois), missions completees (mois), parrainages (total)
+  - API GET /api/dashboard/engagement-stats
+- [x] Notifications push web (VAPID) + broadcast commercant
+- [x] Export CSV des clients
+- [x] Cron job pour notifier les clients inactifs
+
 ---
 
 ## Features non implementees / a faire
 
 - [ ] **Insights** : page d'analytics avancee (onglet present mais desactive)
-- [ ] **Notifications push web** : notifier les clients inactifs/a risque
-- [ ] **Export CSV** des clients
 - [ ] **QR code imprimable** pour le commercant (a afficher en caisse)
 - [ ] **Personnalisation avancee** : logo upload, couleur secondaire
 - [ ] **Multi-commerces** : un commercant = plusieurs points de vente
@@ -312,6 +382,7 @@ Relation cle : `businesses.id = auth.users.id` (1:1)
 | `recharts`            | ^3.7.0   | Graphiques                       |
 | `jszip`               | ^3.10.1  | Creation ZIP (.pkpass)           |
 | `node-forge`          | ^1.3.3   | Signature PKCS#7 (Apple Wallet)  |
+| `web-push`            | ^3.x     | Push notifications VAPID (web)   |
 
 ### Dev
 | Package               | Usage                            |

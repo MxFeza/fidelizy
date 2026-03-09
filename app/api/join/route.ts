@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { joinLimiter, getIP } from '@/lib/ratelimit'
 import { findCardByReferralCode } from '@/lib/referral'
 import { sendPushToCard } from '@/lib/push/sendPush'
+import { notifyWalletDevices } from '@/lib/wallet/push'
+import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 
 export async function POST(request: NextRequest) {
   const { success } = await joinLimiter.limit(getIP(request))
@@ -150,7 +152,7 @@ export async function POST(request: NextRequest) {
           // Update referrer card points
           const { data: refCard } = await supabase
             .from('loyalty_cards')
-            .select('current_points')
+            .select('current_points, qr_code_id')
             .eq('id', referrerCard.id)
             .single()
 
@@ -202,8 +204,24 @@ export async function POST(request: NextRequest) {
           // Push notification to referrer
           sendPushToCard(referrerCard.id, {
             title: 'Parrainage réussi !',
-            body: `Votre ami ${firstName} vous a rapporté ${referrerPoints} points !`,
+            body: `Votre ami ${firstName} vous a rapporté ${referrerPoints} points ! 🤝`,
           }).catch(() => {})
+
+          // Wallet update for referrer
+          if (refCard?.qr_code_id) {
+            setPendingWalletAction(refCard.qr_code_id, 'add')
+            notifyWalletDevices(refCard.qr_code_id).catch(() => {})
+          }
+
+          // Push notification to referred (filleul)
+          sendPushToCard(newCard.id, {
+            title: 'Bienvenue !',
+            body: `Bienvenue ! ${referredPoints} points offerts grâce au parrainage 🎁`,
+          }).catch(() => {})
+
+          // Wallet update for referred
+          setPendingWalletAction(newCard.qr_code_id, 'add')
+          notifyWalletDevices(newCard.qr_code_id).catch(() => {})
         }
       }
     } catch {

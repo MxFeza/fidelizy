@@ -3,6 +3,8 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { missionValidateLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
+import { notifyWalletDevices } from '@/lib/wallet/push'
+import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 
 export async function POST(request: NextRequest) {
   const { success } = await missionValidateLimiter.limit(getIP(request))
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
   // Get card to credit
   const { data: card } = await supabase
     .from('loyalty_cards')
-    .select('id, current_points')
+    .select('id, current_points, qr_code_id')
     .eq('id', completion.card_id)
     .single()
 
@@ -81,8 +83,12 @@ export async function POST(request: NextRequest) {
 
     sendPushToCard(card.id, {
       title: 'Avis validé !',
-      body: `Votre avis Google a été validé : +${completion.points_awarded} points !`,
+      body: `Votre avis a été validé ! +${completion.points_awarded} points ⭐`,
     }).catch(() => {})
+
+    // Update wallet
+    setPendingWalletAction(card.qr_code_id, 'add')
+    notifyWalletDevices(card.qr_code_id).catch(() => {})
   }
 
   return NextResponse.json({ status: 'approved', points_awarded: completion.points_awarded })

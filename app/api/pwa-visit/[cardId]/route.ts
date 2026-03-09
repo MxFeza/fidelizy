@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendPushToCard } from '@/lib/push/sendPush'
+import { notifyWalletDevices } from '@/lib/wallet/push'
+import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 
 interface RouteParams {
   params: Promise<{ cardId: string }>
@@ -13,7 +15,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
   // Get card by qr_code_id
   const { data: card } = await supabase
     .from('loyalty_cards')
-    .select('id, business_id, current_points')
+    .select('id, business_id, current_points, qr_code_id')
     .eq('qr_code_id', cardId)
     .single()
 
@@ -91,9 +93,13 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       })
 
       sendPushToCard(card.id, {
-        title: 'Mission accomplie !',
-        body: `${target} visites ce mois : +${mission.reward_points} point${mission.reward_points > 1 ? 's' : ''} !`,
+        title: 'Objectif atteint !',
+        body: `Objectif du mois atteint ! +${mission.reward_points} point${mission.reward_points > 1 ? 's' : ''} 🏆`,
       }).catch(() => {})
+
+      // Update wallet
+      setPendingWalletAction(card.qr_code_id, 'add')
+      notifyWalletDevices(card.qr_code_id).catch(() => {})
     }
   }
 

@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     // Push notification
     sendPushToCard(card.id, {
-      title: business.business_name,
+      title: 'Fidélité',
       body: `🎡 Vous avez gagné : ${winner.label} !`,
       url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
     }).catch((err) => console.error('Wheel push error:', err))

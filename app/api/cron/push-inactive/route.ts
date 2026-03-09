@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const business = row.businesses as unknown as { business_name: string }
 
     const payload: PushPayload = {
-      title: `${business.business_name} vous manque !`,
+      title: 'Vous nous manquez !',
       body: 'Revenez profiter de vos avantages fidelite 🎁',
       url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
     }

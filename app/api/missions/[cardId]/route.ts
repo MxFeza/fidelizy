@@ -104,9 +104,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
       }
       case 'referral': {
+        const done = missionCompletions.find((c) => c.status === 'completed')
         return {
           ...mission,
-          completed: false,
+          completed: !!done || (referralCount ?? 0) > 0,
           referral_count: referralCount ?? 0,
         }
       }

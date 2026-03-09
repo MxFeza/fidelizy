@@ -508,8 +508,18 @@ export default function EngagementPage() {
           ))}
           <button
             type="button"
-            disabled
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-400 cursor-default"
+            disabled={templateApplying}
+            onClick={() => {
+              setInitialStamps(0)
+              setGoalGradient(true)
+              setSurpriseEnabled(false)
+              setSurpriseProbability(0.2)
+              setSurpriseRewardValue(1)
+              setWheelEnabled(false)
+              setWheelCostPoints(10)
+              setWheelPrizes([])
+            }}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-xl text-sm font-medium text-gray-700 hover:text-indigo-700 transition-all disabled:opacity-50"
           >
             <span className="text-lg">⚙️</span>
             Personnalisé

@@ -13,17 +13,18 @@ interface Business {
 
 interface JoinFormProps {
   business: Business
+  initialReferralCode?: string
 }
 
 type Step = 'form' | 'otp'
 
-export default function JoinForm({ business }: JoinFormProps) {
+export default function JoinForm({ business, initialReferralCode }: JoinFormProps) {
   const router = useRouter()
   const [step, setStep] = useState<Step>('form')
   const [firstName, setFirstName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
-  const [referralCode, setReferralCode] = useState('')
+  const [referralCode, setReferralCode] = useState(initialReferralCode ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 

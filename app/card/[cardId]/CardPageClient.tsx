@@ -945,7 +945,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                                   <button
                                     onClick={() => {
                                       const joinUrl = business.short_code
-                                        ? `${window.location.origin}/join/${business.short_code}`
+                                        ? `${window.location.origin}/join/${business.short_code}?ref=${referralCode}`
                                         : window.location.origin
                                       navigator.share({
                                         title: `Rejoins ${business.business_name}`,
@@ -1008,7 +1008,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                       <button
                         onClick={() => {
                           const joinUrl = business.short_code
-                            ? `${window.location.origin}/join/${business.short_code}`
+                            ? `${window.location.origin}/join/${business.short_code}?ref=${referralCode}`
                             : window.location.origin
                           navigator.share({
                             title: `Rejoins ${business.business_name}`,

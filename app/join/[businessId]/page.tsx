@@ -4,17 +4,32 @@ import JoinForm from './JoinForm'
 
 interface PageProps {
   params: Promise<{ businessId: string }>
+  searchParams: Promise<{ ref?: string }>
 }
 
-export default async function JoinPage({ params }: PageProps) {
+export default async function JoinPage({ params, searchParams }: PageProps) {
   const { businessId } = await params
+  const { ref: referralCode } = await searchParams
   const supabase = createServiceClient()
 
-  const { data: business } = await supabase
+  // Try by ID first, then by short_code
+  let business
+  const { data: byId } = await supabase
     .from('businesses')
     .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro')
     .eq('id', businessId)
     .single()
+
+  if (byId) {
+    business = byId
+  } else {
+    const { data: byShortCode } = await supabase
+      .from('businesses')
+      .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro')
+      .eq('short_code', businessId)
+      .single()
+    business = byShortCode
+  }
 
   if (!business) notFound()
 
@@ -39,7 +54,7 @@ export default async function JoinPage({ params }: PageProps) {
           </p>
         </div>
 
-        <JoinForm business={business} />
+        <JoinForm business={business} initialReferralCode={referralCode} />
       </div>
     </div>
   )

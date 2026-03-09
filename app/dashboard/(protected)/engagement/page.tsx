@@ -686,7 +686,20 @@ export default function EngagementPage() {
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {wheelPrizes.map((prize, i) => (
+                      {/* Total chances indicator */}
+                      {(() => {
+                        const total = wheelPrizes.reduce((s, p) => s + p.probability, 0)
+                        return (
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${total === 100 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                            <span>{total === 100 ? '✓' : '⚠'}</span>
+                            <span>Total des chances : {total}{total !== 100 && ' (idéalement 100)'}</span>
+                          </div>
+                        )
+                      })()}
+                      {wheelPrizes.map((prize, i) => {
+                        const totalProb = wheelPrizes.reduce((s, p) => s + p.probability, 0)
+                        const pct = totalProb > 0 ? Math.round((prize.probability / totalProb) * 100) : 0
+                        return (
                         <div key={i} className="p-3 bg-gray-50 rounded-xl space-y-2">
                           <div className="flex items-center gap-2">
                             <input
@@ -717,15 +730,18 @@ export default function EngagementPage() {
                           <div className={`grid gap-2 ${prize.reward_type === 'custom_reward' ? 'grid-cols-2' : 'grid-cols-3'}`}>
                             <div>
                               <label className="block text-[10px] text-gray-400 mb-0.5">Chance</label>
-                              <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={prize.probability}
-                                onChange={(e) => updateWheelPrize(i, 'probability', Math.max(1, Number(e.target.value)))}
-                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                              <p className="text-[9px] text-gray-300 mt-0.5">Plus c&apos;est haut, plus ça sort</p>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={100}
+                                  value={prize.probability}
+                                  onChange={(e) => updateWheelPrize(i, 'probability', Math.max(1, Number(e.target.value)))}
+                                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <span className="text-xs font-semibold text-indigo-600 whitespace-nowrap">{pct}%</span>
+                              </div>
+                              <p className="text-[9px] text-gray-300 mt-0.5">{pct}% de probabilité</p>
                             </div>
                             <div>
                               <label className="block text-[10px] text-gray-400 mb-0.5">Type</label>
@@ -769,7 +785,7 @@ export default function EngagementPage() {
                             </div>
                           )}
                         </div>
-                      ))}
+                      )})}
                     </div>
                   )}
                 </div>

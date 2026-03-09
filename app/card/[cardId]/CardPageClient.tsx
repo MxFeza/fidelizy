@@ -5,7 +5,7 @@ import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@/lib/types'
 
-type Tab = 'card' | 'qrcode' | 'history'
+type Tab = 'card' | 'missions' | 'history'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -88,11 +88,10 @@ function CardTabIcon() {
   )
 }
 
-function QrTabIcon() {
+function MissionsTabIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
     </svg>
   )
 }
@@ -346,9 +345,11 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     setInstallEvent(null)
   }
 
+  const [showQrModal, setShowQrModal] = useState(false)
+
   const tabs = [
     { id: 'card' as Tab, label: 'Ma carte', icon: <CardTabIcon /> },
-    { id: 'qrcode' as Tab, label: 'QR Code', icon: <QrTabIcon /> },
+    { id: 'missions' as Tab, label: 'Missions', icon: <MissionsTabIcon /> },
     { id: 'history' as Tab, label: 'Historique', icon: <HistoryTabIcon /> },
   ]
 
@@ -496,190 +497,208 @@ export default function CardPageClient({ card, business, transactions, rewardTie
           {/* ── Ma carte ── */}
           {activeTab === 'card' && (
             <>
+              {/* QR Code compact */}
+              <div className="-mt-4 bg-white rounded-2xl shadow-sm p-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-gray-50 rounded-xl shrink-0">
+                    <QrCodeDisplay value={card.qr_code_id} size={80} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Mon QR code</p>
+                    <ShortCodeDisplay code={shortCode} />
+                    <button
+                      onClick={() => setShowQrModal(true)}
+                      className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
+                      style={{ borderColor: color, color }}
+                    >
+                      Agrandir
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Stamps card */}
               {business.loyalty_type === 'stamps' && (
-                <div className="-mt-4">
-                  <div
-                    className="bg-white rounded-2xl overflow-hidden"
-                    style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)' }}
-                  >
-                    <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-                    <div className="p-5 space-y-5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                            Carte à tampons
-                          </p>
-                          {stampsCount >= stampsRequired ? (
-                            <p className="text-sm font-bold text-green-700">🎉 Récompense débloquée !</p>
-                          ) : (
-                            <p className="text-sm text-gray-600">
-                              Encore{' '}
-                              <span className="font-bold" style={{ color }}>
-                                {stampsRequired - stampsCount} tampon
-                                {stampsRequired - stampsCount > 1 ? 's' : ''}
-                              </span>{' '}
-                              pour votre récompense
-                            </p>
-                          )}
-                        </div>
-                        <div
-                          className="w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shrink-0"
-                          style={{ backgroundColor: stampsCount >= stampsRequired ? '#16a34a' : color }}
-                        >
-                          <span className="text-lg font-black leading-none">{stampsCount}</span>
-                          <span className="text-[9px] font-semibold leading-none opacity-75">
-                            /{stampsRequired}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div
-                        className="grid gap-2.5"
-                        style={{ gridTemplateColumns: `repeat(${stampCols}, 1fr)` }}
-                      >
-                        {Array.from({ length: stampsRequired }).map((_, i) => {
-                          const filled = i < stampsCount
-                          return (
-                            <div
-                              key={i}
-                              className="aspect-square rounded-full flex items-center justify-center transition-all duration-200"
-                              style={
-                                filled
-                                  ? { backgroundColor: color, boxShadow: `0 2px 6px ${color}55` }
-                                  : { backgroundColor: '#f9fafb', border: '2px dashed #e5e7eb' }
-                              }
-                            >
-                              {filled ? (
-                                <svg
-                                  className="text-white"
-                                  style={{ width: '52%', height: '52%' }}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth={3}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : (
-                                <span className="text-xs text-gray-300 font-medium select-none">
-                                  {i + 1}
-                                </span>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      {business.stamps_reward && (
-                        <div
-                          className="text-sm font-semibold text-center py-2.5 px-4 rounded-xl"
-                          style={
-                            stampsCount >= stampsRequired
-                              ? {
-                                  backgroundColor: '#f0fdf4',
-                                  color: '#15803d',
-                                  border: '1px solid #bbf7d0',
-                                }
-                              : {
-                                  backgroundColor: `${color}12`,
-                                  color,
-                                  border: `1px solid ${color}28`,
-                                }
-                          }
-                        >
-                          {stampsCount >= stampsRequired ? '🎁 Récompense disponible : ' : '🎯 '}
-                          {business.stamps_reward}
-                        </div>
-                      )}
-
-                      {stampsCount >= stampsRequired && (
-                        <p className="text-center text-xs text-green-600 font-medium -mt-2">
-                          Présentez cette carte au commerçant pour en profiter
+                <div
+                  className="bg-white rounded-2xl overflow-hidden"
+                  style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)' }}
+                >
+                  <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
+                  <div className="p-5 space-y-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+                          Carte à tampons
                         </p>
-                      )}
+                        {stampsCount >= stampsRequired ? (
+                          <p className="text-sm font-bold text-green-700">🎉 Récompense débloquée !</p>
+                        ) : (
+                          <p className="text-sm text-gray-600">
+                            Encore{' '}
+                            <span className="font-bold" style={{ color }}>
+                              {stampsRequired - stampsCount} tampon
+                              {stampsRequired - stampsCount > 1 ? 's' : ''}
+                            </span>{' '}
+                            pour votre récompense
+                          </p>
+                        )}
+                      </div>
+                      <div
+                        className="w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shrink-0"
+                        style={{ backgroundColor: stampsCount >= stampsRequired ? '#16a34a' : color }}
+                      >
+                        <span className="text-lg font-black leading-none">{stampsCount}</span>
+                        <span className="text-[9px] font-semibold leading-none opacity-75">
+                          /{stampsRequired}
+                        </span>
+                      </div>
                     </div>
+
+                    <div
+                      className="grid gap-2.5"
+                      style={{ gridTemplateColumns: `repeat(${stampCols}, 1fr)` }}
+                    >
+                      {Array.from({ length: stampsRequired }).map((_, i) => {
+                        const filled = i < stampsCount
+                        return (
+                          <div
+                            key={i}
+                            className="aspect-square rounded-full flex items-center justify-center transition-all duration-200"
+                            style={
+                              filled
+                                ? { backgroundColor: color, boxShadow: `0 2px 6px ${color}55` }
+                                : { backgroundColor: '#f9fafb', border: '2px dashed #e5e7eb' }
+                            }
+                          >
+                            {filled ? (
+                              <svg
+                                className="text-white"
+                                style={{ width: '52%', height: '52%' }}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={3}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <span className="text-xs text-gray-300 font-medium select-none">
+                                {i + 1}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {business.stamps_reward && (
+                      <div
+                        className="text-sm font-semibold text-center py-2.5 px-4 rounded-xl"
+                        style={
+                          stampsCount >= stampsRequired
+                            ? {
+                                backgroundColor: '#f0fdf4',
+                                color: '#15803d',
+                                border: '1px solid #bbf7d0',
+                              }
+                            : {
+                                backgroundColor: `${color}12`,
+                                color,
+                                border: `1px solid ${color}28`,
+                              }
+                        }
+                      >
+                        {stampsCount >= stampsRequired ? '🎁 Récompense disponible : ' : '🎯 '}
+                        {business.stamps_reward}
+                      </div>
+                    )}
+
+                    {stampsCount >= stampsRequired && (
+                      <p className="text-center text-xs text-green-600 font-medium -mt-2">
+                        Présentez cette carte au commerçant pour en profiter
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Points card — Tier Chain */}
+              {/* Points card — Horizontal Tier Bar */}
               {business.loyalty_type === 'points' && (
-                <div className="-mt-4 bg-white rounded-2xl shadow-sm p-6 space-y-5">
+                <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
                   <div className="text-center">
                     <p className="text-4xl font-bold" style={{ color }}>
                       {pointsBalance}
                     </p>
                     <p className="text-gray-400 text-sm mt-1">points cumulés</p>
                   </div>
-                  {liveTiers.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                        Paliers de récompenses
-                      </p>
-                      <div className="relative pl-5">
-                        {/* Vertical line */}
-                        <div
-                          className="absolute left-[9px] top-1 bottom-1 w-0.5 rounded-full"
-                          style={{ backgroundColor: `${color}20` }}
-                        />
-                        {/* Progress fill */}
-                        {(() => {
-                          const maxPts = liveTiers[liveTiers.length - 1]?.points_required ?? 1
-                          const fill = Math.min(100, (pointsBalance / maxPts) * 100)
-                          return (
-                            <div
-                              className="absolute left-[9px] top-1 w-0.5 rounded-full transition-all duration-700"
-                              style={{ height: `${fill}%`, backgroundColor: color }}
-                            />
-                          )
-                        })()}
 
-                        {liveTiers.map((tier) => {
-                          const reached = pointsBalance >= tier.points_required
-                          return (
-                            <div key={tier.id} className="relative flex items-start gap-3 pb-5 last:pb-0">
-                              {/* Dot */}
+                  {liveTiers.length > 0 && (() => {
+                    const maxPts = liveTiers[liveTiers.length - 1]?.points_required ?? 1
+                    const progressPct = Math.min(100, (pointsBalance / maxPts) * 100)
+                    const nextTier = liveTiers.find((t) => t.points_required > pointsBalance)
+                    const remaining = nextTier ? nextTier.points_required - pointsBalance : 0
+
+                    return (
+                      <div className="space-y-3">
+                        {/* Horizontal progress bar */}
+                        <div className="relative pt-2 pb-8">
+                          {/* Track */}
+                          <div className="h-2 bg-gray-100 rounded-full relative">
+                            {/* Fill */}
+                            <div
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{ width: `${progressPct}%`, backgroundColor: color }}
+                            />
+                          </div>
+
+                          {/* Tier markers */}
+                          {liveTiers.map((tier) => {
+                            const pos = (tier.points_required / maxPts) * 100
+                            const reached = pointsBalance >= tier.points_required
+                            return (
                               <div
-                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 -ml-5 bg-white z-10"
-                                style={{
-                                  borderColor: reached ? '#16a34a' : `${color}40`,
-                                  backgroundColor: reached ? '#16a34a' : 'white',
-                                }}
+                                key={tier.id}
+                                className="absolute flex flex-col items-center"
+                                style={{ left: `${pos}%`, top: '-2px', transform: 'translateX(-50%)' }}
                               >
-                                {reached && (
-                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </div>
-                              {/* Content */}
-                              <div className="flex-1 min-w-0 -mt-0.5">
-                                <div className="flex items-center justify-between">
-                                  <p className={`text-sm font-semibold ${reached ? 'text-green-700' : 'text-gray-800'}`}>
-                                    {tier.reward_name}
-                                  </p>
-                                  <span className={`text-xs font-medium ${reached ? 'text-green-600' : 'text-gray-400'}`}>
-                                    {tier.points_required} pts
-                                  </span>
+                                <div
+                                  className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] bg-white z-10"
+                                  style={{
+                                    borderColor: reached ? '#16a34a' : '#d1d5db',
+                                    backgroundColor: reached ? '#16a34a' : 'white',
+                                    color: reached ? 'white' : '#9ca3af',
+                                  }}
+                                >
+                                  {reached ? '✓' : '🔒'}
                                 </div>
-                                {!reached && (
-                                  <p className="text-xs text-gray-400 mt-0.5">
-                                    Encore {tier.points_required - pointsBalance} point{tier.points_required - pointsBalance > 1 ? 's' : ''}
-                                  </p>
-                                )}
-                                {reached && (
-                                  <p className="text-xs text-green-600 mt-0.5">Disponible !</p>
-                                )}
+                                <span className="text-[10px] font-semibold mt-1 whitespace-nowrap" style={{ color: reached ? '#16a34a' : '#9ca3af' }}>
+                                  {tier.points_required}
+                                </span>
+                                <span className="text-[9px] text-gray-400 mt-0.5 max-w-[60px] truncate text-center" title={tier.reward_name}>
+                                  {tier.reward_name}
+                                </span>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
+
+                        {/* Next tier text */}
+                        {nextTier && (
+                          <p className="text-center text-xs text-gray-500">
+                            Plus que <span className="font-bold" style={{ color }}>{remaining} point{remaining > 1 ? 's' : ''}</span> pour{' '}
+                            <span className="font-semibold">{nextTier.reward_name}</span>
+                          </p>
+                        )}
+                        {!nextTier && liveTiers.length > 0 && (
+                          <p className="text-center text-xs text-green-600 font-medium">
+                            Tous les paliers atteints !
+                          </p>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    )
+                  })()}
 
                   {/* Wheel button */}
                   {wheelStatus?.enabled && (
@@ -719,29 +738,31 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                     title="Disponible sur iOS uniquement"
                     className="w-full flex items-center justify-center gap-2.5 bg-gray-50 text-gray-400 font-medium py-3 px-4 rounded-xl cursor-not-allowed text-sm border border-gray-100"
                   >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V9M3 9V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v3"
-                      />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V9M3 9V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v3" />
                     </svg>
                     Wallet Apple — iOS uniquement
                   </button>
                 )}
               </div>
+            </>
+          )}
 
-              {/* Missions section */}
-              {!missionsLoading && missions.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>Missions</span>
+          {/* ── Missions ── */}
+          {activeTab === 'missions' && (
+            <>
+              {missionsLoading ? (
+                <div className="flex items-center justify-center py-12 -mt-4">
+                  <div className="w-7 h-7 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: color }} />
+                </div>
+              ) : missions.length === 0 ? (
+                <div className="-mt-4 bg-white rounded-2xl shadow-sm p-6 text-center">
+                  <p className="text-gray-400 text-sm">Aucune mission disponible pour le moment</p>
+                </div>
+              ) : (
+                <div className="-mt-4 bg-white rounded-2xl shadow-sm p-5 space-y-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Missions
                   </p>
 
                   <div className="space-y-3">
@@ -751,12 +772,10 @@ export default function CardPageClient({ card, business, transactions, rewardTie
 
                       return (
                         <div key={m.id} className="flex items-start gap-3">
-                          {/* Status icon */}
                           <span className="text-base mt-0.5 shrink-0">
                             {isCompleted ? '\u2705' : isPending ? '\u23F3' : m.template_key === 'monthly_visits' && m.progress ? '\u25D0' : '\u2610'}
                           </span>
 
-                          {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
                               <p className={`text-sm font-medium ${isCompleted ? 'text-green-700' : 'text-gray-800'}`}>
@@ -770,7 +789,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                               </span>
                             </div>
 
-                            {/* Progress bar for monthly visits */}
                             {m.template_key === 'monthly_visits' && m.progress && !isCompleted && (
                               <div className="mt-1.5">
                                 <div className="flex items-center gap-2">
@@ -790,7 +808,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                               </div>
                             )}
 
-                            {/* Actions */}
                             {m.template_key === 'google_review' && !isCompleted && !isPending && (
                               <div className="mt-2">
                                 {!showReviewForm ? (
@@ -808,7 +825,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                                       placeholder="Lien de votre avis Google"
                                       value={reviewUrl}
                                       onChange={(e) => setReviewUrl(e.target.value)}
-                                      className="flex-1 text-xs px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                      className="flex-1 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     />
                                     <button
                                       onClick={async () => {
@@ -864,14 +881,14 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                                       placeholder="Email"
                                       value={profileEmail}
                                       onChange={(e) => setProfileEmail(e.target.value)}
-                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     />
                                     <input
                                       type="date"
                                       placeholder="Date d'anniversaire"
                                       value={profileBirthday}
                                       onChange={(e) => setProfileBirthday(e.target.value)}
-                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     />
                                     <button
                                       onClick={async () => {
@@ -951,26 +968,58 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                   </div>
                 </div>
               )}
-            </>
-          )}
 
-          {/* ── QR Code ── */}
-          {activeTab === 'qrcode' && (
-            <>
-              <div className="bg-white rounded-2xl shadow-sm p-6 text-center -mt-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                  Mon QR code
-                </p>
-                <div className="flex justify-center">
-                  <div className="p-3 bg-gray-50 rounded-xl inline-block">
-                    <QrCodeDisplay value={card.qr_code_id} size={180} />
+              {/* Referral code section (always visible if code exists) */}
+              {referralCode && (
+                <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Mon code parrain
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex-1 text-center text-lg font-bold tracking-wider py-2 rounded-xl"
+                      style={{ backgroundColor: `${color}10`, color }}
+                    >
+                      {referralCode}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(referralCode).catch(() => {})
+                        setCodeCopied(true)
+                        setTimeout(() => setCodeCopied(false), 2000)
+                      }}
+                      className="shrink-0 p-2.5 rounded-xl border transition-colors"
+                      style={{ borderColor: color, color }}
+                    >
+                      {codeCopied ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                        </svg>
+                      )}
+                    </button>
+                    {typeof navigator !== 'undefined' && 'share' in navigator && (
+                      <button
+                        onClick={() => {
+                          navigator.share({
+                            title: `Rejoins ${business.business_name}`,
+                            text: `Utilise mon code parrain ${referralCode} pour gagner des points !`,
+                          }).catch(() => {})
+                        }}
+                        className="shrink-0 p-2.5 rounded-xl text-white"
+                        style={{ backgroundColor: color }}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-                  Présentez ce code au commerçant à chaque visite
-                </p>
-              </div>
-              <ShortCodeDisplay code={shortCode} />
+              )}
             </>
           )}
 
@@ -1024,6 +1073,38 @@ export default function CardPageClient({ card, business, transactions, rewardTie
           )}
         </div>
       </div>
+
+      {/* QR code fullscreen modal */}
+      {showQrModal && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 text-center max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              Mon QR code
+            </p>
+            <div className="flex justify-center">
+              <div className="p-4 bg-gray-50 rounded-xl inline-block">
+                <QrCodeDisplay value={card.qr_code_id} size={220} />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-4 leading-relaxed">
+              Présentez ce code au commerçant à chaque visite
+            </p>
+            <button
+              onClick={() => setShowQrModal(false)}
+              className="mt-4 text-sm font-semibold px-6 py-2.5 rounded-xl text-white"
+              style={{ backgroundColor: color }}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Wheel modal */}
       {showWheel && (

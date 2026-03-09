@@ -230,7 +230,6 @@ export async function generatePkpass(
     backgroundColor: `rgb(${r},${g},${b})`,
     foregroundColor: 'rgb(255,255,255)',
     labelColor: 'rgb(220,220,255)',
-    logoText: business.business_name,
     webServiceURL: `${BASE_URL}/api/wallet`,
     authenticationToken: generateAuthToken(qrCodeId),
     storeCard: isStamps

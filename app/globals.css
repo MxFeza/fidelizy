@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Force dark text in all form inputs (dashboard uses light backgrounds) */
+input, textarea, select {
+  color: #111827;
+}
+input::placeholder, textarea::placeholder {
+  color: #9ca3af;
+}

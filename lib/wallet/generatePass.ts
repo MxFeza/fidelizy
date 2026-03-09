@@ -226,7 +226,7 @@ export async function generatePkpass(
     serialNumber: qrCodeId,
     teamIdentifier: TEAM_ID,
     organizationName: business.business_name,
-    description: `Carte de fidélité ${business.business_name}`,
+    description: 'Carte de fidélité',
     backgroundColor: `rgb(${r},${g},${b})`,
     foregroundColor: 'rgb(255,255,255)',
     labelColor: 'rgb(220,220,255)',

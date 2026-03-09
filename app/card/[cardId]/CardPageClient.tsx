@@ -944,9 +944,12 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                                 {typeof navigator !== 'undefined' && 'share' in navigator && (
                                   <button
                                     onClick={() => {
+                                      const joinUrl = business.short_code
+                                        ? `${window.location.origin}/join/${business.short_code}`
+                                        : window.location.origin
                                       navigator.share({
                                         title: `Rejoins ${business.business_name}`,
-                                        text: `Utilise mon code parrain ${referralCode} pour gagner des points !`,
+                                        text: `Rejoins ${business.business_name} sur Izou et gagne des points ! 🎁\nUtilise mon code parrain ${referralCode} à l'inscription.\n👉 ${joinUrl}`,
                                       }).catch(() => {})
                                     }}
                                     className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
@@ -1004,9 +1007,12 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                     {typeof navigator !== 'undefined' && 'share' in navigator && (
                       <button
                         onClick={() => {
+                          const joinUrl = business.short_code
+                            ? `${window.location.origin}/join/${business.short_code}`
+                            : window.location.origin
                           navigator.share({
                             title: `Rejoins ${business.business_name}`,
-                            text: `Utilise mon code parrain ${referralCode} pour gagner des points !`,
+                            text: `Rejoins ${business.business_name} sur Izou et gagne des points ! 🎁\nUtilise mon code parrain ${referralCode} à l'inscription.\n👉 ${joinUrl}`,
                           }).catch(() => {})
                         }}
                         className="shrink-0 p-2.5 rounded-xl text-white"

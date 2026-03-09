@@ -1,8 +1,99 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Sparkles } from 'lucide-react'
+
+type BusinessTemplate = {
+  key: string
+  label: string
+  emoji: string
+  gamification: {
+    surprise_enabled: boolean
+    surprise_probability: number
+    surprise_reward_value: number
+    initial_stamps: number
+    goal_gradient_notification: boolean
+    wheel_enabled: boolean
+    wheel_cost_points?: number
+  }
+  wheel_prizes?: {
+    label: string
+    emoji: string
+    probability: number
+    reward_type: 'bonus_points' | 'custom_reward'
+    reward_value: number
+    reward_description: string
+  }[]
+  missions: {
+    google_review: { active: boolean; reward: number }
+    referral: { active: boolean; reward_referrer: number; reward_referred: number }
+    complete_profile: { active: boolean; reward: number }
+    monthly_visits: { active: boolean; reward: number; target: number }
+  }
+}
+
+const TEMPLATES: BusinessTemplate[] = [
+  {
+    key: 'cafe',
+    label: 'Café',
+    emoji: '☕',
+    gamification: {
+      surprise_enabled: true, surprise_probability: 0.15, surprise_reward_value: 1,
+      initial_stamps: 1, goal_gradient_notification: true, wheel_enabled: true, wheel_cost_points: 10,
+    },
+    wheel_prizes: [
+      { label: 'Point bonus', emoji: '🎯', probability: 35, reward_type: 'bonus_points', reward_value: 1, reward_description: '' },
+      { label: 'Café offert', emoji: '☕', probability: 30, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Un café offert' },
+      { label: 'Café + cookie', emoji: '🍪', probability: 20, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Café et cookie offerts' },
+      { label: 'Double points 7j', emoji: '⭐', probability: 10, reward_type: 'bonus_points', reward_value: 2, reward_description: '' },
+      { label: 'Surprise du chef', emoji: '💎', probability: 5, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Récompense premium au choix' },
+    ],
+    missions: {
+      google_review: { active: true, reward: 3 },
+      referral: { active: true, reward_referrer: 5, reward_referred: 2 },
+      complete_profile: { active: true, reward: 2 },
+      monthly_visits: { active: false, reward: 1, target: 5 },
+    },
+  },
+  {
+    key: 'restaurant',
+    label: 'Restaurant',
+    emoji: '🍽️',
+    gamification: {
+      surprise_enabled: true, surprise_probability: 0.10, surprise_reward_value: 2,
+      initial_stamps: 0, goal_gradient_notification: true, wheel_enabled: true, wheel_cost_points: 20,
+    },
+    wheel_prizes: [
+      { label: '2 points bonus', emoji: '🎯', probability: 35, reward_type: 'bonus_points', reward_value: 2, reward_description: '' },
+      { label: 'Dessert offert', emoji: '🍰', probability: 30, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Un dessert offert' },
+      { label: 'Entrée offerte', emoji: '🥗', probability: 20, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Une entrée offerte' },
+      { label: '-10% addition', emoji: '⭐', probability: 10, reward_type: 'custom_reward', reward_value: 0, reward_description: "10% de réduction sur l'addition" },
+      { label: 'Menu complet', emoji: '💎', probability: 5, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Un menu complet offert' },
+    ],
+    missions: {
+      google_review: { active: true, reward: 5 },
+      referral: { active: true, reward_referrer: 8, reward_referred: 3 },
+      complete_profile: { active: true, reward: 3 },
+      monthly_visits: { active: false, reward: 2, target: 4 },
+    },
+  },
+  {
+    key: 'boulangerie',
+    label: 'Boulangerie',
+    emoji: '🥐',
+    gamification: {
+      surprise_enabled: true, surprise_probability: 0.20, surprise_reward_value: 1,
+      initial_stamps: 2, goal_gradient_notification: true, wheel_enabled: false,
+    },
+    missions: {
+      google_review: { active: true, reward: 2 },
+      referral: { active: true, reward_referrer: 3, reward_referred: 1 },
+      complete_profile: { active: true, reward: 1 },
+      monthly_visits: { active: true, reward: 1, target: 8 },
+    },
+  },
+]
 
 type WheelPrizeDraft = {
   id?: string
@@ -59,6 +150,96 @@ export default function EngagementPage() {
   const [missionsSaved, setMissionsSaved] = useState(false)
   const [pendingValidations, setPendingValidations] = useState<PendingValidation[]>([])
   const [rewardTiers, setRewardTiers] = useState<{ reward_name: string; points_required: number }[]>([])
+
+  // Template state
+  const [templateApplying, setTemplateApplying] = useState(false)
+
+  const applyTemplate = useCallback(async (template: BusinessTemplate) => {
+    if (!confirm(`Appliquer le template ${template.label} ? Cela remplacera votre configuration actuelle.`)) return
+
+    setTemplateApplying(true)
+    try {
+      const g = template.gamification
+
+      // 1. Save gamification settings
+      await fetch('/api/dashboard/gamification', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initial_stamps: g.initial_stamps,
+          goal_gradient_notification: g.goal_gradient_notification,
+          surprise_enabled: g.surprise_enabled,
+          surprise_probability: g.surprise_probability,
+          surprise_reward_type: loyaltyType === 'stamps' ? 'bonus_stamp' : 'bonus_points',
+          surprise_reward_value: g.surprise_reward_value,
+          wheel_enabled: g.wheel_enabled,
+          wheel_cost_points: g.wheel_cost_points ?? 10,
+        }),
+      })
+
+      // Update local state
+      setInitialStamps(g.initial_stamps)
+      setGoalGradient(g.goal_gradient_notification)
+      setSurpriseEnabled(g.surprise_enabled)
+      setSurpriseProbability(g.surprise_probability)
+      setSurpriseRewardValue(g.surprise_reward_value)
+      setWheelEnabled(g.wheel_enabled)
+      setWheelCostPoints(g.wheel_cost_points ?? 10)
+
+      // 2. Save wheel prizes (if template has them and loyalty is points)
+      if (template.wheel_prizes && loyaltyType === 'points') {
+        // Delete existing prizes
+        const currentRes = await fetch('/api/dashboard/wheel-prizes')
+        const currentData = await currentRes.json()
+        const serverPrizes: { id: string }[] = currentData.prizes ?? []
+        for (const sp of serverPrizes) {
+          await fetch('/api/dashboard/wheel-prizes', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: sp.id }),
+          })
+        }
+
+        // Create new prizes
+        const newPrizes: WheelPrizeDraft[] = []
+        for (let i = 0; i < template.wheel_prizes.length; i++) {
+          const p = template.wheel_prizes[i]
+          const res = await fetch('/api/dashboard/wheel-prizes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              label: p.label,
+              emoji: p.emoji,
+              probability: p.probability,
+              reward_type: p.reward_type,
+              reward_value: p.reward_value,
+              reward_description: p.reward_description || null,
+              sort_order: i,
+            }),
+          })
+          const data = await res.json()
+          newPrizes.push({ ...p, id: data.prize?.id })
+        }
+        setWheelPrizes(newPrizes)
+      }
+
+      // 3. Save missions
+      const m = template.missions
+      const newMissions: MissionDraft[] = [
+        { id: null, template_key: 'google_review', reward_points: m.google_review.reward, is_active: m.google_review.active, config: {} },
+        { id: null, template_key: 'referral', reward_points: m.referral.reward_referrer, is_active: m.referral.active, config: { referred_bonus: m.referral.reward_referred } },
+        { id: null, template_key: 'complete_profile', reward_points: m.complete_profile.reward, is_active: m.complete_profile.active, config: {} },
+        { id: null, template_key: 'monthly_visits', reward_points: m.monthly_visits.reward, is_active: m.monthly_visits.active, config: { target: m.monthly_visits.target } },
+      ]
+      await fetch('/api/dashboard/missions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missions: newMissions }),
+      })
+      setMissionsList(newMissions)
+    } catch { /* ignore */ }
+    setTemplateApplying(false)
+  }, [loyaltyType])
 
   useEffect(() => {
     async function load() {
@@ -295,6 +476,39 @@ export default function EngagementPage() {
         </div>
         <p className="text-gray-400 text-sm">Augmentez l&apos;engagement et la fidélité de vos clients</p>
       </div>
+
+      {/* Template selector */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+        <p className="text-sm font-medium text-gray-700 mb-3">Configurez rapidement votre engagement client :</p>
+        <div className="flex flex-wrap gap-2">
+          {TEMPLATES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => applyTemplate(t)}
+              disabled={templateApplying}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-xl text-sm font-medium text-gray-700 hover:text-indigo-700 transition-all disabled:opacity-50"
+            >
+              <span className="text-lg">{t.emoji}</span>
+              {t.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-400 cursor-default"
+          >
+            <span className="text-lg">⚙️</span>
+            Personnalisé
+          </button>
+        </div>
+        {templateApplying && (
+          <p className="text-xs text-indigo-600 mt-2 flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin inline-block" />
+            Application du template...
+          </p>
+        )}
+      </section>
 
       <div className="space-y-6">
         {/* Surprises au scan */}

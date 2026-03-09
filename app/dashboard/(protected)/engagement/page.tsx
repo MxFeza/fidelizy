@@ -154,6 +154,14 @@ export default function EngagementPage() {
   // Template state
   const [templateApplying, setTemplateApplying] = useState(false)
 
+  // Stats state
+  const [stats, setStats] = useState<{
+    surprises_month: number
+    wheel_spins_month: number
+    missions_completed_month: number
+    referrals_total: number
+  } | null>(null)
+
   const applyTemplate = useCallback(async (template: BusinessTemplate) => {
     if (!confirm(`Appliquer le template ${template.label} ? Cela remplacera votre configuration actuelle.`)) return
 
@@ -256,12 +264,13 @@ export default function EngagementPage() {
         setLoyaltyType(biz.loyalty_type || 'stamps')
       }
 
-      const [gamifRes, prizesRes, missionsRes, pendingRes, tiersRes] = await Promise.all([
+      const [gamifRes, prizesRes, missionsRes, pendingRes, tiersRes, statsRes] = await Promise.all([
         fetch('/api/dashboard/gamification').then((r) => r.json()).catch(() => null),
         fetch('/api/dashboard/wheel-prizes').then((r) => r.json()).catch(() => null),
         fetch('/api/dashboard/missions').then((r) => r.json()).catch(() => null),
         fetch('/api/dashboard/missions/pending').then((r) => r.json()).catch(() => null),
         supabase.from('reward_tiers').select('reward_name, points_required').eq('business_id', user.id).order('sort_order'),
+        fetch('/api/dashboard/engagement-stats').then((r) => r.json()).catch(() => null),
       ])
 
       if (gamifRes && !gamifRes.error) {
@@ -298,6 +307,10 @@ export default function EngagementPage() {
 
       if (tiersRes?.data) {
         setRewardTiers(tiersRes.data)
+      }
+
+      if (statsRes && !statsRes.error) {
+        setStats(statsRes)
       }
 
       setLoading(false)
@@ -1089,6 +1102,50 @@ export default function EngagementPage() {
             </span>
           )}
         </div>
+
+        {/* Engagement stats */}
+        {stats && (
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Statistiques d&apos;engagement</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Aperçu de l&apos;activité gamification</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 bg-amber-50 rounded-xl">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🎁</span>
+                  <span className="text-2xl font-bold text-gray-900">{stats.surprises_month}</span>
+                </div>
+                <p className="text-xs text-gray-500">Surprises déclenchées <span className="text-gray-400">(ce mois)</span></p>
+              </div>
+
+              <div className="p-4 bg-purple-50 rounded-xl">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🎡</span>
+                  <span className="text-2xl font-bold text-gray-900">{stats.wheel_spins_month}</span>
+                </div>
+                <p className="text-xs text-gray-500">Tours de roue joués <span className="text-gray-400">(ce mois)</span></p>
+              </div>
+
+              <div className="p-4 bg-green-50 rounded-xl">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🎯</span>
+                  <span className="text-2xl font-bold text-gray-900">{stats.missions_completed_month}</span>
+                </div>
+                <p className="text-xs text-gray-500">Missions complétées <span className="text-gray-400">(ce mois)</span></p>
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-xl">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🤝</span>
+                  <span className="text-2xl font-bold text-gray-900">{stats.referrals_total}</span>
+                </div>
+                <p className="text-xs text-gray-500">Parrainages réussis <span className="text-gray-400">(total)</span></p>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

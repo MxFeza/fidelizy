@@ -93,8 +93,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       })
 
       sendPushToCard(card.id, {
-        title: 'Objectif atteint !',
-        body: `Objectif du mois atteint ! +${mission.reward_points} point${mission.reward_points > 1 ? 's' : ''} 🏆`,
+        title: 'Izou',
+        body: `Objectif atteint ! +${mission.reward_points} point${mission.reward_points > 1 ? 's' : ''} 🏆`,
       }).catch(() => {})
 
       // Update wallet

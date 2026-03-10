@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
         await webpush.sendNotification(
           row.subscription as unknown as webpush.PushSubscription,
           JSON.stringify({
-            title,
-            body,
+            title: 'Izou',
+            body: `${title} — ${body}`,
             icon: '/icon-192.png',
             url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
           }),

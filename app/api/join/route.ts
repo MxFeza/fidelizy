@@ -203,8 +203,8 @@ export async function POST(request: NextRequest) {
 
           // Push notification to referrer
           sendPushToCard(referrerCard.id, {
-            title: 'Parrainage réussi !',
-            body: `Votre ami ${firstName} vous a rapporté ${referrerPoints} points ! 🤝`,
+            title: 'Izou',
+            body: `Parrainage réussi ! Votre ami ${firstName} vous a rapporté ${referrerPoints} points ! 🤝`,
           }).catch(() => {})
 
           // Wallet update for referrer
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
 
           // Push notification to referred (filleul)
           sendPushToCard(newCard.id, {
-            title: 'Bienvenue !',
+            title: 'Izou',
             body: `Bienvenue ! ${referredPoints} points offerts grâce au parrainage 🎁`,
           }).catch(() => {})
 

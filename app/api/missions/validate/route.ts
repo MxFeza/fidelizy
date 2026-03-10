@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
     })
 
     sendPushToCard(card.id, {
-      title: 'Avis validé !',
-      body: `Votre avis a été validé ! +${completion.points_awarded} points ⭐`,
+      title: 'Izou',
+      body: `Avis validé ! +${completion.points_awarded} points ⭐`,
     }).catch(() => {})
 
     // Update wallet

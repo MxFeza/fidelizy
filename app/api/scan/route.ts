@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
           surprise = { triggered: true, message: surpriseMsg }
 
           sendPushToCard(card.id, {
-            title: 'Fidélité',
+            title: 'Izou',
             body: surpriseMsg,
             url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
           }).catch((err) => console.error('Surprise push error:', err))
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       if (isComplete) {
         setPendingWalletAction(card.qr_code_id, 'add', 0)
         sendPushToCard(card.id, {
-          title: 'Fidélité',
+          title: 'Izou',
           body: '🎉 Récompense débloquée ! Montre ta carte au comptoir.',
           url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
         }).catch((err) => console.error('Reward push error:', err))
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
         // — Goal gradient notification (stamps) —
         if (remaining === 1 && gamification.goal_gradient_notification !== false) {
           sendPushToCard(card.id, {
-            title: 'Fidélité',
+            title: 'Izou',
             body: 'Plus qu\'un passage et votre récompense est à vous ! 🎁',
             url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
           }).catch((err) => console.error('Goal gradient push error:', err))
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
           surprise = { triggered: true, message: surpriseMsg }
 
           sendPushToCard(card.id, {
-            title: 'Fidélité',
+            title: 'Izou',
             body: surpriseMsg,
             url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
           }).catch((err) => console.error('Surprise push error:', err))
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
 
       if (reachedTiers && reachedTiers.length > 0) {
         sendPushToCard(card.id, {
-          title: 'Fidélité',
+          title: 'Izou',
           body: '🎉 Récompense débloquée ! Montre ta carte au comptoir.',
           url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
         }).catch((err) => console.error('Reward push error:', err))
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
           const distance = nextTier[0].points_required - newPoints
           if (distance <= 2) {
             sendPushToCard(card.id, {
-              title: 'Fidélité',
+              title: 'Izou',
               body: `Plus que ${distance} point${distance > 1 ? 's' : ''} et votre récompense est à vous ! 🎁`,
               url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
             }).catch((err) => console.error('Goal gradient push error:', err))

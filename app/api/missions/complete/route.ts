@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       })
 
       sendPushToCard(cardId, {
-        title: 'Mission accomplie !',
+        title: 'Izou',
         body: `Mission accomplie ! +${mission.reward_points} points 🎯`,
       }).catch(() => {})
 

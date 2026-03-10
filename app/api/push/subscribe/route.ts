@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     sendPushToCard(card.id, {
-      title: 'Bienvenue ! 🎉',
-      body: `Votre carte de fidélité ${biz?.business_name || ''} est prête.`,
+      title: 'Izou',
+      body: `Bienvenue ! 🎉 Votre carte de fidélité ${biz?.business_name || ''} est prête.`,
       url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
     }).catch((err) => console.error('Welcome push error:', err))
   }

@@ -96,6 +96,12 @@ export const profileUpdateLimiter = new Ratelimit({
   prefix: 'rl:profile-update',
 })
 
+export const merchantOtpLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, '600 s'),
+  prefix: 'rl:merchant-otp',
+})
+
 export function getIP(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0].trim()

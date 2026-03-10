@@ -3,34 +3,120 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import OTPInput from '@/app/components/OTPInput'
+
+type Step = 'credentials' | 'otp'
 
 export default function LoginPage() {
   const router = useRouter()
+  const [step, setStep] = useState<Step>('credentials')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleCredentials(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    const supabase = createClient()
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const res = await fetch('/api/auth/merchant-send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      })
 
-    if (signInError) {
-      setError('Email ou mot de passe incorrect.')
-      setLoading(false)
-      return
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Erreur de connexion.')
+        setLoading(false)
+        return
+      }
+
+      if (data.status === 'otp_sent') {
+        setStep('otp')
+      }
+    } catch {
+      setError('Erreur réseau. Réessayez.')
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    setLoading(false)
+  }
+
+  async function handleOTP(code: string) {
+    setLoading(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/auth/merchant-verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), token: code }),
+      })
+
+      const data = await res.json()
+
+      if (data.status === 'invalid') {
+        setError('Code invalide. Veuillez réessayer.')
+        setLoading(false)
+        return
+      }
+
+      if (data.status === 'verified') {
+        router.push('/dashboard')
+        router.refresh()
+        return
+      }
+
+      setError('Erreur de vérification.')
+    } catch {
+      setError('Erreur réseau. Réessayez.')
+    }
+
+    setLoading(false)
+  }
+
+  if (step === 'otp') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Vérification</h1>
+            <p className="text-gray-500 mt-1">
+              Entrez le code reçu à {email.trim().toLowerCase()}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-5">
+            <OTPInput onComplete={handleOTP} disabled={loading} />
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm text-center">
+                {error}
+              </div>
+            )}
+
+            {loading && (
+              <p className="text-indigo-600 text-sm font-medium text-center">Vérification…</p>
+            )}
+
+            <button
+              onClick={() => { setStep('credentials'); setError('') }}
+              className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Retour à la connexion
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -47,7 +133,7 @@ export default function LoginPage() {
           <p className="text-gray-500 mt-1">Accédez à votre espace commerçant</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-5">
+        <form onSubmit={handleCredentials} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
@@ -86,13 +172,13 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors text-sm"
           >
-            {loading ? 'Connexion...' : 'Se connecter'}
+            {loading ? 'Vérification...' : 'Se connecter'}
           </button>
 
           <p className="text-center text-sm text-gray-500">
             Pas encore de compte ?{' '}
             <Link href="/dashboard/register" className="text-indigo-600 font-medium hover:underline">
-              S'inscrire
+              S&apos;inscrire
             </Link>
           </p>
         </form>

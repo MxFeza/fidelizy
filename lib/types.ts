@@ -35,6 +35,7 @@ export interface LoyaltyCard {
   last_visit_at: string | null
   qr_code_id: string
   is_active: boolean
+  points_multiplier: number
   created_at: string
 }
 

@@ -21,7 +21,7 @@ type BusinessTemplate = {
     label: string
     emoji: string
     probability: number
-    reward_type: 'bonus_points' | 'custom_reward'
+    reward_type: 'bonus_points' | 'custom_reward' | 'double_points'
     reward_value: number
     reward_description: string
   }[]
@@ -46,7 +46,7 @@ const TEMPLATES: BusinessTemplate[] = [
       { label: 'Point bonus', emoji: '🎯', probability: 35, reward_type: 'bonus_points', reward_value: 1, reward_description: '' },
       { label: 'Café offert', emoji: '☕', probability: 30, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Un café offert' },
       { label: 'Café + cookie', emoji: '🍪', probability: 20, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Café et cookie offerts' },
-      { label: 'Double points 7j', emoji: '⭐', probability: 10, reward_type: 'bonus_points', reward_value: 2, reward_description: '' },
+      { label: 'Double points (prochain scan)', emoji: '⭐', probability: 10, reward_type: 'double_points', reward_value: 2, reward_description: 'Votre prochain scan rapporte le double !' },
       { label: 'Surprise du chef', emoji: '💎', probability: 5, reward_type: 'custom_reward', reward_value: 0, reward_description: 'Récompense premium au choix' },
     ],
     missions: {
@@ -100,7 +100,7 @@ type WheelPrizeDraft = {
   label: string
   emoji: string
   probability: number
-  reward_type: 'bonus_stamps' | 'bonus_points' | 'custom_reward'
+  reward_type: 'bonus_stamps' | 'bonus_points' | 'custom_reward' | 'double_points'
   reward_value: number
   reward_description: string
 }
@@ -737,7 +737,7 @@ export default function EngagementPage() {
                               </svg>
                             </button>
                           </div>
-                          <div className={`grid gap-2 ${prize.reward_type === 'custom_reward' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                          <div className={`grid gap-2 ${prize.reward_type === 'custom_reward' || prize.reward_type === 'double_points' ? 'grid-cols-2' : 'grid-cols-3'}`}>
                             <div>
                               <label className="block text-[10px] text-gray-400 mb-0.5">Chance</label>
                               <div className="flex items-center gap-1.5">
@@ -762,10 +762,11 @@ export default function EngagementPage() {
                               >
                                 <option value="bonus_points">Points bonus</option>
                                 <option value="bonus_stamps">Tampons bonus</option>
+                                <option value="double_points">Double points (prochain scan)</option>
                                 <option value="custom_reward">Récompense spéciale</option>
                               </select>
                             </div>
-                            {prize.reward_type !== 'custom_reward' && (
+                            {prize.reward_type !== 'custom_reward' && prize.reward_type !== 'double_points' && (
                               <div>
                                 <label className="block text-[10px] text-gray-400 mb-0.5">
                                   {prize.reward_type === 'bonus_points' ? 'Points bonus' : 'Tampons bonus'}

@@ -82,20 +82,31 @@ export async function POST(request: NextRequest) {
     // Apply reward
     let bonusPoints = 0
     let bonusStamps = 0
-    if (winner.reward_type === 'bonus_points') {
+    let multiplierApplied = false
+
+    if (winner.reward_type === 'double_points') {
+      // Store x2 multiplier on card — applied on next scan, no immediate points
+      await supabase
+        .from('loyalty_cards')
+        .update({ current_points: newPoints, points_multiplier: 2 })
+        .eq('id', card.id)
+      multiplierApplied = true
+    } else if (winner.reward_type === 'bonus_points') {
       bonusPoints = winner.reward_value ?? 0
     } else if (winner.reward_type === 'bonus_stamps') {
       bonusStamps = winner.reward_value ?? 0
     }
 
-    const updateData: Record<string, number> = {
-      current_points: newPoints + bonusPoints,
-    }
+    if (!multiplierApplied) {
+      const updateData: Record<string, number> = {
+        current_points: newPoints + bonusPoints,
+      }
 
-    await supabase
-      .from('loyalty_cards')
-      .update(updateData)
-      .eq('id', card.id)
+      await supabase
+        .from('loyalty_cards')
+        .update(updateData)
+        .eq('id', card.id)
+    }
 
     // If bonus_stamps, add stamps separately (for stamp-based cards — rare edge case)
     if (bonusStamps > 0) {
@@ -122,11 +133,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Log transaction
-    const rewardDesc = winner.reward_type === 'bonus_points'
-      ? `+${bonusPoints} point${bonusPoints > 1 ? 's' : ''}`
-      : winner.reward_type === 'bonus_stamps'
-        ? `+${bonusStamps} tampon${bonusStamps > 1 ? 's' : ''}`
-        : winner.reward_description || winner.label
+    const rewardDesc = winner.reward_type === 'double_points'
+      ? 'Double points (prochain scan)'
+      : winner.reward_type === 'bonus_points'
+        ? `+${bonusPoints} point${bonusPoints > 1 ? 's' : ''}`
+        : winner.reward_type === 'bonus_stamps'
+          ? `+${bonusStamps} tampon${bonusStamps > 1 ? 's' : ''}`
+          : winner.reward_description || winner.label
 
     await supabase.from('transactions').insert({
       loyalty_card_id: card.id,
@@ -138,9 +151,12 @@ export async function POST(request: NextRequest) {
     })
 
     // Push notification
+    const pushBody = winner.reward_type === 'double_points'
+      ? 'Votre prochain scan vous rapportera le double de points ! 🎯'
+      : `🎡 Vous avez gagné : ${winner.label} !`
     sendPushToCard(card.id, {
       title: 'Izou',
-      body: `🎡 Vous avez gagné : ${winner.label} !`,
+      body: pushBody,
       url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
     }).catch((err) => console.error('Wheel push error:', err))
 
@@ -161,10 +177,12 @@ export async function POST(request: NextRequest) {
         emoji: winner.emoji,
         reward_type: winner.reward_type,
         reward_value: winner.reward_value,
-        reward_description: winner.reward_description,
+        reward_description: winner.reward_type === 'double_points'
+          ? 'Votre prochain scan vous rapportera le double de points ! 🎯'
+          : winner.reward_description,
       },
       winner_index: winnerIndex,
-      new_points: newPoints + bonusPoints,
+      new_points: multiplierApplied ? newPoints : newPoints + bonusPoints,
     })
   } catch {
     return NextResponse.json({ error: 'Erreur serveur inattendue' }, { status: 500 })

@@ -1,0 +1,2 @@
+ALTER TABLE loyalty_cards
+ADD COLUMN IF NOT EXISTS points_multiplier INTEGER NOT NULL DEFAULT 1;

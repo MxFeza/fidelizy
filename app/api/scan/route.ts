@@ -181,7 +181,9 @@ export async function POST(request: NextRequest) {
         console.error('Wallet push error (stamps):', err)
       )
     } else {
-      const pointsToAdd = business.points_per_euro ?? 1
+      const basePoints = business.points_per_euro ?? 1
+      const multiplier = card.points_multiplier ?? 1
+      const pointsToAdd = basePoints * multiplier
       let newPoints = (card.current_points ?? 0) + pointsToAdd
       const previousPoints = card.current_points ?? 0
 
@@ -215,29 +217,46 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const updatePayload: Record<string, unknown> = {
+        current_points: newPoints,
+        total_visits: (card.total_visits ?? 0) + 1,
+        last_visit_at: new Date().toISOString(),
+      }
+      // Consume multiplier after use
+      if (multiplier > 1) {
+        updatePayload.points_multiplier = 1
+      }
+
       const { data } = await supabase
         .from('loyalty_cards')
-        .update({
-          current_points: newPoints,
-          total_visits: (card.total_visits ?? 0) + 1,
-          last_visit_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', card.id)
         .select()
         .single()
 
       updatedCard = data
 
+      const bonusNote = multiplier > 1 ? ` (x${multiplier} bonus appliqué !)` : ''
       await supabase.from('transactions').insert({
         loyalty_card_id: card.id,
         business_id: business.id,
         type: 'earn',
         stamps_added: null,
         points_added: pointsToAdd,
-        description: `${pointsToAdd} points ajoutés`,
+        description: `${pointsToAdd} points ajoutés${bonusNote}`,
       })
 
       message = `+${pointsToAdd} pts pour ${card.customers?.first_name} ! Total : ${newPoints} pts`
+      if (multiplier > 1) {
+        message += ` (bonus x${multiplier} appliqué !)`
+
+        // Notify about multiplier applied
+        sendPushToCard(card.id, {
+          title: 'Izou',
+          body: `Bonus x${multiplier} appliqué ! +${pointsToAdd} points au lieu de ${basePoints} 🎯`,
+          url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+        }).catch((err) => console.error('Multiplier push error:', err))
+      }
 
       // Check if a reward tier threshold was just reached
       const { data: reachedTiers } = await supabase

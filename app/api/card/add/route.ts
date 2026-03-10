@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     const { data: card } = await supabase
       .from('loyalty_cards')
-      .select('id, current_stamps, current_points, total_visits, business_id, qr_code_id')
+      .select('id, current_stamps, current_points, total_visits, business_id, qr_code_id, points_multiplier')
       .eq('id', card_id)
       .eq('business_id', business.id)
       .single()
@@ -164,8 +164,10 @@ export async function POST(request: NextRequest) {
         ...(surprise.triggered && { surprise }),
       })
     } else {
+      const multiplier = card.points_multiplier ?? 1
+      const effectiveAmount = amount * multiplier
       const previousPoints = card.current_points ?? 0
-      let newPoints = previousPoints + amount
+      let newPoints = previousPoints + effectiveAmount
 
       // — Surprise bonus (points) —
       if (
@@ -197,25 +199,40 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const updatePayload: Record<string, unknown> = {
+        current_points: newPoints,
+        total_visits: (card.total_visits ?? 0) + 1,
+        last_visit_at: new Date().toISOString(),
+      }
+      if (multiplier > 1) {
+        updatePayload.points_multiplier = 1
+      }
+
       await supabase
         .from('loyalty_cards')
-        .update({
-          current_points: newPoints,
-          total_visits: (card.total_visits ?? 0) + 1,
-          last_visit_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', card.id)
 
+      const bonusNote = multiplier > 1 ? ` (x${multiplier} bonus appliqué !)` : ''
       await supabase.from('transactions').insert({
         loyalty_card_id: card.id,
         business_id: business.id,
         type: 'earn',
         stamps_added: null,
-        points_added: amount,
-        description: `${amount} point${amount > 1 ? 's' : ''} ajouté${amount > 1 ? 's' : ''}`,
+        points_added: effectiveAmount,
+        description: `${effectiveAmount} point${effectiveAmount > 1 ? 's' : ''} ajouté${effectiveAmount > 1 ? 's' : ''}${bonusNote}`,
       })
 
-      message = `+${amount} point${amount > 1 ? 's' : ''} (total : ${newPoints})`
+      message = `+${effectiveAmount} point${effectiveAmount > 1 ? 's' : ''} (total : ${newPoints})`
+      if (multiplier > 1) {
+        message += ` — bonus x${multiplier} appliqué !`
+
+        sendPushToCard(card.id, {
+          title: 'Izou',
+          body: `Bonus x${multiplier} appliqué ! +${effectiveAmount} points au lieu de ${amount} 🎯`,
+          url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+        }).catch((err) => console.error('Multiplier push error:', err))
+      }
 
       // Check if a reward tier threshold was just reached
       const { data: reachedTiers } = await supabase

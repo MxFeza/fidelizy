@@ -12,7 +12,7 @@ export default function HomePage() {
   const [code, setCode] = useState('')
   const [businessId, setBusinessId] = useState('')
   const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
+  const [inputEmail, setInputEmail] = useState('')
   const [maskedEmail, setMaskedEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -79,7 +79,6 @@ export default function HomePage() {
     }
 
     if (data.status === 'otp_sent') {
-      setEmail(data.email)
       setMaskedEmail(data.maskedEmail)
       setStep('otp')
       setLoading(false)
@@ -89,7 +88,7 @@ export default function HomePage() {
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = email.trim()
+    const trimmed = inputEmail.trim()
     if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setError('Veuillez entrer un email valide.')
       return
@@ -125,7 +124,7 @@ export default function HomePage() {
     const res = await fetch('/api/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim().toLowerCase(), token }),
+      body: JSON.stringify({ phone: phone.trim(), token }),
     })
 
     const data = await res.json()
@@ -245,9 +244,9 @@ export default function HomePage() {
               <div>
                 <input
                   type="email"
-                  value={email}
+                  value={inputEmail}
                   onChange={(e) => {
-                    setEmail(e.target.value)
+                    setInputEmail(e.target.value)
                     setError('')
                   }}
                   placeholder="votre@email.com"
@@ -261,7 +260,7 @@ export default function HomePage() {
 
               <button
                 type="submit"
-                disabled={loading || !email.trim()}
+                disabled={loading || !inputEmail.trim()}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-2xl transition-colors text-sm shadow-sm shadow-indigo-200"
               >
                 {loading ? 'Envoi…' : 'Recevoir le code →'}

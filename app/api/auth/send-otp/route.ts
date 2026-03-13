@@ -57,5 +57,5 @@ export async function POST(request: NextRequest) {
     : localPart[0] + '***' + localPart[localPart.length - 1]
   const maskedEmail = `${masked}@${domain}`
 
-  return NextResponse.json({ status: 'otp_sent', email: customer.email, maskedEmail })
+  return NextResponse.json({ status: 'otp_sent', maskedEmail })
 }

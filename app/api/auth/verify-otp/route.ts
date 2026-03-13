@@ -12,14 +12,28 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { email, token } = await request.json()
+  const { phone, token } = await request.json()
 
-  if (!email || typeof email !== 'string') {
-    return NextResponse.json({ error: 'Email manquant' }, { status: 400 })
+  if (!phone || typeof phone !== 'string' || phone.trim().length < 6) {
+    return NextResponse.json({ error: 'Téléphone manquant' }, { status: 400 })
   }
 
   if (!token || typeof token !== 'string' || token.length !== 6) {
     return NextResponse.json({ error: 'Code invalide' }, { status: 400 })
+  }
+
+  // Use service client for DB queries (bypass RLS)
+  const supabase = createServiceClient()
+
+  // Look up the customer's email via phone (server-side only)
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('id, email')
+    .eq('phone', phone.trim())
+    .maybeSingle()
+
+  if (!customer || !customer.email) {
+    return NextResponse.json({ status: 'invalid' })
   }
 
   // Use anon key client for Auth operations
@@ -28,31 +42,13 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  console.log('Tentative verifyOtp:', { email, tokenLength: token?.length })
-
-  const { data, error } = await supabaseAuth.auth.verifyOtp({
-    email,
+  const { error } = await supabaseAuth.auth.verifyOtp({
+    email: customer.email,
     token,
     type: 'email',
   })
 
-  console.log('Résultat verifyOtp:', { data: data?.user?.id, error: error?.message })
-
   if (error) {
-    return NextResponse.json({ status: 'invalid' })
-  }
-
-  // Use service client for DB queries (bypass RLS)
-  const supabase = createServiceClient()
-
-  // Find customer by email and return their cards
-  const { data: customer } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle()
-
-  if (!customer) {
     return NextResponse.json({ status: 'invalid' })
   }
 

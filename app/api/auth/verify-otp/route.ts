@@ -1,8 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
+import { otpLimiter, getIP } from '@/lib/ratelimit'
 
 export async function POST(request: NextRequest) {
+  const { success } = await otpLimiter.limit(getIP(request))
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Trop de tentatives. Réessayez dans quelques minutes.' },
+      { status: 429 }
+    )
+  }
+
   const { email, token } = await request.json()
 
   if (!email || typeof email !== 'string') {

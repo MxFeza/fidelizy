@@ -4,6 +4,7 @@ import { missionCompleteLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
 import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
+import { atomicIncrementPoints } from '@/lib/db/atomic'
 
 export async function POST(request: NextRequest) {
   const { cardId, templateKey, proofUrl } = await request.json()
@@ -104,12 +105,8 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
 
-      // Credit points immediately
-      const newPoints = card.current_points + mission.reward_points
-      await supabase
-        .from('loyalty_cards')
-        .update({ current_points: newPoints })
-        .eq('id', cardId)
+      // Credit points atomically
+      const newPoints = await atomicIncrementPoints(supabase, cardId, mission.reward_points)
 
       await supabase.from('mission_completions').insert({
         card_id: cardId,

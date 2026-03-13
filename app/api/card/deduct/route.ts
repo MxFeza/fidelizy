@@ -3,6 +3,7 @@ import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
+import { atomicIncrementPoints, atomicIncrementStamps } from '@/lib/db/atomic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,11 +59,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (type === 'stamps') {
-      const newStamps = Math.max(0, (card.current_stamps ?? 0) - amount)
-      await supabase
-        .from('loyalty_cards')
-        .update({ current_stamps: newStamps })
-        .eq('id', card.id)
+      // Atomic deduct (negative amount, GREATEST(0,...) in RPC prevents going below 0)
+      const newStamps = await atomicIncrementStamps(supabase, card.id, -amount)
 
       await supabase.from('transactions').insert({
         loyalty_card_id: card.id,
@@ -81,11 +79,8 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ success: true, new_value: newStamps })
     } else {
-      const newPoints = Math.max(0, (card.current_points ?? 0) - amount)
-      await supabase
-        .from('loyalty_cards')
-        .update({ current_points: newPoints })
-        .eq('id', card.id)
+      // Atomic deduct (negative amount, GREATEST(0,...) in RPC prevents going below 0)
+      const newPoints = await atomicIncrementPoints(supabase, card.id, -amount)
 
       await supabase.from('transactions').insert({
         loyalty_card_id: card.id,

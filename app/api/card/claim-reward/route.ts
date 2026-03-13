@@ -3,6 +3,7 @@ import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
+import { atomicDeductPointsSafe } from '@/lib/db/atomic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,19 +61,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Palier de récompense introuvable' }, { status: 404 })
     }
 
-    if ((card.current_points ?? 0) < tier.points_required) {
+    // Atomic deduct with balance check
+    const { success: deductOk, newBalance: newPoints } = await atomicDeductPointsSafe(
+      supabase, card.id, tier.points_required
+    )
+
+    if (!deductOk) {
       return NextResponse.json(
         { error: `Points insuffisants (${card.current_points ?? 0}/${tier.points_required})` },
         { status: 400 }
       )
     }
-
-    const newPoints = (card.current_points ?? 0) - tier.points_required
-
-    await supabase
-      .from('loyalty_cards')
-      .update({ current_points: newPoints })
-      .eq('id', card.id)
 
     await supabase.from('reward_claims').insert({
       loyalty_card_id: card.id,

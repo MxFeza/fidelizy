@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { profileUpdateLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
+import { atomicIncrementPoints } from '@/lib/db/atomic'
 
 export async function POST(request: NextRequest) {
   const { success } = await profileUpdateLimiter.limit(getIP(request))
@@ -82,12 +83,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       if (!existing) {
-        const newPoints = updatedCard.current_points + mission.reward_points
-
-        await supabase
-          .from('loyalty_cards')
-          .update({ current_points: newPoints })
-          .eq('id', cardId)
+        await atomicIncrementPoints(supabase, cardId, mission.reward_points)
 
         await supabase.from('mission_completions').insert({
           card_id: cardId,

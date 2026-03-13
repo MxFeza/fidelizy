@@ -4,6 +4,7 @@ import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { scanLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
+import { atomicIncrementPoints, atomicIncrementStamps } from '@/lib/db/atomic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,7 +85,9 @@ export async function POST(request: NextRequest) {
 
     if (business.loyalty_type === 'stamps') {
       const stampsRequired = business.stamps_required ?? 10
-      let newStamps = (card.current_stamps ?? 0) + 1
+
+      // Atomic stamp increment
+      let newStamps = await atomicIncrementStamps(supabase, card.id, 1)
       let isComplete = newStamps >= stampsRequired
 
       // — Surprise bonus (stamps) —
@@ -96,7 +99,7 @@ export async function POST(request: NextRequest) {
         const prob = gamification.surprise_probability ?? 0.2
         const bonusValue = gamification.surprise_reward_value ?? 1
         if (Math.random() < prob) {
-          newStamps += bonusValue
+          newStamps = await atomicIncrementStamps(supabase, card.id, bonusValue)
           isComplete = newStamps >= stampsRequired
 
           await supabase.from('transactions').insert({
@@ -119,15 +122,28 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const { data } = await supabase
+      // If complete, reset stamps to 0
+      if (isComplete) {
+        await supabase
+          .from('loyalty_cards')
+          .update({ current_stamps: 0 })
+          .eq('id', card.id)
+        newStamps = 0
+      }
+
+      // Update visits (non-critical, no race condition risk)
+      await supabase
         .from('loyalty_cards')
         .update({
-          current_stamps: isComplete ? 0 : newStamps,
           total_visits: (card.total_visits ?? 0) + 1,
           last_visit_at: new Date().toISOString(),
         })
         .eq('id', card.id)
+
+      const { data } = await supabase
+        .from('loyalty_cards')
         .select()
+        .eq('id', card.id)
         .single()
 
       updatedCard = data
@@ -184,8 +200,10 @@ export async function POST(request: NextRequest) {
       const basePoints = business.points_per_euro ?? 1
       const multiplier = card.points_multiplier ?? 1
       const pointsToAdd = basePoints * multiplier
-      let newPoints = (card.current_points ?? 0) + pointsToAdd
       const previousPoints = card.current_points ?? 0
+
+      // Atomic point increment
+      let newPoints = await atomicIncrementPoints(supabase, card.id, pointsToAdd)
 
       // — Surprise bonus (points) —
       if (
@@ -195,7 +213,7 @@ export async function POST(request: NextRequest) {
         const prob = gamification.surprise_probability ?? 0.2
         const bonusValue = gamification.surprise_reward_value ?? 1
         if (Math.random() < prob) {
-          newPoints += bonusValue
+          newPoints = await atomicIncrementPoints(supabase, card.id, bonusValue)
 
           await supabase.from('transactions').insert({
             loyalty_card_id: card.id,
@@ -217,21 +235,24 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const updatePayload: Record<string, unknown> = {
-        current_points: newPoints,
+      // Update visits and consume multiplier (non-critical fields)
+      const visitPayload: Record<string, unknown> = {
         total_visits: (card.total_visits ?? 0) + 1,
         last_visit_at: new Date().toISOString(),
       }
-      // Consume multiplier after use
       if (multiplier > 1) {
-        updatePayload.points_multiplier = 1
+        visitPayload.points_multiplier = 1
       }
+
+      await supabase
+        .from('loyalty_cards')
+        .update(visitPayload)
+        .eq('id', card.id)
 
       const { data } = await supabase
         .from('loyalty_cards')
-        .update(updatePayload)
-        .eq('id', card.id)
         .select()
+        .eq('id', card.id)
         .single()
 
       updatedCard = data

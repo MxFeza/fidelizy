@@ -4,6 +4,7 @@ import { wheelSpinLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
 import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
+import { atomicDeductPointsSafe, atomicIncrementPoints, atomicIncrementStamps } from '@/lib/db/atomic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,8 +77,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Deduct points
-    const newPoints = (card.current_points ?? 0) - cost
+    // Atomic deduct points for spin cost
+    const { success: deductOk, newBalance } = await atomicDeductPointsSafe(supabase, card.id, cost)
+
+    if (!deductOk) {
+      return NextResponse.json({ error: `Points insuffisants` }, { status: 400 })
+    }
+
+    let newPoints = newBalance
 
     // Apply reward
     let bonusPoints = 0
@@ -88,38 +95,18 @@ export async function POST(request: NextRequest) {
       // Store x2 multiplier on card — applied on next scan, no immediate points
       await supabase
         .from('loyalty_cards')
-        .update({ current_points: newPoints, points_multiplier: 2 })
+        .update({ points_multiplier: 2 })
         .eq('id', card.id)
       multiplierApplied = true
     } else if (winner.reward_type === 'bonus_points') {
       bonusPoints = winner.reward_value ?? 0
+      if (bonusPoints > 0) {
+        newPoints = await atomicIncrementPoints(supabase, card.id, bonusPoints)
+      }
     } else if (winner.reward_type === 'bonus_stamps') {
       bonusStamps = winner.reward_value ?? 0
-    }
-
-    if (!multiplierApplied) {
-      const updateData: Record<string, number> = {
-        current_points: newPoints + bonusPoints,
-      }
-
-      await supabase
-        .from('loyalty_cards')
-        .update(updateData)
-        .eq('id', card.id)
-    }
-
-    // If bonus_stamps, add stamps separately (for stamp-based cards — rare edge case)
-    if (bonusStamps > 0) {
-      const { data: freshCard } = await supabase
-        .from('loyalty_cards')
-        .select('current_stamps')
-        .eq('id', card.id)
-        .single()
-      if (freshCard) {
-        await supabase
-          .from('loyalty_cards')
-          .update({ current_stamps: (freshCard.current_stamps ?? 0) + bonusStamps })
-          .eq('id', card.id)
+      if (bonusStamps > 0) {
+        await atomicIncrementStamps(supabase, card.id, bonusStamps)
       }
     }
 

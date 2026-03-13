@@ -5,6 +5,7 @@ import { sendPushToCard } from '@/lib/push/sendPush'
 import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { atomicIncrementPoints } from '@/lib/db/atomic'
+import { verifyCardToken } from '@/lib/auth/cardToken'
 
 export async function POST(request: NextRequest) {
   const { cardId, templateKey, proofUrl } = await request.json()
@@ -30,6 +31,11 @@ export async function POST(request: NextRequest) {
 
   if (!card) {
     return NextResponse.json({ error: 'Carte introuvable' }, { status: 404 })
+  }
+
+  const token = request.headers.get('x-card-token')
+  if (!token || !verifyCardToken(token, card.qr_code_id)) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Get mission

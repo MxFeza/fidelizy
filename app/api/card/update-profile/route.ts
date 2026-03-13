@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { profileUpdateLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
 import { atomicIncrementPoints } from '@/lib/db/atomic'
+import { verifyCardToken } from '@/lib/auth/cardToken'
 
 export async function POST(request: NextRequest) {
   const { success } = await profileUpdateLimiter.limit(getIP(request))
@@ -21,12 +22,17 @@ export async function POST(request: NextRequest) {
   // Get card + customer
   const { data: card } = await supabase
     .from('loyalty_cards')
-    .select('id, business_id, current_points, birthday, customer_id, customers!inner(email)')
+    .select('id, business_id, current_points, birthday, customer_id, qr_code_id, customers!inner(email)')
     .eq('id', cardId)
     .single()
 
   if (!card) {
     return NextResponse.json({ error: 'Carte introuvable' }, { status: 404 })
+  }
+
+  const authToken = request.headers.get('x-card-token')
+  if (!authToken || !verifyCardToken(authToken, card.qr_code_id)) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Update email on customer if provided

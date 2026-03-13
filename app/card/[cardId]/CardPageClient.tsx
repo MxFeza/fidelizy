@@ -12,6 +12,7 @@ interface Props {
   business: Business
   transactions: Transaction[]
   rewardTiers: RewardTier[]
+  cardToken: string
 }
 
 function isIOS() {
@@ -113,7 +114,7 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray
 }
 
-export default function CardPageClient({ card, business, transactions, rewardTiers }: Props) {
+export default function CardPageClient({ card, business, transactions, rewardTiers, cardToken }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('card')
   const [installEvent, setInstallEvent] = useState<Event | null>(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
@@ -834,7 +835,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                                         try {
                                           const res = await fetch('/api/missions/complete', {
                                             method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
+                                            headers: { 'Content-Type': 'application/json', 'X-Card-Token': cardToken },
                                             body: JSON.stringify({ cardId: card.id, templateKey: 'google_review', proofUrl: reviewUrl }),
                                           })
                                           if (res.ok) {
@@ -896,7 +897,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                                         try {
                                           const res = await fetch('/api/card/update-profile', {
                                             method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
+                                            headers: { 'Content-Type': 'application/json', 'X-Card-Token': cardToken },
                                             body: JSON.stringify({
                                               cardId: card.id,
                                               email: profileEmail || undefined,
@@ -1119,6 +1120,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
           qrCodeId={card.qr_code_id}
           businessId={business.id}
           color={color}
+          cardToken={cardToken}
           onClose={() => setShowWheel(false)}
           onResult={(newPoints) => {
             setPointsBalance(newPoints)
@@ -1173,6 +1175,7 @@ interface WheelModalProps {
   qrCodeId: string
   businessId: string
   color: string
+  cardToken: string
   onClose: () => void
   onResult: (newPoints: number) => void
 }
@@ -1182,7 +1185,7 @@ const WHEEL_COLORS = [
   '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
 ]
 
-function WheelModal({ cardId, qrCodeId, businessId, color, onClose, onResult }: WheelModalProps) {
+function WheelModal({ cardId, qrCodeId, businessId, color, cardToken, onClose, onResult }: WheelModalProps) {
   const [segments, setSegments] = useState<WheelSegment[]>([])
   const [loading, setLoading] = useState(true)
   const [spinning, setSpinning] = useState(false)
@@ -1213,7 +1216,7 @@ function WheelModal({ cardId, qrCodeId, businessId, color, onClose, onResult }: 
     try {
       const res = await fetch('/api/wheel/spin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Card-Token': cardToken },
         body: JSON.stringify({ cardId, businessId }),
       })
       const data = await res.json()

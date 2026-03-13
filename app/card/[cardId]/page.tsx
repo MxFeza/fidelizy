@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import type { RewardTier } from '@/lib/types'
+import { generateCardToken } from '@/lib/auth/cardToken'
 import CardPageClient from './CardPageClient'
 
 interface PageProps {
@@ -67,6 +68,8 @@ export default async function CardPage({ params }: PageProps) {
 
   if (!business) notFound()
 
+  const cardToken = generateCardToken(card.qr_code_id)
+
   const { data: transactions } = await supabase
     .from('transactions')
     .select('*')
@@ -89,6 +92,7 @@ export default async function CardPage({ params }: PageProps) {
       business={business}
       transactions={transactions ?? []}
       rewardTiers={rewardTiers}
+      cardToken={cardToken}
     />
   )
 }

@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
   })
 
   if (otpError) {
-    console.error('Merchant OTP send error:', otpError)
     return NextResponse.json({ error: 'Erreur lors de l\'envoi du code.' }, { status: 500 })
   }
 

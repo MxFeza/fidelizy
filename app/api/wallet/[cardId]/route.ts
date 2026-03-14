@@ -11,7 +11,7 @@ export async function GET(
   try {
     buf = await generatePkpass(cardId)
   } catch (err) {
-    console.error('Wallet generation error:', err)
+    console.error('[wallet] generation error')
     return new NextResponse('Internal error', { status: 500 })
   }
 

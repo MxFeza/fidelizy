@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
   })
 
   if (otpError) {
-    console.error('signInWithOtp error:', otpError.message, otpError.status)
     return NextResponse.json({ error: 'Erreur lors de l\'envoi du code.' }, { status: 500 })
   }
 

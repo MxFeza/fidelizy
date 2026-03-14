@@ -375,6 +375,14 @@ export default function CardPageClient({ card, business, transactions, rewardTie
             />
           )}
         </div>
+
+        <footer className="max-w-sm mx-auto px-5 pt-8 pb-4 text-center text-[11px] text-gray-400 space-x-2">
+          <a href="/privacy" target="_blank" className="hover:text-gray-600 underline">Confidentialité</a>
+          <span>·</span>
+          <a href="/terms" target="_blank" className="hover:text-gray-600 underline">CGU</a>
+          <span>·</span>
+          <a href="/legal" target="_blank" className="hover:text-gray-600 underline">Mentions légales</a>
+        </footer>
       </div>
 
       {/* Wheel modal */}

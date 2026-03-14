@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
       current_points: 0,
       total_visits: 0,
       qr_code_id: qrCodeId,
+      rgpd_consent_at: new Date().toISOString(),
     })
     .select('id, qr_code_id')
     .single()

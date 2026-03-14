@@ -25,6 +25,7 @@ export default function JoinForm({ business, initialReferralCode }: JoinFormProp
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [referralCode, setReferralCode] = useState(initialReferralCode ?? '')
+  const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -43,7 +44,7 @@ export default function JoinForm({ business, initialReferralCode }: JoinFormProp
     const res = await fetch('/api/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessId: business.id, firstName, phone, email: trimmedEmail, referral_code: referralCode.trim() || undefined }),
+      body: JSON.stringify({ businessId: business.id, firstName, phone, email: trimmedEmail, referral_code: referralCode.trim() || undefined, consent: true }),
     })
 
     const data = await res.json()
@@ -207,9 +208,31 @@ export default function JoinForm({ business, initialReferralCode }: JoinFormProp
         />
       </div>
 
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          id="rgpd-consent"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          required
+        />
+        <label htmlFor="rgpd-consent" className="text-xs text-gray-500 leading-relaxed">
+          J&apos;accepte que mes données personnelles soient traitées conformément à la{' '}
+          <a href="/privacy" target="_blank" className="text-indigo-600 underline">
+            politique de confidentialité
+          </a>{' '}
+          et aux{' '}
+          <a href="/terms" target="_blank" className="text-indigo-600 underline">
+            conditions d&apos;utilisation
+          </a>
+          . Je peux retirer mon consentement à tout moment.
+        </label>
+      </div>
+
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !consent}
         className="w-full font-semibold py-3 px-4 rounded-xl transition-colors text-white text-sm disabled:opacity-60"
         style={{ backgroundColor: business.primary_color }}
       >

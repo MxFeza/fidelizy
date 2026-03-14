@@ -6,6 +6,7 @@ import { scanLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
 import { atomicIncrementPoints, atomicIncrementStamps } from '@/lib/db/atomic'
 import { cardUrl } from '@/lib/config'
+import { parseBody, scanBodySchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,12 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
     }
 
-    const body = await request.json()
-    const { qr_code_id } = body
-
-    if (!qr_code_id) {
-      return NextResponse.json({ error: 'qr_code_id requis' }, { status: 400 })
+    const parsed = await parseBody(request, scanBodySchema)
+    if ('error' in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
+    const { qr_code_id } = parsed.data
 
     const supabase = await createClient()
 
@@ -42,10 +42,6 @@ export async function POST(request: NextRequest) {
 
     if (!business) {
       return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
-    }
-
-    if (typeof qr_code_id !== 'string' || qr_code_id.length > 100) {
-      return NextResponse.json({ error: 'qr_code_id invalide' }, { status: 400 })
     }
 
     // Trouver la carte : code court (8 chars sans tiret) ou UUID complet

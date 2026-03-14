@@ -5,6 +5,7 @@ import { findCardByReferralCode } from '@/lib/referral'
 import { sendPushToCard } from '@/lib/push/sendPush'
 import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
+import { parseBody, joinBodySchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   const { success } = await joinLimiter.limit(getIP(request))
@@ -12,27 +13,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
   }
 
-  const { businessId, firstName, phone, email, referral_code } = await request.json()
-
-  if (!businessId || !firstName || !phone || !email) {
-    return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+  const parsed = await parseBody(request, joinBodySchema)
+  if ('error' in parsed) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
-
-  if (typeof firstName !== 'string' || firstName.trim().length < 1 || firstName.trim().length > 100) {
-    return NextResponse.json({ error: 'Prénom invalide' }, { status: 400 })
-  }
-
-  if (typeof phone !== 'string' || phone.trim().length < 6 || phone.trim().length > 20) {
-    return NextResponse.json({ error: 'Numéro de téléphone invalide' }, { status: 400 })
-  }
-
-  if (typeof businessId !== 'string' || businessId.length > 100) {
-    return NextResponse.json({ error: 'businessId invalide' }, { status: 400 })
-  }
-
-  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-    return NextResponse.json({ error: 'Email invalide' }, { status: 400 })
-  }
+  const { businessId, firstName, phone, email, referral_code } = parsed.data
 
   const supabase = createServiceClient()
 

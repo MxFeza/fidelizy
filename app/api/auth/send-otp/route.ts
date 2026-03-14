@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { otpLimiter, getIP } from '@/lib/ratelimit'
+import { parseBody, sendOtpSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   const { success } = await otpLimiter.limit(getIP(request))
@@ -12,11 +13,11 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { phone } = await request.json()
-
-  if (!phone || typeof phone !== 'string' || phone.trim().length < 6 || phone.trim().length > 20) {
-    return NextResponse.json({ error: 'Numéro de téléphone invalide' }, { status: 400 })
+  const parsed = await parseBody(request, sendOtpSchema)
+  if ('error' in parsed) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
+  const { phone } = parsed.data
 
   const supabase = createServiceClient()
 

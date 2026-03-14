@@ -7,6 +7,7 @@ import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { atomicDeductPointsSafe, atomicIncrementPoints, atomicIncrementStamps } from '@/lib/db/atomic'
 import { verifyCardToken } from '@/lib/auth/cardToken'
 import { cardUrl } from '@/lib/config'
+import { parseBody, wheelSpinSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,11 +16,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Trop de requêtes.' }, { status: 429 })
     }
 
-    const { cardId, businessId } = await request.json()
-
-    if (!cardId || !businessId) {
-      return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+    const parsed = await parseBody(request, wheelSpinSchema)
+    if ('error' in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
+    const { cardId, businessId } = parsed.data
 
     const supabase = createServiceClient()
 

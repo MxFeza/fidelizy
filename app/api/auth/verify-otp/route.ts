@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { otpLimiter, getIP } from '@/lib/ratelimit'
+import { parseBody, verifyOtpSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   const { success } = await otpLimiter.limit(getIP(request))
@@ -12,15 +13,11 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { phone, token } = await request.json()
-
-  if (!phone || typeof phone !== 'string' || phone.trim().length < 6) {
-    return NextResponse.json({ error: 'Téléphone manquant' }, { status: 400 })
+  const parsed = await parseBody(request, verifyOtpSchema)
+  if ('error' in parsed) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
-
-  if (!token || typeof token !== 'string' || token.length !== 6) {
-    return NextResponse.json({ error: 'Code invalide' }, { status: 400 })
-  }
+  const { phone, token } = parsed.data
 
   // Use service client for DB queries (bypass RLS)
   const supabase = createServiceClient()

@@ -1,3 +1,6 @@
+// Manual types — will be replaced by lib/database.types.ts
+// Run: npx supabase gen types typescript --project-id XXX > lib/database.types.ts
+
 export type LoyaltyType = 'stamps' | 'points'
 
 export interface Business {

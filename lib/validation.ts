@@ -12,9 +12,7 @@ export const joinBodySchema = z.object({
   phone: phoneSchema,
   email: emailSchema,
   referral_code: z.string().optional(),
-  consent: z.literal(true, {
-    errorMap: () => ({ message: 'Le consentement est obligatoire' }),
-  }),
+  consent: z.boolean().refine((v) => v === true, { message: 'Le consentement est obligatoire' }),
 })
 
 export const scanBodySchema = z.object({

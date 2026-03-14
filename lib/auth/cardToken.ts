@@ -1,9 +1,13 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-const SECRET = process.env.WALLET_AUTH_SECRET!
+function getSecret(): string {
+  const secret = process.env.WALLET_AUTH_SECRET
+  if (!secret) throw new Error('WALLET_AUTH_SECRET is not configured')
+  return secret
+}
 
 export function generateCardToken(qrCodeId: string): string {
-  return createHmac('sha256', SECRET)
+  return createHmac('sha256', getSecret())
     .update(`card:${qrCodeId}`)
     .digest('hex')
 }

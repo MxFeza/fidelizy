@@ -47,6 +47,9 @@ export default function ClientDetailClient({ card, business, transactions, rewar
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const [cooldown, setCooldown] = useState(false)
+  const [showDeleteClient, setShowDeleteClient] = useState(false)
+  const [deleteClientLoading, setDeleteClientLoading] = useState(false)
+  const [deleteClientConfirm, setDeleteClientConfirm] = useState(false)
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
   const currentStamps = Math.min(card.current_stamps ?? 0, stampsRequired)
@@ -152,6 +155,28 @@ export default function ClientDetailClient({ card, business, transactions, rewar
       setFeedback({ type: 'error', message: 'Erreur de connexion. Veuillez réessayer.' })
     }
     setClaiming(false)
+  }
+
+  async function handleDeleteClient() {
+    setDeleteClientLoading(true)
+    setFeedback(null)
+    try {
+      const res = await fetch('/api/card/delete-data', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_id: card.id }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        router.push('/dashboard/clients')
+      } else {
+        setFeedback({ type: 'error', message: data.error ?? 'Erreur lors de la suppression.' })
+        setDeleteClientLoading(false)
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Erreur de connexion. Veuillez réessayer.' })
+      setDeleteClientLoading(false)
+    }
   }
 
   return (
@@ -537,6 +562,69 @@ export default function ClientDetailClient({ card, business, transactions, rewar
                 )
               })}
             </ul>
+          )}
+        </div>
+
+        {/* Delete client data — RGPD */}
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+          <p className="text-sm font-semibold text-red-700 mb-1">Supprimer les données client</p>
+          <p className="text-xs text-gray-500 mb-4">
+            Supprime définitivement la carte, l&apos;historique, les points et les récompenses de ce
+            client pour votre commerce. Cette action est irréversible.
+          </p>
+
+          {!showDeleteClient ? (
+            <button
+              onClick={() => setShowDeleteClient(true)}
+              className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Supprimer les données client
+            </button>
+          ) : !deleteClientConfirm ? (
+            <div className="space-y-3">
+              <p className="text-sm text-red-800 font-medium">
+                Êtes-vous sûr de vouloir supprimer toutes les données de ce client ?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteClient(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => setDeleteClientConfirm(true)}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors"
+                >
+                  Oui, continuer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-red-800 font-bold">
+                Dernière confirmation : cette action est définitive.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowDeleteClient(false); setDeleteClientConfirm(false) }}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleDeleteClient}
+                  disabled={deleteClientLoading}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-xl transition-colors"
+                >
+                  {deleteClientLoading ? 'Suppression...' : 'Supprimer définitivement'}
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

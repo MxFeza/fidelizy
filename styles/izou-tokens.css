@@ -1,0 +1,95 @@
+/* ============================================
+   IZOU DESIGN TOKENS
+   ============================================ */
+
+/* --- Couleurs primaires --- */
+:root {
+  --izou-violet: #7C70E6;
+  --izou-gold: #F9C056;
+  --izou-rose: #D45F8A;
+
+  /* Dégradé signature */
+  --izou-gradient: linear-gradient(135deg, #7C70E6 0%, #D45F8A 65%, #FF5757 100%);
+  --izou-gradient-subtle: linear-gradient(135deg, #EEEDFE 0%, #FBEAF0 100%);
+
+  /* --- Violet ramp --- */
+  --izou-violet-50: #EEEDFE;
+  --izou-violet-100: #C8C3F5;
+  --izou-violet-200: #A49AED;
+  --izou-violet-400: #7C70E6;
+  --izou-violet-600: #5A4FC4;
+  --izou-violet-800: #3E3693;
+  --izou-violet-900: #252062;
+
+  /* --- Or ramp --- */
+  --izou-gold-50: #FEF5E0;
+  --izou-gold-100: #FDE3A8;
+  --izou-gold-200: #FBD17E;
+  --izou-gold-400: #F9C056;
+  --izou-gold-600: #D9A03A;
+  --izou-gold-800: #9A7120;
+  --izou-gold-900: #5C430F;
+
+  /* --- Rose ramp --- */
+  --izou-rose-50: #FBEAF0;
+  --izou-rose-100: #F2B8CC;
+  --izou-rose-200: #E88AAC;
+  --izou-rose-400: #D45F8A;
+  --izou-rose-600: #B04068;
+  --izou-rose-800: #7E2A48;
+  --izou-rose-900: #4D182B;
+
+  /* --- Sémantiques --- */
+  --izou-success: #22C55E;
+  --izou-warning: #F59E0B;
+  --izou-error: #EF4444;
+  --izou-info: #3B82F6;
+
+  /* --- Neutres --- */
+  --izou-white: #FBFBFB;
+  --izou-gray-50: #F3F3F3;
+  --izou-gray-100: #E5E5E5;
+  --izou-gray-300: #A3A3A3;
+  --izou-gray-500: #737373;
+  --izou-gray-700: #404040;
+  --izou-gray-900: #1E1E1E;
+
+  /* --- Typographie --- */
+  --font-display: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', sans-serif;
+  --font-body: 'DM Sans', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Roboto Mono', monospace;
+
+  /* --- Rayons de bordure --- */
+  --izou-radius-sm: 6px;
+  --izou-radius-md: 12px;
+  --izou-radius-lg: 16px;
+  --izou-radius-xl: 24px;
+  --izou-radius-full: 9999px;
+
+  /* --- Ombres --- */
+  --izou-shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --izou-shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --izou-shadow-elevated: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+
+  /* --- Animation durations --- */
+  --izou-duration-micro: 150ms;
+  --izou-duration-standard: 300ms;
+  --izou-duration-emphasis: 500ms;
+  --izou-duration-entrance: 400ms;
+
+  /* --- Easing --- */
+  --izou-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --izou-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --- Dark mode overrides --- */
+[data-theme="dark"],
+.dark {
+  --izou-white: #1E1E1E;
+  --izou-gray-50: #2A2A2A;
+  --izou-gray-100: #333333;
+  --izou-gray-300: #666666;
+  --izou-gray-500: #999999;
+  --izou-gray-700: #CCCCCC;
+  --izou-gray-900: #FBFBFB;
+}

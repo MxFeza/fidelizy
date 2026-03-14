@@ -209,7 +209,26 @@ export default function ProfileClient({ email, businessName }: ProfileClientProp
         )}
       </div>
 
-      {/* Section 3 — Danger zone */}
+      {/* Section 3 — Legal links */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 md:p-6 mb-4">
+        <p className="text-sm font-semibold text-gray-900 mb-3">Informations légales</p>
+        <div className="flex flex-wrap gap-3">
+          <a href="/privacy" target="_blank"
+            className="text-sm text-indigo-600 hover:text-indigo-700 underline">
+            Politique de confidentialité
+          </a>
+          <a href="/terms" target="_blank"
+            className="text-sm text-indigo-600 hover:text-indigo-700 underline">
+            Conditions d&apos;utilisation
+          </a>
+          <a href="/legal" target="_blank"
+            className="text-sm text-indigo-600 hover:text-indigo-700 underline">
+            Mentions légales
+          </a>
+        </div>
+      </div>
+
+      {/* Section 4 — Danger zone */}
       <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-5 md:p-6">
         <p className="text-sm font-semibold text-gray-900 mb-1">Déconnexion</p>
         <p className="text-xs text-gray-400 mb-4">Vous serez redirigé vers la page de connexion.</p>

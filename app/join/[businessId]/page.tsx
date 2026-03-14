@@ -55,6 +55,14 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
         </div>
 
         <JoinForm business={business} initialReferralCode={referralCode} />
+
+        <footer className="mt-8 pb-6 text-center text-xs text-gray-400 space-x-3">
+          <a href="/privacy" className="hover:text-gray-600 underline">Confidentialité</a>
+          <span>·</span>
+          <a href="/terms" className="hover:text-gray-600 underline">CGU</a>
+          <span>·</span>
+          <a href="/legal" className="hover:text-gray-600 underline">Mentions légales</a>
+        </footer>
       </div>
     </div>
   )

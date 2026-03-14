@@ -6,7 +6,7 @@ import forge from 'node-forge'
 
 const PASS_TYPE_ID = process.env.APPLE_PASS_TYPE_ID!
 const TEAM_ID = process.env.APPLE_TEAM_ID!
-const BASE_URL = 'https://fidelizy.vercel.app'
+import { BASE_URL } from '@/lib/config'
 
 // ── Auth token ────────────────────────────────────────────────────────────────
 

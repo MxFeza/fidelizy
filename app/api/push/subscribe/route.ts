@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { pushLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
+import { cardUrl } from '@/lib/config'
 
 export async function POST(request: NextRequest) {
   const { success } = await pushLimiter.limit(getIP(request))
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     sendPushToCard(card.id, {
       title: 'Izou',
       body: `Bienvenue ! 🎉 Votre carte de fidélité ${biz?.business_name || ''} est prête.`,
-      url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+      url: cardUrl(card.qr_code_id),
     }).catch((err) => console.error('Welcome push error:', err))
   }
 

@@ -6,6 +6,7 @@ import { notifyWalletDevices } from '@/lib/wallet/push'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { atomicDeductPointsSafe, atomicIncrementPoints, atomicIncrementStamps } from '@/lib/db/atomic'
 import { verifyCardToken } from '@/lib/auth/cardToken'
+import { cardUrl } from '@/lib/config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
     sendPushToCard(card.id, {
       title: 'Izou',
       body: pushBody,
-      url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+      url: cardUrl(card.qr_code_id),
     }).catch((err) => console.error('Wheel push error:', err))
 
     // Update wallet

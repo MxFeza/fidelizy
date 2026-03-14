@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { CalendarDays, UserPlus, Stamp, UsersRound, RefreshCcw, TrendingUp, AlertTriangle, UserX, Trophy, Download, Loader2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Business } from '@/lib/types'
+import { joinUrl } from '@/lib/config'
 
 const QrScanner = dynamic(() => import('@/app/components/QrScanner'), { ssr: false })
 
@@ -106,7 +107,7 @@ export default function DashboardClient({
   useEffect(() => {
     if (!business.short_code) return
     import('qrcode').then((QRCode) => {
-      QRCode.toDataURL(`https://fidelizy.vercel.app/join/${business.short_code}`, {
+      QRCode.toDataURL(joinUrl(business.short_code), {
         width: 600,
         margin: 2,
         errorCorrectionLevel: 'H',
@@ -124,7 +125,7 @@ export default function DashboardClient({
       ])
 
       const qrPng = await QRCode.toDataURL(
-        `https://fidelizy.vercel.app/join/${business.short_code}`,
+        joinUrl(business.short_code),
         { width: 800, margin: 2, errorCorrectionLevel: 'H' }
       )
 

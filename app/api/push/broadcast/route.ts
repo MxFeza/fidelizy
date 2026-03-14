@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { broadcastLimiter } from '@/lib/ratelimit'
 import webpush from 'web-push'
+import { cardUrl } from '@/lib/config'
 
 function getVapidConfig() {
   const publicKey = process.env.VAPID_PUBLIC_KEY
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
             title: 'Izou',
             body: `${title} — ${body}`,
             icon: '/icon-192.png',
-            url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+            url: cardUrl(card.qr_code_id),
           }),
           {
             vapidDetails: {

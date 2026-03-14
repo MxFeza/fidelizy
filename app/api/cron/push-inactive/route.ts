@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import webpush from 'web-push'
+import { cardUrl } from '@/lib/config'
 
 interface PushPayload {
   title: string
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
     const payload: PushPayload = {
       title: 'Izou',
       body: 'Vous nous manquez ! Revenez profiter de vos avantages fidélité 🎁',
-      url: `https://fidelizy.vercel.app/card/${card.qr_code_id}`,
+      url: cardUrl(card.qr_code_id),
     }
 
     try {

@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@/lib/types'
-import { type Tab, isIOS, isInStandaloneMode, CardTabIcon, MissionsTabIcon, HistoryTabIcon, type BeforeInstallPromptEvent } from './components/utils'
+import { type Tab, isIOS, isInStandaloneMode, CardTabIcon, MissionsTabIcon, HistoryTabIcon, ProfileTabIcon, type BeforeInstallPromptEvent } from './components/utils'
 import ConfettiEffect from './components/ConfettiEffect'
 import CardTab from './components/CardTab'
 import MissionsTab, { type MissionData } from './components/MissionsTab'
 import HistoryTab from './components/HistoryTab'
 import WheelModal from './components/WheelModal'
 import PushBanner from './components/PushBanner'
+import ProfileTab from './components/ProfileTab'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -192,6 +193,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     { id: 'card' as Tab, label: 'Ma carte', icon: <CardTabIcon /> },
     { id: 'missions' as Tab, label: 'Missions', icon: <MissionsTabIcon /> },
     { id: 'history' as Tab, label: 'Historique', icon: <HistoryTabIcon /> },
+    { id: 'profile' as Tab, label: 'Profil', icon: <ProfileTabIcon /> },
   ]
 
   return (
@@ -360,6 +362,15 @@ export default function CardPageClient({ card, business, transactions, rewardTie
             <HistoryTab
               transactions={transactions}
               business={business}
+              color={color}
+            />
+          )}
+
+          {activeTab === 'profile' && (
+            <ProfileTab
+              card={card}
+              business={business}
+              cardToken={cardToken}
               color={color}
             />
           )}

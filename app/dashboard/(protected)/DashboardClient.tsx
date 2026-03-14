@@ -107,7 +107,7 @@ export default function DashboardClient({
   useEffect(() => {
     if (!business.short_code) return
     import('qrcode').then((QRCode) => {
-      QRCode.toDataURL(joinUrl(business.short_code), {
+      QRCode.toDataURL(joinUrl(business.short_code!), {
         width: 600,
         margin: 2,
         errorCorrectionLevel: 'H',
@@ -125,7 +125,7 @@ export default function DashboardClient({
       ])
 
       const qrPng = await QRCode.toDataURL(
-        joinUrl(business.short_code),
+        joinUrl(business.short_code!),
         { width: 800, margin: 2, errorCorrectionLevel: 'H' }
       )
 

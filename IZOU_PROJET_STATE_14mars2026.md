@@ -171,6 +171,14 @@ Note : `businesses.gamification` (jsonb) contient la config gamification (surpri
 - [x] Notifications push web (VAPID) + broadcast
 - [x] Cron job pour notifier les clients inactifs
 
+### Conformite RGPD (Phase 2 — deploye 14 mars 2026)
+- [x] Pages legales statiques : /privacy, /terms, /legal
+- [x] Consentement RGPD explicite a l'inscription client (checkbox + champ rgpd_consent_at)
+- [x] Liens legaux dans les footers (accueil, inscription, recuperation) et profil commercant
+- [x] Suppression de compte commercant (cascade complete + suppression Auth)
+- [x] Suppression des donnees client par le commercant (carte, historique, points)
+- [x] Migration SQL : rgpd_consent_at et deletion_requested_at sur loyalty_cards
+
 ---
 
 ## Bugs connus
@@ -188,7 +196,7 @@ Note : `businesses.gamification` (jsonb) contient la config gamification (surpri
 - [ ] **Google Wallet** : equivalent du .pkpass pour Android
 - [ ] **SMS** : envoi d'OTP par SMS (actuellement email uniquement)
 - [ ] **Tableau de bord client** : espace client avec toutes ses cartes
-- [ ] **Suppression de compte** (RGPD)
+- [x] **Suppression de compte** (RGPD) — Phase 2
 - [ ] **I18n** : traduction anglais (actuellement tout en francais)
 - [ ] **Tests** : aucun test unitaire ou e2e
 - [ ] **Template email OTP** : a configurer dans Supabase

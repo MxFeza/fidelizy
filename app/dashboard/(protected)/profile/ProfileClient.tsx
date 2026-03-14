@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Mail, Lock, LogOut } from 'lucide-react'
+import { Mail, Lock, LogOut, Trash2 } from 'lucide-react'
 
 interface ProfileClientProps {
   email: string
@@ -29,6 +29,12 @@ export default function ProfileClient({ email, businessName }: ProfileClientProp
 
   // Logout
   const [logoutLoading, setLogoutLoading] = useState(false)
+
+  // Delete account
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   async function handleEmailChange(e: React.FormEvent) {
     e.preventDefault()
@@ -70,6 +76,29 @@ export default function ProfileClient({ email, businessName }: ProfileClientProp
       setConfirmPassword('')
     }
     setPwLoading(false)
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== 'SUPPRIMER') return
+    setDeleteLoading(true)
+    setDeleteError('')
+
+    try {
+      const res = await fetch('/api/account/delete', { method: 'DELETE' })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setDeleteError(data.error || 'Erreur lors de la suppression.')
+        setDeleteLoading(false)
+        return
+      }
+
+      await supabase.auth.signOut()
+      router.push('/dashboard/login')
+    } catch {
+      setDeleteError('Erreur de connexion. Veuillez réessayer.')
+      setDeleteLoading(false)
+    }
   }
 
   async function handleLogout() {
@@ -240,6 +269,55 @@ export default function ProfileClient({ email, businessName }: ProfileClientProp
           <LogOut className="w-4 h-4" />
           {logoutLoading ? 'Déconnexion...' : 'Se déconnecter'}
         </button>
+
+        <div className="border-t border-red-100 mt-5 pt-5">
+          <p className="text-sm font-semibold text-red-700 mb-1">Supprimer mon compte</p>
+          <p className="text-xs text-gray-400 mb-4">
+            Cette action est irréversible. TOUTES vos données seront supprimées définitivement :
+            clients, cartes, transactions, récompenses, missions et paramètres.
+          </p>
+
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Supprimer mon compte
+            </button>
+          ) : (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm text-red-800 font-medium">
+                Pour confirmer, tapez <span className="font-bold">SUPPRIMER</span> ci-dessous :
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+                placeholder="SUPPRIMER"
+                className="w-full px-4 py-2.5 border border-red-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              />
+              {deleteError && (
+                <p className="text-sm text-red-600 font-medium">{deleteError}</p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeleteError('') }}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading || deleteConfirmText !== 'SUPPRIMER'}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-xl transition-colors"
+                >
+                  {deleteLoading ? 'Suppression...' : 'Confirmer la suppression'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

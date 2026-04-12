@@ -39,11 +39,11 @@ story_location: docs/implementation-artifacts
 
 development_status:
   # ── Epic 0: Fondations Techniques (Strangler Fig) ── S1-S2
-  epic-0: in-progress
+  epic-0: done
   0-1-tests-e2e-playwright: done
   0-2-elagage-gamification-hard-delete: done
   0-3-extraction-services-metier: done
-  0-4-error-handling-standardise: review
+  0-4-error-handling-standardise: done
   epic-0-retrospective: optional
 
   # ── Epic 1: Navigation & Design System ── S3

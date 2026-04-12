@@ -437,5 +437,3 @@ async function earnPointsInternal(
   return { success: true, message, updatedCard: updatedCard ?? {} as Partial<LoyaltyCard>, customer: null, newValue: newPoints }
 }
 
-// Re-export AppError for backward compatibility
-export { AppError } from '@/lib/errors'

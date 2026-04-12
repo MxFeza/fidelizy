@@ -1,33 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
+import { AppError, withErrorHandler } from '@/lib/errors'
 
-export async function DELETE() {
+export const DELETE = withErrorHandler(async () => {
   const supabase = await createClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (!user || authError) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (!user || authError) throw AppError.auth('Non autorisé')
 
   const serviceClient = createServiceClient()
 
-  // Vérifier que c'est bien un commerçant
   const { data: business } = await serviceClient
     .from('businesses')
     .select('id')
     .eq('id', user.id)
     .single()
 
-  if (!business) {
-    return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
-  }
+  if (!business) throw AppError.notFound('Commerce introuvable')
 
-  // Supprimer les wallet_registrations liées aux cartes du commerce
+  // Supprimer les wallet_registrations liees aux cartes du commerce
   const { data: cards } = await serviceClient
     .from('loyalty_cards')
     .select('qr_code_id')
@@ -39,29 +30,20 @@ export async function DELETE() {
       .from('wallet_registrations')
       .delete()
       .in('serial_number', serialNumbers)
+      .throwOnError()
   }
 
-  // Supprimer le commerce (cascade supprime loyalty_cards, transactions,
-  // reward_claims, wheel_spins, mission_completions, push_subscriptions,
-  // referrals, pwa_visits, missions, wheel_prizes, reward_tiers)
-  const { error: deleteError } = await serviceClient
+  await serviceClient
     .from('businesses')
     .delete()
     .eq('id', user.id)
+    .throwOnError()
 
-  if (deleteError) {
-    return NextResponse.json(
-      { error: 'Erreur lors de la suppression. Contactez le support.' },
-      { status: 500 }
-    )
-  }
-
-  // Supprimer le compte Auth
+  // Supprimer le compte Auth (best-effort)
   const { error: authDeleteError } = await serviceClient.auth.admin.deleteUser(user.id)
-
   if (authDeleteError) {
     console.error('Auth delete error:', authDeleteError.message)
   }
 
   return NextResponse.json({ success: true })
-}
+})

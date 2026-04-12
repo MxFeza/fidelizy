@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { recoverLimiter, getIP } from '@/lib/ratelimit'

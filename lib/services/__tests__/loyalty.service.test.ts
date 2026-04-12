@@ -7,30 +7,28 @@ vi.mock('@/lib/wallet/generatePass', () => ({
 
 vi.mock('@/lib/services/notification.service', () => ({
   notifyClient: vi.fn().mockResolvedValue({ sent: ['web_push'], failed: [] }),
+  broadcastToBusinessClients: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { scanCard, addToCard, deductFromCard, claimReward, resetCard, ServiceError } from '../loyalty.service'
+import { scanCard, deductFromCard, claimReward, resetCard, ServiceError } from '../loyalty.service'
 
-// ── Supabase mock factory ──
+// ── Helper: chainable mock with throwOnError ──
 
-function createMockSupabase(overrides: Record<string, unknown> = {}) {
-  const chainable = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    ilike: vi.fn().mockReturnThis(),
-    gt: vi.fn().mockReturnThis(),
-    lte: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-    update: vi.fn().mockReturnThis(),
-  }
-
-  return {
-    from: vi.fn().mockReturnValue(chainable),
-    _chain: chainable,
-    ...overrides,
-  }
+function mockChain(resolvedData: unknown = null) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {}
+  chain.select = vi.fn().mockReturnValue(chain)
+  chain.eq = vi.fn().mockReturnValue(chain)
+  chain.ilike = vi.fn().mockReturnValue(chain)
+  chain.gt = vi.fn().mockReturnValue(chain)
+  chain.lte = vi.fn().mockReturnValue(chain)
+  chain.limit = vi.fn().mockReturnValue(chain)
+  chain.single = vi.fn().mockReturnValue(chain)
+  chain.update = vi.fn().mockReturnValue(chain)
+  chain.insert = vi.fn().mockReturnValue(chain)
+  chain.throwOnError = vi.fn().mockResolvedValue({ data: resolvedData, error: null })
+  // For calls that don't chain throwOnError (reads)
+  chain.single = vi.fn().mockResolvedValue({ data: resolvedData })
+  return chain
 }
 
 describe('loyalty.service', () => {
@@ -39,7 +37,7 @@ describe('loyalty.service', () => {
   })
 
   describe('scanCard', () => {
-    it('should earn 1 stamp on scan for stamps business', async () => {
+    it('should earn 1 stamp on scan for stamps business via RPC', async () => {
       const card = {
         id: 'card-1',
         current_stamps: 3,
@@ -49,23 +47,35 @@ describe('loyalty.service', () => {
         customers: { first_name: 'Jean' },
       }
 
-      const updatedCard = { ...card, current_stamps: 4 }
+      const rpcChain = {
+        single: vi.fn().mockResolvedValue({
+          data: { new_stamps: 4, is_complete: false, total_visits: 6 },
+          error: null,
+        }),
+      }
 
-      const chainable = {
+      const selectChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         ilike: vi.fn().mockReturnThis(),
-        gt: vi.fn().mockReturnThis(),
-        lte: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        single: vi.fn()
-          .mockResolvedValueOnce({ data: card }) // find card
-          .mockResolvedValueOnce({ data: updatedCard }), // update card
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        update: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: card }),
       }
 
-      const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const insertChain = {
+        insert: vi.fn().mockReturnThis(),
+        throwOnError: vi.fn().mockResolvedValue({ data: null, error: null }),
+      }
+
+      let fromCallCount = 0
+      const supabase = {
+        from: vi.fn().mockImplementation(() => {
+          fromCallCount++
+          if (fromCallCount <= 1) return selectChain // find card
+          if (fromCallCount === 2) return { ...selectChain, single: vi.fn().mockResolvedValue({ data: { ...card, current_stamps: 4 } }) } // fetch updated
+          return insertChain // transactions
+        }),
+        rpc: vi.fn().mockReturnValue(rpcChain),
+      }
 
       const result = await scanCard(supabase as never, {
         qrCodeId: 'qr-123',
@@ -80,18 +90,21 @@ describe('loyalty.service', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(result.message).toContain('4/10')
+      expect(supabase.rpc).toHaveBeenCalledWith('increment_stamps', {
+        p_card_id: 'card-1',
+        p_amount: 1,
+        p_stamps_required: 10,
+      })
       expect(result.customer).toEqual({ first_name: 'Jean' })
     })
 
     it('should throw ServiceError for unknown card', async () => {
-      const chainable = {
+      const selectChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null }),
       }
-
-      const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabase = { from: vi.fn().mockReturnValue(selectChain) }
 
       await expect(
         scanCard(supabase as never, {
@@ -119,15 +132,16 @@ describe('loyalty.service', () => {
         qr_code_id: 'qr-123',
       }
 
-      const chainable = {
+      const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: card }),
         update: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        insert: vi.fn().mockReturnThis(),
+        throwOnError: vi.fn().mockResolvedValue({ data: null, error: null }),
       }
 
-      const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabase = { from: vi.fn().mockReturnValue(chain) }
 
       const result = await deductFromCard(supabase as never, {
         cardId: 'card-1',
@@ -137,12 +151,12 @@ describe('loyalty.service', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(result.newValue).toBe(0) // floored to 0, not -3
+      expect(result.newValue).toBe(0)
     })
   })
 
   describe('claimReward', () => {
-    it('should throw when insufficient points', async () => {
+    it('should throw when insufficient points (via RPC)', async () => {
       const card = {
         id: 'card-1',
         current_points: 3,
@@ -156,15 +170,23 @@ describe('loyalty.service', () => {
         points_required: 10,
       }
 
-      const chainable = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn()
-          .mockResolvedValueOnce({ data: card })
-          .mockResolvedValueOnce({ data: tier }),
+      let fromCallCount = 0
+      const supabase = {
+        from: vi.fn().mockImplementation(() => {
+          fromCallCount++
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: fromCallCount === 1 ? card : tier }),
+          }
+        }),
+        rpc: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: { new_points: 0, success: false },
+            error: null,
+          }),
+        }),
       }
-
-      const supabase = { from: vi.fn().mockReturnValue(chainable) }
 
       await expect(
         claimReward(supabase as never, {
@@ -185,15 +207,16 @@ describe('loyalty.service', () => {
         qr_code_id: 'qr-123',
       }
 
-      const chainable = {
+      const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: card }),
         update: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        insert: vi.fn().mockReturnThis(),
+        throwOnError: vi.fn().mockResolvedValue({ data: null, error: null }),
       }
 
-      const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabase = { from: vi.fn().mockReturnValue(chain) }
 
       const result = await resetCard(supabase as never, {
         cardId: 'card-1',

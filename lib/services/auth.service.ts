@@ -1,21 +1,17 @@
-import { createClient } from '@supabase/supabase-js'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { ServiceError } from './loyalty.service'
 import type { SendOtpInput, VerifyOtpInput, AddEmailInput } from './auth.schemas'
 
-function createAuthClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-}
-
 /**
  * Send OTP to customer's email (looked up by phone).
  * Returns status: 'otp_sent' | 'not_found' | 'needs_email'
+ *
+ * @param supabase - Service client for DB queries (bypass RLS)
+ * @param supabaseAuth - Anon key client for Auth operations
  */
 export async function sendOtp(
   supabase: SupabaseClient,
+  supabaseAuth: SupabaseClient,
   params: SendOtpInput
 ): Promise<{ status: string; email?: string; maskedEmail?: string }> {
   const { phone } = params
@@ -33,8 +29,6 @@ export async function sendOtp(
   if (!customer.email) {
     return { status: 'needs_email' }
   }
-
-  const supabaseAuth = createAuthClient()
 
   const { error } = await supabaseAuth.auth.signInWithOtp({
     email: customer.email,
@@ -61,11 +55,10 @@ export async function sendOtp(
  */
 export async function verifyOtp(
   supabase: SupabaseClient,
+  supabaseAuth: SupabaseClient,
   params: VerifyOtpInput
 ): Promise<{ status: string; cards?: Record<string, unknown>[] }> {
   const { email, token } = params
-
-  const supabaseAuth = createAuthClient()
 
   const { error } = await supabaseAuth.auth.verifyOtp({
     email,
@@ -100,6 +93,7 @@ export async function verifyOtp(
  */
 export async function addEmailAndSendOtp(
   supabase: SupabaseClient,
+  supabaseAuth: SupabaseClient,
   params: AddEmailInput
 ): Promise<{ status: string }> {
   const { phone, email } = params
@@ -112,8 +106,6 @@ export async function addEmailAndSendOtp(
   if (updateError) {
     throw new ServiceError('Erreur lors de la mise à jour.', 500)
   }
-
-  const supabaseAuth = createAuthClient()
 
   const { error: otpError } = await supabaseAuth.auth.signInWithOtp({
     email,

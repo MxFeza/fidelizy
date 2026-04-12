@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyOtp } from '@/lib/services/auth.service'
@@ -14,7 +15,8 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceClient()
-  const result = await verifyOtp(supabase, { email, token })
+  const supabaseAuth = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const result = await verifyOtp(supabase, supabaseAuth, { email, token })
 
   return NextResponse.json(result)
 }

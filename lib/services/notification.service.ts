@@ -1,6 +1,6 @@
 import { sendPushToCard, sendPushToAllBusinessClients } from '@/lib/push/sendPush'
 import { notifyWalletDevices } from '@/lib/wallet/push'
-import type { NotificationEvent, NotificationPayload } from './notification.schemas'
+import type { NotificationPayload } from './notification.schemas'
 
 /**
  * Unified notification service — dispatches to all active channels for a card.
@@ -9,7 +9,6 @@ import type { NotificationEvent, NotificationPayload } from './notification.sche
 export async function notifyClient(
   cardId: string,
   qrCodeId: string,
-  event: NotificationEvent,
   payload: NotificationPayload
 ): Promise<{ sent: string[]; failed: string[] }> {
   const sent: string[] = []

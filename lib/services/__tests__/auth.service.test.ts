@@ -1,15 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock Supabase client factory used inside auth.service
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn().mockReturnValue({
-    auth: {
-      signInWithOtp: vi.fn().mockResolvedValue({ error: null }),
-      verifyOtp: vi.fn().mockResolvedValue({ data: { user: { id: 'auth-user-1' } }, error: null }),
-    },
-  }),
-}))
-
 vi.mock('@/lib/services/loyalty.service', () => ({
   ServiceError: class ServiceError extends Error {
     constructor(message: string, public statusCode: number) {
@@ -21,11 +11,19 @@ vi.mock('@/lib/services/loyalty.service', () => ({
 
 import { sendOtp, verifyOtp, addEmailAndSendOtp } from '../auth.service'
 
+// Mock auth client (anon key client for OTP operations)
+function createMockAuthClient() {
+  return {
+    auth: {
+      signInWithOtp: vi.fn().mockResolvedValue({ error: null }),
+      verifyOtp: vi.fn().mockResolvedValue({ data: { user: { id: 'auth-user-1' } }, error: null }),
+    },
+  }
+}
+
 describe('auth.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
   })
 
   describe('sendOtp', () => {
@@ -36,8 +34,9 @@ describe('auth.service', () => {
         maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       }
       const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabaseAuth = createMockAuthClient()
 
-      const result = await sendOtp(supabase as never, { phone: '+33600000000' })
+      const result = await sendOtp(supabase as never, supabaseAuth as never, { phone: '+33600000000' })
       expect(result.status).toBe('not_found')
     })
 
@@ -48,8 +47,9 @@ describe('auth.service', () => {
         maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'cust-1', email: null } }),
       }
       const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabaseAuth = createMockAuthClient()
 
-      const result = await sendOtp(supabase as never, { phone: '+33600000000' })
+      const result = await sendOtp(supabase as never, supabaseAuth as never, { phone: '+33600000000' })
       expect(result.status).toBe('needs_email')
     })
 
@@ -60,8 +60,9 @@ describe('auth.service', () => {
         maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'cust-1', email: 'jean@gmail.com' } }),
       }
       const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabaseAuth = createMockAuthClient()
 
-      const result = await sendOtp(supabase as never, { phone: '+33612345678' })
+      const result = await sendOtp(supabase as never, supabaseAuth as never, { phone: '+33612345678' })
       expect(result.status).toBe('otp_sent')
       expect(result.maskedEmail).toBe('j***n@gmail.com')
     })
@@ -74,7 +75,6 @@ describe('auth.service', () => {
         eq: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'cust-1' } }),
       }
-      // Override for cards query
       const cardsChainable = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockResolvedValue({ data: [{ id: 'card-1', qr_code_id: 'qr-1' }] }),
@@ -82,11 +82,12 @@ describe('auth.service', () => {
 
       const supabase = {
         from: vi.fn()
-          .mockReturnValueOnce(chainable) // customers query
-          .mockReturnValueOnce(cardsChainable), // loyalty_cards query
+          .mockReturnValueOnce(chainable)
+          .mockReturnValueOnce(cardsChainable),
       }
+      const supabaseAuth = createMockAuthClient()
 
-      const result = await verifyOtp(supabase as never, { email: 'jean@gmail.com', token: '123456' })
+      const result = await verifyOtp(supabase as never, supabaseAuth as never, { email: 'jean@gmail.com', token: '123456' })
       expect(result.status).toBe('verified')
       expect(result.cards).toHaveLength(1)
     })
@@ -99,8 +100,9 @@ describe('auth.service', () => {
         eq: vi.fn().mockResolvedValue({ error: null }),
       }
       const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabaseAuth = createMockAuthClient()
 
-      const result = await addEmailAndSendOtp(supabase as never, {
+      const result = await addEmailAndSendOtp(supabase as never, supabaseAuth as never, {
         phone: '+33612345678',
         email: 'new@gmail.com',
       })

@@ -1,0 +1,110 @@
+# generated: 2026-04-12
+# last_updated: 2026-04-12
+# project: Izou
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: docs/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Strangler Fig pattern: Epic 0 (fondations) MUST complete before other epics
+# - Order: 0 → 1 → 7 → 2 → 3 → 4 → 5 → 6 → 8
+# - Solo dev: 1 story in-progress at a time
+# - ~10 semaines estimated total
+
+generated: 2026-04-12
+last_updated: 2026-04-12
+project: Izou
+project_key: NOKEY
+tracking_system: file-system
+story_location: docs/implementation-artifacts
+
+development_status:
+  # ── Epic 0: Fondations Techniques (Strangler Fig) ── S1-S2
+  epic-0: in-progress
+  0-1-tests-e2e-playwright: done
+  0-2-elagage-gamification-hard-delete: done
+  0-3-extraction-services-metier: review
+  0-4-error-handling-standardise: backlog
+  epic-0-retrospective: optional
+
+  # ── Epic 1: Navigation & Design System ── S3
+  epic-1: backlog
+  1-1-sidebar-desktop-v4: backlog
+  1-2-bottom-nav-mobile-commercant: backlog
+  1-3-bell-notifications-design-tokens: backlog
+  epic-1-retrospective: optional
+
+  # ── Epic 7: Auth & Onboarding Commercant ── S3
+  epic-7: backlog
+  7-1-login-register: backlog
+  7-2-onboarding-choix-metier: backlog
+  7-3-otp-commercant: backlog
+  epic-7-retrospective: optional
+
+  # ── Epic 2: Dashboard Commercant ── S4
+  epic-2: backlog
+  2-1-vue-ensemble-desktop: backlog
+  2-2-vue-ensemble-mobile: backlog
+  2-3-page-statistiques-placeholder: backlog
+  epic-2-retrospective: optional
+
+  # ── Epic 3: Gestion Clients ── S5
+  epic-3: backlog
+  3-1-liste-clients-desktop: backlog
+  3-2-fiche-client-detail: backlog
+  3-3-liste-clients-mobile: backlog
+  epic-3-retrospective: optional
+
+  # ── Epic 4: Refactor UI Client ── S6-S8
+  epic-4: backlog
+  4-1-composants-custom-react: backlog
+  4-2-onboarding-client: backlog
+  4-3-carte-fidelite-client: backlog
+  4-4-ecrans-recompense: backlog
+  4-5-parrainage-client: backlog
+  4-6-recuperation-carte: backlog
+  4-7-profil-client: backlog
+  epic-4-retrospective: optional
+
+  # ── Epic 5: Marketing & Engagement ── S9
+  epic-5: backlog
+  5-1-section-marketing-navigation: backlog
+  5-2-push-notifications: backlog
+  5-3-programme-fidelite: backlog
+  5-4-parrainage: backlog
+  5-5-placeholders-sms-automatisations: backlog
+  epic-5-retrospective: optional
+
+  # ── Epic 6: Apple Wallet + Google Wallet ── S10
+  epic-6: backlog
+  6-1-optimiser-apple-wallet: backlog
+  6-2-implementer-google-wallet: backlog
+  6-3-ecran-choix-wallet: backlog
+  6-4-design-cartes-wallet-natives: backlog
+  epic-6-retrospective: optional
+
+  # ── Epic 8: Mon Espace & RGPD ── S10
+  epic-8: backlog
+  8-1-restructurer-mon-espace: backlog
+  8-2-suppression-compte-rgpd: backlog
+  8-3-export-donnees-rgpd: backlog
+  epic-8-retrospective: optional

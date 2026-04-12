@@ -2,6 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { scanLimiter, getIP } from '@/lib/ratelimit'
 import { scanCard, ServiceError } from '@/lib/services/loyalty.service'
+import { z } from 'zod'
+
+const scanInputSchema = z.object({
+  qr_code_id: z.string().min(1).max(100),
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,11 +16,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { qr_code_id } = body
-
-    if (!qr_code_id || typeof qr_code_id !== 'string' || qr_code_id.length > 100) {
+    const parsed = scanInputSchema.safeParse(body)
+    if (!parsed.success) {
       return NextResponse.json({ error: 'qr_code_id invalide' }, { status: 400 })
     }
+    const { qr_code_id } = parsed.data
 
     const supabase = await createClient()
 

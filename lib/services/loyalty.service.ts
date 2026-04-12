@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { notifyClient } from './notification.service'
+import type { LoyaltyCard, Customer } from '@/lib/types'
 import type { AddToCardInput, DeductFromCardInput, ClaimRewardInput, ResetCardInput } from './loyalty.schemas'
 
 // ── Shared types ──
@@ -8,8 +9,8 @@ import type { AddToCardInput, DeductFromCardInput, ClaimRewardInput, ResetCardIn
 interface EarnResult {
   success: true
   message: string
-  updatedCard: Record<string, unknown>
-  customer: Record<string, unknown> | null
+  updatedCard: Partial<LoyaltyCard>
+  customer: Partial<Customer> | null
   newValue: number
 }
 
@@ -137,6 +138,7 @@ export async function deductFromCard(
       .from('loyalty_cards')
       .update({ current_stamps: newStamps })
       .eq('id', card.id)
+      .throwOnError()
 
     await supabase.from('transactions').insert({
       loyalty_card_id: card.id,
@@ -145,10 +147,10 @@ export async function deductFromCard(
       stamps_added: null,
       points_added: null,
       description: `${amount} tampon${amount > 1 ? 's' : ''} retiré${amount > 1 ? 's' : ''} (correction)`,
-    })
+    }).throwOnError()
 
     setPendingWalletAction(card.qr_code_id, 'deduct')
-    notifyClient(card.id, card.qr_code_id, 'stamp_added', {
+    notifyClient(card.id, card.qr_code_id, {
       title: 'Correction',
       body: `${amount} tampon${amount > 1 ? 's' : ''} retiré${amount > 1 ? 's' : ''}`,
     }).catch(() => {})
@@ -160,6 +162,7 @@ export async function deductFromCard(
       .from('loyalty_cards')
       .update({ current_points: newPoints })
       .eq('id', card.id)
+      .throwOnError()
 
     await supabase.from('transactions').insert({
       loyalty_card_id: card.id,
@@ -168,10 +171,10 @@ export async function deductFromCard(
       stamps_added: null,
       points_added: null,
       description: `${amount} point${amount > 1 ? 's' : ''} retirés (correction)`,
-    })
+    }).throwOnError()
 
     setPendingWalletAction(card.qr_code_id, 'deduct')
-    notifyClient(card.id, card.qr_code_id, 'stamp_added', {
+    notifyClient(card.id, card.qr_code_id, {
       title: 'Correction',
       body: `${amount} point${amount > 1 ? 's' : ''} retiré${amount > 1 ? 's' : ''}`,
     }).catch(() => {})
@@ -210,23 +213,28 @@ export async function claimReward(
     throw new ServiceError('Palier de récompense introuvable', 404)
   }
 
-  if ((card.current_points ?? 0) < tier.points_required) {
+  // Atomic deduction via RPC — prevents spending more than available
+  const { data: deductResult, error: deductError } = await supabase.rpc('deduct_points', {
+    p_card_id: card.id,
+    p_amount: tier.points_required,
+  }).single() as { data: { new_points: number; success: boolean } | null; error: unknown }
+
+  if (deductError || !deductResult) {
+    throw new ServiceError('Erreur lors de la déduction des points', 500)
+  }
+
+  if (!deductResult.success) {
     throw new ServiceError(`Points insuffisants (${card.current_points ?? 0}/${tier.points_required})`, 400)
   }
 
-  const newPoints = (card.current_points ?? 0) - tier.points_required
-
-  await supabase
-    .from('loyalty_cards')
-    .update({ current_points: newPoints })
-    .eq('id', card.id)
+  const newPoints = deductResult.new_points
 
   await supabase.from('reward_claims').insert({
     loyalty_card_id: card.id,
     reward_tier_id: tier.id,
     reward_name: tier.reward_name,
     points_spent: tier.points_required,
-  })
+  }).throwOnError()
 
   await supabase.from('transactions').insert({
     loyalty_card_id: card.id,
@@ -235,10 +243,10 @@ export async function claimReward(
     stamps_added: null,
     points_added: null,
     description: `Récompense : ${tier.reward_name} (-${tier.points_required} pts)`,
-  })
+  }).throwOnError()
 
   setPendingWalletAction(card.qr_code_id, 'claim-reward')
-  notifyClient(card.id, card.qr_code_id, 'reward_reached', {
+  notifyClient(card.id, card.qr_code_id, {
     title: 'Récompense !',
     body: `${tier.reward_name} — montre ta carte au comptoir.`,
   }).catch(() => {})
@@ -273,6 +281,7 @@ export async function resetCard(
     .from('loyalty_cards')
     .update({ current_stamps: 0 })
     .eq('id', card.id)
+    .throwOnError()
 
   await supabase.from('transactions').insert({
     loyalty_card_id: card.id,
@@ -281,10 +290,10 @@ export async function resetCard(
     stamps_added: null,
     points_added: null,
     description: 'Récompense accordée — carte réinitialisée',
-  })
+  }).throwOnError()
 
   setPendingWalletAction(card.qr_code_id, 'reset')
-  notifyClient(card.id, card.qr_code_id, 'reward_reached', {
+  notifyClient(card.id, card.qr_code_id, {
     title: 'Carte réinitialisée',
     body: 'Ta carte a été remise à zéro.',
   }).catch(() => {})
@@ -305,21 +314,29 @@ async function earnStampsInternal(
 ): Promise<EarnResult> {
   const { card, business, amount } = params
   const stampsRequired = business.stamps_required ?? 10
-  const rawNew = (card.current_stamps ?? 0) + amount
-  const isComplete = rawNew >= stampsRequired
-  const finalStamps = isComplete ? 0 : rawNew
 
+  // Atomic increment via RPC — prevents race conditions on double-scan
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_stamps', {
+    p_card_id: card.id,
+    p_amount: amount,
+    p_stamps_required: stampsRequired,
+  }).single() as { data: { new_stamps: number; is_complete: boolean; total_visits: number } | null; error: unknown }
+
+  if (rpcError || !rpcResult) {
+    throw new ServiceError('Erreur lors de la mise à jour des tampons', 500)
+  }
+
+  const finalStamps = rpcResult.new_stamps
+  const isComplete = rpcResult.is_complete
+
+  // Fetch updated card for response
   const { data: updatedCard } = await supabase
     .from('loyalty_cards')
-    .update({
-      current_stamps: finalStamps,
-      total_visits: (card.total_visits ?? 0) + (params.incrementVisits ? amount : 0),
-      last_visit_at: new Date().toISOString(),
-    })
-    .eq('id', card.id)
     .select()
+    .eq('id', card.id)
     .single()
 
+  const rawNew = isComplete ? stampsRequired : finalStamps
   await supabase.from('transactions').insert({
     loyalty_card_id: card.id,
     business_id: business.id,
@@ -327,7 +344,7 @@ async function earnStampsInternal(
     stamps_added: amount,
     points_added: null,
     description: `${amount} tampon${amount > 1 ? 's' : ''} ajouté${amount > 1 ? 's' : ''} (${rawNew}/${stampsRequired})`,
-  })
+  }).throwOnError()
 
   let message: string
 
@@ -339,11 +356,11 @@ async function earnStampsInternal(
       stamps_added: null,
       points_added: null,
       description: `Récompense accordée — carte réinitialisée (${stampsRequired}/${stampsRequired})`,
-    })
+    }).throwOnError()
     message = `+${amount} tampon${amount > 1 ? 's' : ''} — Carte complète ! Récompense : ${business.stamps_reward}. Carte remise à 0.`
 
     setPendingWalletAction(card.qr_code_id, 'add', 0)
-    notifyClient(card.id, card.qr_code_id, 'reward_reached', {
+    notifyClient(card.id, card.qr_code_id, {
       title: business.business_name,
       body: 'Récompense débloquée ! Montre ta carte au comptoir.',
     }).catch(() => {})
@@ -353,7 +370,7 @@ async function earnStampsInternal(
     setPendingWalletAction(card.qr_code_id, 'add', remaining)
   }
 
-  return { success: true, message, updatedCard: updatedCard ?? {}, customer: null, newValue: finalStamps }
+  return { success: true, message, updatedCard: updatedCard ?? {} as Partial<LoyaltyCard>, customer: null, newValue: finalStamps }
 }
 
 async function earnPointsInternal(
@@ -366,18 +383,25 @@ async function earnPointsInternal(
   }
 ): Promise<EarnResult> {
   const { card, business, amount } = params
-  const previousPoints = card.current_points ?? 0
-  const newPoints = previousPoints + amount
 
+  // Atomic increment via RPC — prevents race conditions
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_points', {
+    p_card_id: card.id,
+    p_amount: amount,
+  }).single() as { data: { new_points: number; previous_points: number; total_visits: number } | null; error: unknown }
+
+  if (rpcError || !rpcResult) {
+    throw new ServiceError('Erreur lors de la mise à jour des points', 500)
+  }
+
+  const newPoints = rpcResult.new_points
+  const previousPoints = rpcResult.previous_points
+
+  // Fetch updated card for response
   const { data: updatedCard } = await supabase
     .from('loyalty_cards')
-    .update({
-      current_points: newPoints,
-      total_visits: (card.total_visits ?? 0) + (params.incrementVisits ? 1 : 0),
-      last_visit_at: new Date().toISOString(),
-    })
-    .eq('id', card.id)
     .select()
+    .eq('id', card.id)
     .single()
 
   await supabase.from('transactions').insert({
@@ -387,7 +411,7 @@ async function earnPointsInternal(
     stamps_added: null,
     points_added: amount,
     description: `${amount} point${amount > 1 ? 's' : ''} ajouté${amount > 1 ? 's' : ''}`,
-  })
+  }).throwOnError()
 
   const message = `+${amount} point${amount > 1 ? 's' : ''} (total : ${newPoints})`
 
@@ -401,7 +425,7 @@ async function earnPointsInternal(
     .limit(1)
 
   if (reachedTiers && reachedTiers.length > 0) {
-    notifyClient(card.id, card.qr_code_id, 'reward_reached', {
+    notifyClient(card.id, card.qr_code_id, {
       title: business.business_name,
       body: 'Récompense débloquée ! Montre ta carte au comptoir.',
     }).catch(() => {})
@@ -409,7 +433,7 @@ async function earnPointsInternal(
 
   setPendingWalletAction(card.qr_code_id, 'add')
 
-  return { success: true, message, updatedCard: updatedCard ?? {}, customer: null, newValue: newPoints }
+  return { success: true, message, updatedCard: updatedCard ?? {} as Partial<LoyaltyCard>, customer: null, newValue: newPoints }
 }
 
 // ── Error class ──

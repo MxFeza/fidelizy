@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { ServiceError } from './loyalty.service'
+import { AppError } from '@/lib/errors'
 import type { SendOtpInput, VerifyOtpInput, AddEmailInput } from './auth.schemas'
 
 /**
@@ -37,7 +37,7 @@ export async function sendOtp(
 
   if (error) {
     console.error('signInWithOtp error:', error.message, error.status)
-    throw new ServiceError("Erreur lors de l'envoi du code.", 500)
+    throw new AppError("Erreur lors de l'envoi du code.", 500)
   }
 
   // Mask email for display: j***n@gmail.com
@@ -104,7 +104,7 @@ export async function addEmailAndSendOtp(
     .eq('phone', phone.trim())
 
   if (updateError) {
-    throw new ServiceError('Erreur lors de la mise à jour.', 500)
+    throw new AppError('Erreur lors de la mise à jour.', 500)
   }
 
   const { error: otpError } = await supabaseAuth.auth.signInWithOtp({
@@ -114,7 +114,7 @@ export async function addEmailAndSendOtp(
 
   if (otpError) {
     console.error('signInWithOtp error:', otpError.message, otpError.status)
-    throw new ServiceError("Erreur lors de l'envoi du code.", 500)
+    throw new AppError("Erreur lors de l'envoi du code.", 500)
   }
 
   return { status: 'otp_sent' }

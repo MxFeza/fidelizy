@@ -10,7 +10,8 @@ vi.mock('@/lib/services/notification.service', () => ({
   broadcastToBusinessClients: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { scanCard, deductFromCard, claimReward, resetCard, ServiceError } from '../loyalty.service'
+import { scanCard, deductFromCard, claimReward, resetCard } from '../loyalty.service'
+import { AppError } from '@/lib/errors'
 
 // ── Helper: chainable mock with throwOnError ──
 
@@ -98,7 +99,7 @@ describe('loyalty.service', () => {
       expect(result.customer).toEqual({ first_name: 'Jean' })
     })
 
-    it('should throw ServiceError for unknown card', async () => {
+    it('should throw AppError for unknown card', async () => {
       const selectChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -118,7 +119,7 @@ describe('loyalty.service', () => {
             points_per_euro: null,
           },
         })
-      ).rejects.toThrow(ServiceError)
+      ).rejects.toThrow(AppError)
     })
   })
 
@@ -227,12 +228,12 @@ describe('loyalty.service', () => {
     })
   })
 
-  describe('ServiceError', () => {
+  describe('AppError', () => {
     it('should have correct properties', () => {
-      const err = new ServiceError('Test error', 404)
+      const err = new AppError('Test error', 404)
       expect(err.message).toBe('Test error')
       expect(err.statusCode).toBe(404)
-      expect(err.name).toBe('ServiceError')
+      expect(err.name).toBe('AppError')
     })
   })
 })

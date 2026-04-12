@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/lib/services/loyalty.service', () => ({
-  ServiceError: class ServiceError extends Error {
+vi.mock('@/lib/errors', () => ({
+  AppError: class AppError extends Error {
     constructor(message: string, public statusCode: number) {
       super(message)
-      this.name = 'ServiceError'
+      this.name = 'AppError'
     }
   },
 }))

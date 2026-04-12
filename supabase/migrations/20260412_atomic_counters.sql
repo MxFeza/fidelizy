@@ -1,3 +1,10 @@
+-- Drop existing functions if they have incompatible signatures
+DROP FUNCTION IF EXISTS increment_stamps(uuid, int, int);
+DROP FUNCTION IF EXISTS increment_points(uuid, int);
+DROP FUNCTION IF EXISTS increment_points(uuid, integer);
+DROP FUNCTION IF EXISTS deduct_points(uuid, int);
+DROP FUNCTION IF EXISTS deduct_points(uuid, integer);
+
 -- Atomic stamp increment: prevents race conditions on double-scan
 -- Returns the new stamp count and whether the card is complete
 CREATE OR REPLACE FUNCTION increment_stamps(

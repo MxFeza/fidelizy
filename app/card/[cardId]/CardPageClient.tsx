@@ -5,7 +5,7 @@ import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@/lib/types'
 
-type Tab = 'card' | 'missions' | 'history'
+type Tab = 'card' | 'history'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -88,14 +88,6 @@ function CardTabIcon() {
   )
 }
 
-function MissionsTabIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-    </svg>
-  )
-}
-
 function HistoryTabIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
@@ -123,33 +115,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const [walletAvailable, setWalletAvailable] = useState(false)
   const [showPushBanner, setShowPushBanner] = useState(false)
   const [liveTiers, setLiveTiers] = useState(rewardTiers)
-  const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
-  const [showWheel, setShowWheel] = useState(false)
-
-  // Missions state
-  type MissionData = {
-    id: string
-    template_key: string
-    reward_points: number
-    config: Record<string, unknown>
-    completed: boolean
-    pending?: boolean
-    profile_complete?: boolean
-    progress?: { current: number; target: number }
-    referral_count?: number
-  }
-  const [missions, setMissions] = useState<MissionData[]>([])
-  const [referralCode, setReferralCode] = useState('')
-  const [missionsLoading, setMissionsLoading] = useState(true)
-  const [showReviewForm, setShowReviewForm] = useState(false)
-  const [reviewUrl, setReviewUrl] = useState('')
-  const [reviewSubmitting, setReviewSubmitting] = useState(false)
-  const [showProfileForm, setShowProfileForm] = useState(false)
-  const [profileEmail, setProfileEmail] = useState(card.customers?.email || '')
-  const [profileBirthday, setProfileBirthday] = useState('')
-  const [profileSaving, setProfileSaving] = useState(false)
-  const [codeCopied, setCodeCopied] = useState(false)
-
   const color = business.primary_color || '#4f46e5'
   const stampsRequired = business.stamps_required ?? 10
   const [stampsCount, setStampsCount] = useState(Math.min(card.current_stamps ?? 0, stampsRequired))
@@ -237,19 +202,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     fetch(`/api/pwa-visit/${card.qr_code_id}`, { method: 'POST' }).catch(() => {})
   }, [card.qr_code_id])
 
-  // Fetch missions
-  useEffect(() => {
-    fetch(`/api/missions/${card.qr_code_id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.missions) setMissions(data.missions)
-        if (data.referral_code) setReferralCode(data.referral_code)
-        setMissionsLoading(false)
-      })
-      .catch(() => setMissionsLoading(false))
-  }, [card.qr_code_id])
-
-  // Fetch live data immediately on mount (for wheel status) then poll every 8s
+  // Fetch live data immediately on mount then poll every 8s
   useEffect(() => {
     async function fetchLive() {
       try {
@@ -257,7 +210,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         if (!res.ok) return
         const data = await res.json()
         if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
-        if (data.wheel !== undefined) setWheelStatus(data.wheel)
         setPointsBalance(data.points)
       } catch { /* ignore */ }
     }
@@ -274,7 +226,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
           stamps: number
           points: number
           rewards?: { id: string; reward_name: string; points_required: number }[]
-          wheel?: { enabled: boolean; cost: number; eligible: boolean } | null
         } = await res.json()
 
         const prev = stampsRef.current
@@ -303,7 +254,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         setPointsBalance(data.points)
 
         if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
-        if (data.wheel !== undefined) setWheelStatus(data.wheel)
       } catch {
         // ignore transient network errors
       }
@@ -349,8 +299,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
 
   const tabs = [
     { id: 'card' as Tab, label: 'Ma carte', icon: <CardTabIcon /> },
-    { id: 'missions' as Tab, label: 'Missions', icon: <MissionsTabIcon /> },
-    { id: 'history' as Tab, label: 'Historique', icon: <HistoryTabIcon /> },
+{ id: 'history' as Tab, label: 'Historique', icon: <HistoryTabIcon /> },
   ]
 
   return (
@@ -700,23 +649,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                     )
                   })()}
 
-                  {/* Wheel button */}
-                  {wheelStatus?.enabled && (
-                    <button
-                      onClick={() => setShowWheel(true)}
-                      disabled={!wheelStatus.eligible}
-                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        backgroundColor: wheelStatus.eligible ? color : `${color}15`,
-                        color: wheelStatus.eligible ? 'white' : color,
-                      }}
-                    >
-                      <span className="text-lg">🎡</span>
-                      {wheelStatus.eligible
-                        ? `Tourner la roue (${wheelStatus.cost} pts)`
-                        : `Roue de la fortune (${wheelStatus.cost} pts requis)`}
-                    </button>
-                  )}
                 </div>
               )}
 
@@ -745,281 +677,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
                   </button>
                 )}
               </div>
-            </>
-          )}
-
-          {/* ── Missions ── */}
-          {activeTab === 'missions' && (
-            <>
-              {missionsLoading ? (
-                <div className="flex items-center justify-center py-12 -mt-4">
-                  <div className="w-7 h-7 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: color }} />
-                </div>
-              ) : missions.length === 0 ? (
-                <div className="-mt-4 bg-white rounded-2xl shadow-sm p-6 text-center">
-                  <p className="text-gray-400 text-sm">Aucune mission disponible pour le moment</p>
-                </div>
-              ) : (
-                <div className="-mt-4 bg-white rounded-2xl shadow-sm p-5 space-y-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Missions
-                  </p>
-
-                  <div className="space-y-3">
-                    {missions.map((m) => {
-                      const isCompleted = m.completed
-                      const isPending = m.pending
-
-                      return (
-                        <div key={m.id} className="flex items-start gap-3">
-                          <span className="text-base mt-0.5 shrink-0">
-                            {isCompleted ? '\u2705' : isPending ? '\u23F3' : m.template_key === 'monthly_visits' && m.progress ? '\u25D0' : '\u2610'}
-                          </span>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className={`text-sm font-medium ${isCompleted ? 'text-green-700' : 'text-gray-800'}`}>
-                                {m.template_key === 'google_review' && 'Laisser un avis Google'}
-                                {m.template_key === 'complete_profile' && 'Compléter votre profil'}
-                                {m.template_key === 'referral' && 'Parrainer un ami'}
-                                {m.template_key === 'monthly_visits' && `${(m.config?.target as number) ?? 5} visites ce mois`}
-                              </p>
-                              <span className="text-xs font-semibold shrink-0" style={{ color }}>
-                                +{m.reward_points} pt{m.reward_points > 1 ? 's' : ''}
-                              </span>
-                            </div>
-
-                            {m.template_key === 'monthly_visits' && m.progress && !isCompleted && (
-                              <div className="mt-1.5">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full transition-all duration-500"
-                                      style={{
-                                        width: `${Math.min(100, (m.progress.current / m.progress.target) * 100)}%`,
-                                        backgroundColor: color,
-                                      }}
-                                    />
-                                  </div>
-                                  <span className="text-[11px] text-gray-400 font-medium shrink-0">
-                                    {m.progress.current}/{m.progress.target}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-
-                            {m.template_key === 'google_review' && !isCompleted && !isPending && (
-                              <div className="mt-2">
-                                {!showReviewForm ? (
-                                  <button
-                                    onClick={() => setShowReviewForm(true)}
-                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
-                                    style={{ backgroundColor: color }}
-                                  >
-                                    Soumettre
-                                  </button>
-                                ) : (
-                                  <div className="flex gap-2">
-                                    <input
-                                      type="url"
-                                      placeholder="Lien de votre avis Google"
-                                      value={reviewUrl}
-                                      onChange={(e) => setReviewUrl(e.target.value)}
-                                      className="flex-1 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    />
-                                    <button
-                                      onClick={async () => {
-                                        if (!reviewUrl.trim()) return
-                                        setReviewSubmitting(true)
-                                        try {
-                                          const res = await fetch('/api/missions/complete', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ cardId: card.id, templateKey: 'google_review', proofUrl: reviewUrl }),
-                                          })
-                                          if (res.ok) {
-                                            setMissions(missions.map((mi) =>
-                                              mi.id === m.id ? { ...mi, pending: true } : mi
-                                            ))
-                                            setShowReviewForm(false)
-                                            setReviewUrl('')
-                                          }
-                                        } catch { /* ignore */ }
-                                        setReviewSubmitting(false)
-                                      }}
-                                      disabled={reviewSubmitting}
-                                      className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white shrink-0"
-                                      style={{ backgroundColor: color }}
-                                    >
-                                      {reviewSubmitting ? '...' : 'Valider'}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {m.template_key === 'google_review' && isPending && (
-                              <p className="text-xs text-amber-600 mt-1">En attente de validation</p>
-                            )}
-                            {m.template_key === 'google_review' && isCompleted && (
-                              <p className="text-xs text-green-600 mt-1">Fait !</p>
-                            )}
-
-                            {m.template_key === 'complete_profile' && !isCompleted && (
-                              <div className="mt-2">
-                                {!showProfileForm ? (
-                                  <button
-                                    onClick={() => setShowProfileForm(true)}
-                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
-                                    style={{ backgroundColor: color }}
-                                  >
-                                    Compléter
-                                  </button>
-                                ) : (
-                                  <div className="space-y-2 mt-1">
-                                    <input
-                                      type="email"
-                                      placeholder="Email"
-                                      value={profileEmail}
-                                      onChange={(e) => setProfileEmail(e.target.value)}
-                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    />
-                                    <input
-                                      type="date"
-                                      placeholder="Date d'anniversaire"
-                                      value={profileBirthday}
-                                      onChange={(e) => setProfileBirthday(e.target.value)}
-                                      className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    />
-                                    <button
-                                      onClick={async () => {
-                                        setProfileSaving(true)
-                                        try {
-                                          const res = await fetch('/api/card/update-profile', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              cardId: card.id,
-                                              email: profileEmail || undefined,
-                                              birthday: profileBirthday || undefined,
-                                            }),
-                                          })
-                                          const data = await res.json()
-                                          if (data.mission_completed) {
-                                            setMissions(missions.map((mi) =>
-                                              mi.id === m.id ? { ...mi, completed: true } : mi
-                                            ))
-                                            setPointsBalance((prev) => prev + (data.points_awarded ?? 0))
-                                          }
-                                          setShowProfileForm(false)
-                                        } catch { /* ignore */ }
-                                        setProfileSaving(false)
-                                      }}
-                                      disabled={profileSaving}
-                                      className="text-xs font-semibold px-4 py-2 rounded-lg text-white"
-                                      style={{ backgroundColor: color }}
-                                    >
-                                      {profileSaving ? 'Sauvegarde...' : 'Sauvegarder'}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {m.template_key === 'complete_profile' && isCompleted && (
-                              <p className="text-xs text-green-600 mt-1">Fait !</p>
-                            )}
-
-                            {m.template_key === 'referral' && (
-                              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(referralCode).catch(() => {})
-                                    setCodeCopied(true)
-                                    setTimeout(() => setCodeCopied(false), 2000)
-                                  }}
-                                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-                                  style={{ borderColor: color, color }}
-                                >
-                                  {codeCopied ? 'Copié !' : `Mon code : ${referralCode}`}
-                                </button>
-                                {typeof navigator !== 'undefined' && 'share' in navigator && (
-                                  <button
-                                    onClick={() => {
-                                      navigator.share({
-                                        title: `Rejoins ${business.business_name}`,
-                                        text: `Utilise mon code parrain ${referralCode} pour gagner des points !`,
-                                      }).catch(() => {})
-                                    }}
-                                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
-                                    style={{ backgroundColor: color }}
-                                  >
-                                    Partager
-                                  </button>
-                                )}
-                              </div>
-                            )}
-
-                            {m.template_key === 'monthly_visits' && isCompleted && (
-                              <p className="text-xs text-green-600 mt-1">Fait !</p>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Referral code section (always visible if code exists) */}
-              {referralCode && (
-                <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Mon code parrain
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex-1 text-center text-lg font-bold tracking-wider py-2 rounded-xl"
-                      style={{ backgroundColor: `${color}10`, color }}
-                    >
-                      {referralCode}
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(referralCode).catch(() => {})
-                        setCodeCopied(true)
-                        setTimeout(() => setCodeCopied(false), 2000)
-                      }}
-                      className="shrink-0 p-2.5 rounded-xl border transition-colors"
-                      style={{ borderColor: color, color }}
-                    >
-                      {codeCopied ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                        </svg>
-                      )}
-                    </button>
-                    {typeof navigator !== 'undefined' && 'share' in navigator && (
-                      <button
-                        onClick={() => {
-                          navigator.share({
-                            title: `Rejoins ${business.business_name}`,
-                            text: `Utilise mon code parrain ${referralCode} pour gagner des points !`,
-                          }).catch(() => {})
-                        }}
-                        className="shrink-0 p-2.5 rounded-xl text-white"
-                        style={{ backgroundColor: color }}
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </>
           )}
 
@@ -1106,22 +763,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         </div>
       )}
 
-      {/* Wheel modal */}
-      {showWheel && (
-        <WheelModal
-          cardId={card.id}
-          qrCodeId={card.qr_code_id}
-          businessId={business.id}
-          color={color}
-          onClose={() => setShowWheel(false)}
-          onResult={(newPoints) => {
-            setPointsBalance(newPoints)
-            setShowConfetti(true)
-            setTimeout(() => setShowConfetti(false), 3500)
-          }}
-        />
-      )}
-
       {/* Bottom tab bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 z-30">
         <div className="max-w-sm mx-auto flex">
@@ -1153,209 +794,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   )
 }
 
-/* ─── Wheel Modal Component ─── */
-
-interface WheelSegment {
-  id: string
-  label: string
-  emoji: string
-  probability: number
-}
-
-interface WheelModalProps {
-  cardId: string
-  qrCodeId: string
-  businessId: string
-  color: string
-  onClose: () => void
-  onResult: (newPoints: number) => void
-}
-
-const WHEEL_COLORS = [
-  '#ef4444', '#f59e0b', '#10b981', '#3b82f6',
-  '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
-]
-
-function WheelModal({ cardId, qrCodeId, businessId, color, onClose, onResult }: WheelModalProps) {
-  const [segments, setSegments] = useState<WheelSegment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [spinning, setSpinning] = useState(false)
-  const [rotation, setRotation] = useState(0)
-  const [result, setResult] = useState<{ label: string; emoji: string } | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch(`/api/wheel/${qrCodeId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.segments) setSegments(data.segments)
-        else setError(data.error || 'Roue indisponible')
-        setLoading(false)
-      })
-      .catch(() => {
-        setError('Erreur de chargement')
-        setLoading(false)
-      })
-  }, [qrCodeId])
-
-  async function handleSpin() {
-    if (spinning || segments.length < 2) return
-    setSpinning(true)
-    setResult(null)
-    setError(null)
-
-    try {
-      const res = await fetch('/api/wheel/spin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardId, businessId }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Erreur')
-        setSpinning(false)
-        return
-      }
-
-      const winnerIdx = data.winner_index ?? 0
-      const segAngle = 360 / segments.length
-      // Target angle: land in the middle of the winning segment
-      // Top of wheel = 0°, segments go clockwise from top
-      const targetAngle = 360 - (winnerIdx * segAngle + segAngle / 2)
-      const totalRotation = rotation + 360 * 5 + targetAngle
-      setRotation(totalRotation)
-
-      // Wait for animation to finish (4s ease-out)
-      setTimeout(() => {
-        setResult({ label: data.prize.label, emoji: data.prize.emoji })
-        onResult(data.new_points)
-        setSpinning(false)
-      }, 4200)
-    } catch {
-      setError('Erreur réseau')
-      setSpinning(false)
-    }
-  }
-
-  const segAngle = segments.length > 0 ? 360 / segments.length : 360
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <style>{`
-        @keyframes wheelSpin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(var(--wheel-rotation)); }
-        }
-      `}</style>
-      <div className="bg-white rounded-3xl w-full max-w-sm p-6 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
-        >
-          ×
-        </button>
-        <h2 className="text-lg font-bold text-center mb-4">🎡 Roue de la fortune</h2>
-
-        {loading && <p className="text-center text-gray-400 py-8">Chargement...</p>}
-
-        {error && !loading && (
-          <p className="text-center text-red-500 text-sm py-4">{error}</p>
-        )}
-
-        {!loading && segments.length >= 2 && (
-          <div className="flex flex-col items-center gap-4">
-            {/* Pointer */}
-            <div className="relative">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10 text-2xl">▼</div>
-              {/* Wheel SVG */}
-              <svg
-                width="280"
-                height="280"
-                viewBox="0 0 280 280"
-                className="drop-shadow-lg"
-                style={{
-                  transform: `rotate(${rotation}deg)`,
-                  transition: spinning ? 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none',
-                }}
-              >
-                {segments.map((seg, i) => {
-                  const startAngle = (i * segAngle - 90) * (Math.PI / 180)
-                  const endAngle = ((i + 1) * segAngle - 90) * (Math.PI / 180)
-                  const cx = 140, cy = 140, r = 130
-                  const x1 = cx + r * Math.cos(startAngle)
-                  const y1 = cy + r * Math.sin(startAngle)
-                  const x2 = cx + r * Math.cos(endAngle)
-                  const y2 = cy + r * Math.sin(endAngle)
-                  const largeArc = segAngle > 180 ? 1 : 0
-                  const midAngle = ((i + 0.5) * segAngle - 90) * (Math.PI / 180)
-                  const textR = r * 0.65
-                  const tx = cx + textR * Math.cos(midAngle)
-                  const ty = cy + textR * Math.sin(midAngle)
-                  const textAngle = (i + 0.5) * segAngle
-
-                  return (
-                    <g key={seg.id}>
-                      <path
-                        d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`}
-                        fill={WHEEL_COLORS[i % WHEEL_COLORS.length]}
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                      <text
-                        x={tx}
-                        y={ty}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fill="white"
-                        fontSize="12"
-                        fontWeight="bold"
-                        transform={`rotate(${textAngle}, ${tx}, ${ty})`}
-                      >
-                        {seg.emoji} {seg.label.length > 10 ? seg.label.slice(0, 9) + '…' : seg.label}
-                      </text>
-                    </g>
-                  )
-                })}
-                <circle cx="140" cy="140" r="18" fill="white" stroke="#e5e7eb" strokeWidth="2" />
-                <text x="140" y="140" textAnchor="middle" dominantBaseline="central" fontSize="16">🎡</text>
-              </svg>
-            </div>
-
-            {/* Result */}
-            {result && (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-center">
-                <p className="text-lg font-bold text-green-700">{result.emoji} {result.label}</p>
-                <p className="text-xs text-green-600 mt-1">Félicitations !</p>
-              </div>
-            )}
-
-            {/* Spin button */}
-            {!result && (
-              <button
-                onClick={handleSpin}
-                disabled={spinning}
-                className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-60"
-                style={{ backgroundColor: color }}
-              >
-                {spinning ? 'La roue tourne...' : 'Tourner !'}
-              </button>
-            )}
-
-            {result && (
-              <button
-                onClick={onClose}
-                className="w-full py-3 rounded-xl text-sm font-semibold border-2 transition-all"
-                style={{ borderColor: color, color }}
-              >
-                Fermer
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // Augment the BeforeInstallPromptEvent type
 interface BeforeInstallPromptEvent extends Event {

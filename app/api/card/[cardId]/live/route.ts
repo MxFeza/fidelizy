@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Lightweight polling endpoint — returns mutable fields + rewards & wheel status.
+// Lightweight polling endpoint — returns mutable fields + rewards.
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ cardId: string }> }
@@ -19,7 +19,7 @@ export async function GET(
 
   const { data: business } = await supabase
     .from('businesses')
-    .select('loyalty_type, gamification')
+    .select('loyalty_type')
     .eq('id', card.business_id)
     .single()
 
@@ -35,24 +35,11 @@ export async function GET(
     rewards = tiers ?? []
   }
 
-  // Wheel status
-  const gamification = business?.gamification ?? {}
-  let wheel = null
-  if (gamification.wheel_enabled && business?.loyalty_type === 'points') {
-    const cost = gamification.wheel_cost_points ?? 10
-    wheel = {
-      enabled: true,
-      cost,
-      eligible: (card.current_points ?? 0) >= cost,
-    }
-  }
-
   return NextResponse.json(
     {
       stamps: card.current_stamps ?? 0,
       points: card.current_points ?? 0,
       rewards,
-      wheel,
     },
     { headers: { 'Cache-Control': 'no-store' } }
   )

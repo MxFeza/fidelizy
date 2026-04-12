@@ -1,48 +1,29 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
-import { resetCard, ServiceError } from '@/lib/services/loyalty.service'
+import { resetCard } from '@/lib/services/loyalty.service'
+import { AppError, withErrorHandler } from '@/lib/errors'
 
-export async function POST(request: NextRequest) {
-  try {
-    const { success } = await cardWriteLimiter.limit(getIP(request))
-    if (!success) {
-      return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
-    }
+export const POST = withErrorHandler(async (request) => {
+  const { success } = await cardWriteLimiter.limit(getIP(request))
+  if (!success) throw AppError.rateLimit('Trop de requêtes. Réessaie dans quelques secondes.')
 
-    const { card_id } = await request.json()
-    if (!card_id) {
-      return NextResponse.json({ error: 'card_id requis' }, { status: 400 })
-    }
+  const { card_id } = await request.json()
+  if (!card_id) throw AppError.validation('card_id requis')
 
-    const supabase = await createClient()
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (!user || authError) throw AppError.auth('Non autorisé')
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('id')
+    .eq('id', user.id)
+    .single()
 
-    if (!user || authError) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-    }
+  if (!business) throw AppError.notFound('Commerce introuvable')
 
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+  await resetCard(supabase, { cardId: card_id, businessId: business.id })
 
-    if (!business) {
-      return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
-    }
-
-    await resetCard(supabase, { cardId: card_id, businessId: business.id })
-
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    if (err instanceof ServiceError) {
-      return NextResponse.json({ error: err.message }, { status: err.statusCode })
-    }
-    return NextResponse.json({ error: 'Erreur serveur inattendue' }, { status: 500 })
-  }
-}
+  return NextResponse.json({ success: true })
+})

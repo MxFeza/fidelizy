@@ -42,8 +42,8 @@ development_status:
   epic-0: in-progress
   0-1-tests-e2e-playwright: done
   0-2-elagage-gamification-hard-delete: done
-  0-3-extraction-services-metier: review
-  0-4-error-handling-standardise: backlog
+  0-3-extraction-services-metier: done
+  0-4-error-handling-standardise: review
   epic-0-retrospective: optional
 
   # ── Epic 1: Navigation & Design System ── S3

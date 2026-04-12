@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { processReferral } from './referral.service'
-import { ServiceError } from './loyalty.service'
+import { AppError } from '@/lib/errors'
 import type { RegisterCustomerInput, RecoverCardsInput } from './customer.schemas'
 
 interface RegisterResult {
@@ -26,7 +26,7 @@ export async function registerCustomer(
     .single()
 
   if (!business) {
-    throw new ServiceError('Commerce introuvable', 404)
+    throw new AppError('Commerce introuvable', 404)
   }
 
   // Check if customer with this phone already exists
@@ -60,7 +60,7 @@ export async function registerCustomer(
       .single()
 
     if (customerError || !newCustomer) {
-      throw new ServiceError('Erreur lors de la création du profil', 500)
+      throw new AppError('Erreur lors de la création du profil', 500)
     }
 
     customerId = newCustomer.id
@@ -83,7 +83,7 @@ export async function registerCustomer(
     .single()
 
   if (cardError || !newCard) {
-    throw new ServiceError('Erreur lors de la création de la carte', 500)
+    throw new AppError('Erreur lors de la création de la carte', 500)
   }
 
   // Log initial bonus stamps as a transaction

@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { notifyClient } from './notification.service'
+import { AppError } from '@/lib/errors'
 import type { LoyaltyCard, Customer } from '@/lib/types'
 import type { AddToCardInput, DeductFromCardInput, ClaimRewardInput, ResetCardInput } from './loyalty.schemas'
 
@@ -57,7 +58,7 @@ export async function scanCard(
   }
 
   if (!card) {
-    throw new ServiceError('Carte introuvable ou ne correspond pas à ce commerce.', 404)
+    throw new AppError('Carte introuvable ou ne correspond pas à ce commerce.', 404)
   }
 
   if (business.loyalty_type === 'stamps') {
@@ -95,7 +96,7 @@ export async function addToCard(
     .single()
 
   if (!card) {
-    throw new ServiceError('Carte introuvable', 404)
+    throw new AppError('Carte introuvable', 404)
   }
 
   const business = {
@@ -129,7 +130,7 @@ export async function deductFromCard(
     .single()
 
   if (!card) {
-    throw new ServiceError('Carte introuvable', 404)
+    throw new AppError('Carte introuvable', 404)
   }
 
   if (type === 'stamps') {
@@ -199,7 +200,7 @@ export async function claimReward(
     .single()
 
   if (!card) {
-    throw new ServiceError('Carte introuvable', 404)
+    throw new AppError('Carte introuvable', 404)
   }
 
   const { data: tier } = await supabase
@@ -210,7 +211,7 @@ export async function claimReward(
     .single()
 
   if (!tier) {
-    throw new ServiceError('Palier de récompense introuvable', 404)
+    throw new AppError('Palier de récompense introuvable', 404)
   }
 
   // Atomic deduction via RPC — prevents spending more than available
@@ -220,11 +221,11 @@ export async function claimReward(
   }).single() as { data: { new_points: number; success: boolean } | null; error: unknown }
 
   if (deductError || !deductResult) {
-    throw new ServiceError('Erreur lors de la déduction des points', 500)
+    throw new AppError('Erreur lors de la déduction des points', 500)
   }
 
   if (!deductResult.success) {
-    throw new ServiceError(`Points insuffisants (${card.current_points ?? 0}/${tier.points_required})`, 400)
+    throw new AppError(`Points insuffisants (${card.current_points ?? 0}/${tier.points_required})`, 400)
   }
 
   const newPoints = deductResult.new_points
@@ -274,7 +275,7 @@ export async function resetCard(
     .single()
 
   if (!card) {
-    throw new ServiceError('Carte introuvable', 404)
+    throw new AppError('Carte introuvable', 404)
   }
 
   await supabase
@@ -323,7 +324,7 @@ async function earnStampsInternal(
   }).single() as { data: { new_stamps: number; is_complete: boolean; total_visits: number } | null; error: unknown }
 
   if (rpcError || !rpcResult) {
-    throw new ServiceError('Erreur lors de la mise à jour des tampons', 500)
+    throw new AppError('Erreur lors de la mise à jour des tampons', 500)
   }
 
   const finalStamps = rpcResult.new_stamps
@@ -391,7 +392,7 @@ async function earnPointsInternal(
   }).single() as { data: { new_points: number; previous_points: number; total_visits: number } | null; error: unknown }
 
   if (rpcError || !rpcResult) {
-    throw new ServiceError('Erreur lors de la mise à jour des points', 500)
+    throw new AppError('Erreur lors de la mise à jour des points', 500)
   }
 
   const newPoints = rpcResult.new_points
@@ -436,14 +437,3 @@ async function earnPointsInternal(
   return { success: true, message, updatedCard: updatedCard ?? {} as Partial<LoyaltyCard>, customer: null, newValue: newPoints }
 }
 
-// ── Error class ──
-
-export class ServiceError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number
-  ) {
-    super(message)
-    this.name = 'ServiceError'
-  }
-}

@@ -4,11 +4,11 @@ vi.mock('@/lib/services/referral.service', () => ({
   processReferral: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@/lib/services/loyalty.service', () => ({
-  ServiceError: class ServiceError extends Error {
+vi.mock('@/lib/errors', () => ({
+  AppError: class AppError extends Error {
     constructor(message: string, public statusCode: number) {
       super(message)
-      this.name = 'ServiceError'
+      this.name = 'AppError'
     }
   },
 }))

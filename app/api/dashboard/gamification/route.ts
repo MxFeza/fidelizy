@@ -1,16 +1,13 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { AppError, withErrorHandler } from '@/lib/errors'
 
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw AppError.auth('Non autorisé')
 
   const { data: business } = await supabase
     .from('businesses')
@@ -18,45 +15,31 @@ export async function GET() {
     .eq('id', user.id)
     .single()
 
-  if (!business) {
-    return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
-  }
+  if (!business) throw AppError.notFound('Commerce introuvable')
 
   const initialStamps = (business.gamification as Record<string, unknown>)?.initial_stamps ?? 0
 
   return NextResponse.json({ initial_stamps: initialStamps })
-}
+})
 
-export async function PUT(request: NextRequest) {
+export const PUT = withErrorHandler(async (request) => {
   const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw AppError.auth('Non autorisé')
 
   const body = await request.json()
-
   const initialStamps =
     typeof body.initial_stamps === 'number'
       ? Math.max(0, Math.min(3, Math.floor(body.initial_stamps)))
       : undefined
 
-  if (initialStamps === undefined) {
-    return NextResponse.json({ error: 'initial_stamps requis (0-3)' }, { status: 400 })
-  }
+  if (initialStamps === undefined) throw AppError.validation('initial_stamps requis (0-3)')
 
-  const { error } = await supabase
+  await supabase
     .from('businesses')
     .update({ gamification: { initial_stamps: initialStamps } })
     .eq('id', user.id)
-
-  if (error) {
-    return NextResponse.json({ error: 'Erreur lors de la sauvegarde' }, { status: 500 })
-  }
+    .throwOnError()
 
   return NextResponse.json({ initial_stamps: initialStamps })
-}
+})

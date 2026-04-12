@@ -2,12 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ScanLine, Users, Settings, User, Zap } from 'lucide-react'
+import { ScanLine, Users, Settings, User } from 'lucide-react'
 
 const tabs = [
   { href: '/dashboard', label: 'Scanner', icon: ScanLine },
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
-  { href: '/dashboard/engagement', label: 'Engagement', icon: Zap },
   { href: '/dashboard/settings', label: 'Réglages', icon: Settings },
 ]
 

@@ -48,48 +48,6 @@ export const broadcastLimiter = new Ratelimit({
   prefix: 'rl:broadcast',
 })
 
-export const gamificationLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '60 s'),
-  prefix: 'rl:gamification',
-})
-
-export const wheelLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '60 s'),
-  prefix: 'rl:wheel',
-})
-
-export const wheelSpinLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(3, '60 s'),
-  prefix: 'rl:wheel-spin',
-})
-
-export const wheelPrizesLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '60 s'),
-  prefix: 'rl:wheel-prizes',
-})
-
-export const missionsLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '60 s'),
-  prefix: 'rl:missions',
-})
-
-export const missionCompleteLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, '3600 s'),
-  prefix: 'rl:mission-complete',
-})
-
-export const missionValidateLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '60 s'),
-  prefix: 'rl:mission-validate',
-})
-
 export const profileUpdateLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(5, '3600 s'),

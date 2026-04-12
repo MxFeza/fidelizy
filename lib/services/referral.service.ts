@@ -75,7 +75,7 @@ export async function processReferral(
     business_id: businessId,
     referrer_points_awarded: referrerPoints,
     referred_points_awarded: referredPoints,
-  })
+  }).throwOnError()
 
   // Update referrer card points
   const { data: refCard } = await supabase
@@ -89,6 +89,7 @@ export async function processReferral(
       .from('loyalty_cards')
       .update({ current_points: (refCard.current_points ?? 0) + referrerPoints })
       .eq('id', referrerCard.id)
+      .throwOnError()
 
     await supabase.from('transactions').insert({
       loyalty_card_id: referrerCard.id,
@@ -97,11 +98,11 @@ export async function processReferral(
       stamps_added: null,
       points_added: referrerPoints,
       description: `Parrainage : ${referredFirstName} vous a rapporté ${referrerPoints} points`,
-    })
+    }).throwOnError()
 
     // Notify referrer
     setPendingWalletAction(refCard.qr_code_id, 'add')
-    notifyClient(referrerCard.id, refCard.qr_code_id, 'referral_success', {
+    notifyClient(referrerCard.id, refCard.qr_code_id, {
       title: 'Parrainage réussi !',
       body: `Votre ami ${referredFirstName} vous a rapporté ${referrerPoints} points !`,
     }).catch(() => {})
@@ -118,6 +119,7 @@ export async function processReferral(
     .from('loyalty_cards')
     .update({ current_points: referredPoints })
     .eq('id', referredCardId)
+    .throwOnError()
 
   await supabase.from('transactions').insert({
     loyalty_card_id: referredCardId,
@@ -126,12 +128,12 @@ export async function processReferral(
     stamps_added: null,
     points_added: referredPoints,
     description: `Bonus de parrainage : +${referredPoints} points`,
-  })
+  }).throwOnError()
 
   // Notify referred
   if (newCard) {
     setPendingWalletAction(newCard.qr_code_id, 'add')
-    notifyClient(referredCardId, newCard.qr_code_id, 'welcome', {
+    notifyClient(referredCardId, newCard.qr_code_id, {
       title: 'Bienvenue !',
       body: `${referredPoints} points offerts grâce au parrainage !`,
     }).catch(() => {})

@@ -2,6 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 import { deductFromCard, ServiceError } from '@/lib/services/loyalty.service'
+import { z } from 'zod'
+
+const deductInputSchema = z.object({
+  card_id: z.string().uuid(),
+  type: z.enum(['stamps', 'points']),
+  amount: z.coerce.number().int().positive().max(1000),
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,17 +17,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Trop de requêtes. Réessaie dans quelques secondes.' }, { status: 429 })
     }
 
-    const { card_id, type, amount } = await request.json()
-
-    if (!card_id || !type || !amount || amount <= 0) {
+    const body = await request.json()
+    const parsed = deductInputSchema.safeParse(body)
+    if (!parsed.success) {
       return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
     }
-    if (type !== 'stamps' && type !== 'points') {
-      return NextResponse.json({ error: 'Type invalide (stamps ou points)' }, { status: 400 })
-    }
-    if (!Number.isInteger(amount) || amount > 1000) {
-      return NextResponse.json({ error: 'Montant invalide (entier entre 1 et 1000)' }, { status: 400 })
-    }
+    const { card_id, type, amount } = parsed.data
 
     const supabase = await createClient()
 

@@ -20,7 +20,7 @@ describe('notification.service', () => {
 
   describe('notifyClient', () => {
     it('should dispatch to web push and wallet', async () => {
-      const result = await notifyClient('card-1', 'qr-123', 'stamp_added', {
+      const result = await notifyClient('card-1', 'qr-123', {
         title: 'Test',
         body: 'Test body',
       })
@@ -39,7 +39,7 @@ describe('notification.service', () => {
     it('should report failed channels gracefully', async () => {
       vi.mocked(sendPushToCard).mockRejectedValueOnce(new Error('VAPID error'))
 
-      const result = await notifyClient('card-1', 'qr-123', 'reward_reached', {
+      const result = await notifyClient('card-1', 'qr-123', {
         title: 'Reward',
         body: 'You won!',
       })

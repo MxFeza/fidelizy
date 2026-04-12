@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { otpLimiter, getIP } from '@/lib/ratelimit'
@@ -27,7 +28,8 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServiceClient()
-    const result = await addEmailAndSendOtp(supabase, {
+    const supabaseAuth = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    const result = await addEmailAndSendOtp(supabase, supabaseAuth, {
       phone: phone.trim(),
       email: email.trim().toLowerCase(),
     })

@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { notifyWalletDevices } from '@/lib/wallet/push'
-import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
+import { resetCard, ServiceError } from '@/lib/services/loyalty.service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,40 +36,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
     }
 
-    // Verify the card belongs to this merchant
-    const { data: card } = await supabase
-      .from('loyalty_cards')
-      .select('id, business_id, current_stamps, qr_code_id')
-      .eq('id', card_id)
-      .eq('business_id', business.id)
-      .single()
-
-    if (!card) {
-      return NextResponse.json({ error: 'Carte introuvable' }, { status: 404 })
-    }
-
-    await supabase
-      .from('loyalty_cards')
-      .update({ current_stamps: 0 })
-      .eq('id', card.id)
-
-    await supabase.from('transactions').insert({
-      loyalty_card_id: card.id,
-      business_id: business.id,
-      type: 'redeem',
-      stamps_added: null,
-      points_added: null,
-      description: 'Récompense accordée — carte réinitialisée',
-    })
-
-    setPendingWalletAction(card.qr_code_id, 'reset')
-
-    await notifyWalletDevices(card.qr_code_id).catch((err) =>
-      console.error('Wallet push error (reset):', err)
-    )
+    await resetCard(supabase, { cardId: card_id, businessId: business.id })
 
     return NextResponse.json({ success: true })
-  } catch {
+  } catch (err) {
+    if (err instanceof ServiceError) {
+      return NextResponse.json({ error: err.message }, { status: err.statusCode })
+    }
     return NextResponse.json({ error: 'Erreur serveur inattendue' }, { status: 500 })
   }
 }

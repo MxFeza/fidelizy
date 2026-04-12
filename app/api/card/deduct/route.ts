@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { notifyWalletDevices } from '@/lib/wallet/push'
-import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
+import { deductFromCard, ServiceError } from '@/lib/services/loyalty.service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,11 +15,9 @@ export async function POST(request: NextRequest) {
     if (!card_id || !type || !amount || amount <= 0) {
       return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
     }
-
     if (type !== 'stamps' && type !== 'points') {
       return NextResponse.json({ error: 'Type invalide (stamps ou points)' }, { status: 400 })
     }
-
     if (!Number.isInteger(amount) || amount > 1000) {
       return NextResponse.json({ error: 'Montant invalide (entier entre 1 et 1000)' }, { status: 400 })
     }
@@ -46,65 +43,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Commerce introuvable' }, { status: 404 })
     }
 
-    const { data: card } = await supabase
-      .from('loyalty_cards')
-      .select('id, current_stamps, current_points, business_id, qr_code_id')
-      .eq('id', card_id)
-      .eq('business_id', business.id)
-      .single()
+    const result = await deductFromCard(supabase, {
+      cardId: card_id,
+      businessId: business.id,
+      type,
+      amount,
+    })
 
-    if (!card) {
-      return NextResponse.json({ error: 'Carte introuvable' }, { status: 404 })
+    return NextResponse.json({ success: true, new_value: result.newValue })
+  } catch (err) {
+    if (err instanceof ServiceError) {
+      return NextResponse.json({ error: err.message }, { status: err.statusCode })
     }
-
-    if (type === 'stamps') {
-      const newStamps = Math.max(0, (card.current_stamps ?? 0) - amount)
-      await supabase
-        .from('loyalty_cards')
-        .update({ current_stamps: newStamps })
-        .eq('id', card.id)
-
-      await supabase.from('transactions').insert({
-        loyalty_card_id: card.id,
-        business_id: business.id,
-        type: 'redeem',
-        stamps_added: null,
-        points_added: null,
-        description: `${amount} tampon${amount > 1 ? 's' : ''} retiré${amount > 1 ? 's' : ''} (correction)`,
-      })
-
-      setPendingWalletAction(card.qr_code_id, 'deduct')
-
-      await notifyWalletDevices(card.qr_code_id).catch((err) =>
-        console.error('Wallet push error (deduct stamps):', err)
-      )
-
-      return NextResponse.json({ success: true, new_value: newStamps })
-    } else {
-      const newPoints = Math.max(0, (card.current_points ?? 0) - amount)
-      await supabase
-        .from('loyalty_cards')
-        .update({ current_points: newPoints })
-        .eq('id', card.id)
-
-      await supabase.from('transactions').insert({
-        loyalty_card_id: card.id,
-        business_id: business.id,
-        type: 'redeem',
-        stamps_added: null,
-        points_added: null,
-        description: `${amount} point${amount > 1 ? 's' : ''} retirés (correction)`,
-      })
-
-      setPendingWalletAction(card.qr_code_id, 'deduct')
-
-      await notifyWalletDevices(card.qr_code_id).catch((err) =>
-        console.error('Wallet push error (deduct points):', err)
-      )
-
-      return NextResponse.json({ success: true, new_value: newPoints })
-    }
-  } catch {
     return NextResponse.json({ error: 'Erreur serveur inattendue' }, { status: 500 })
   }
 }

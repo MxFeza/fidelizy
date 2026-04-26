@@ -12,7 +12,6 @@
 
 import { useRef, useState } from 'react'
 import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01 } from '@untitledui/icons'
-import Image from 'next/image'
 import { Button } from '@/components/ui/base/buttons/button'
 import { cx } from '@/utils/cx'
 
@@ -131,13 +130,11 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
       <div className={kind === 'logo' ? 'flex items-start gap-4 sm:gap-6' : 'flex flex-col gap-3'}>
         <div className={previewBox}>
           {currentUrl ? (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={currentUrl}
               alt={hint.title}
-              width={kind === 'logo' ? 200 : 1500}
-              height={kind === 'logo' ? 200 : 500}
               className={cx('w-full h-full', objectFit)}
-              unoptimized
             />
           ) : (
             <div className="flex flex-col items-center gap-1 text-tertiary">

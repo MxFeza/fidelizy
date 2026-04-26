@@ -172,7 +172,9 @@ export default function DashboardClient({
   const [weekData, setWeekData] = useState<WeekDay[]>([])
   const [topClients, setTopClients] = useState<TopClient[]>([])
 
-  const firstName = business.business_name?.split(/\s+/)[0] ?? ''
+  // Greeting : prenom du gerant si renseigne dans Mon entreprise, sinon
+  // fallback sur le 1er mot du nom du commerce.
+  const firstName = business.first_name?.trim() || business.business_name?.split(/\s+/)[0] || ''
 
   useEffect(() => {
     fetch('/api/dashboard/kpis').then((r) => r.json()).then((data) => { if (!data.error) setKpis(data) }).catch(() => {})

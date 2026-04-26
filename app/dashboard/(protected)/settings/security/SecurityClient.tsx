@@ -3,15 +3,20 @@
 /**
  * Securite (Story 8.1) — sous-page de Reglages.
  * Permet au commercant de changer son email, son mot de passe et de se deconnecter.
- * Logique extraite de l'ancien /dashboard/profile (deprecie).
+ *
+ * Refonte 2026-04-27 : sur layout partage SettingsLayout pour uniformite
+ * visuelle avec Mon entreprise / Abonnement / Confidentialite.
  */
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail01, Lock01, LogOut01, AlertCircle, CheckDone01 } from '@untitledui/icons'
+import { Mail01, Lock01, LogOut01, AlertCircle, CheckDone01, ShieldTick } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import { PasswordInput } from '@/components/ui/base/input/password-input'
+import {
+  SettingsPage, SettingsHeader, SettingsBody, SettingsSection,
+} from '@/components/dashboard/SettingsLayout'
 import { createClient } from '@/lib/supabase/client'
 
 interface Msg {
@@ -89,35 +94,38 @@ export default function SecurityClient({ email }: SecurityClientProps) {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-display-xs font-semibold text-primary">Sécurité</h1>
-        <p className="text-sm text-tertiary mt-1">Gérez votre email, mot de passe et session.</p>
-      </div>
+    <SettingsPage>
+      <SettingsHeader
+        title="Sécurité"
+        subtitle="Gérez votre email, mot de passe et session."
+      />
 
-      <div className="space-y-4">
+      <SettingsBody>
         {/* Email */}
-        <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-9 rounded-lg bg-brand-secondary flex items-center justify-center">
-              <Mail01 className="size-4 text-fg-brand-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-primary">Adresse email</p>
-              <p className="text-xs text-tertiary truncate">{email}</p>
+        <SettingsSection
+          icon={Mail01}
+          title="Adresse email"
+          subtitle="Votre email sert pour la connexion et les communications administratives."
+        >
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1.5">Email actuel</label>
+            <div className="px-3.5 py-2.5 rounded-lg ring-1 ring-secondary bg-secondary text-md text-tertiary">
+              {email}
             </div>
           </div>
 
           {!emailOpen ? (
-            <Button
-              size="sm"
-              color="link-color"
-              onClick={() => { setEmailOpen(true); setEmailMsg(null) }}
-            >
-              Changer d&apos;email
-            </Button>
+            <div>
+              <Button
+                size="sm"
+                color="secondary"
+                onClick={() => { setEmailOpen(true); setEmailMsg(null) }}
+              >
+                Changer d&apos;email
+              </Button>
+            </div>
           ) : (
-            <form onSubmit={handleEmailChange} className="space-y-3">
+            <form onSubmit={handleEmailChange} className="flex flex-col gap-3">
               <Input
                 label="Nouvel email"
                 type="email"
@@ -126,9 +134,7 @@ export default function SecurityClient({ email }: SecurityClientProps) {
                 onChange={setNewEmail}
                 placeholder="nouveau@email.com"
               />
-              {emailMsg && (
-                <FlashMessage msg={emailMsg} />
-              )}
+              {emailMsg && <FlashMessage msg={emailMsg} />}
               <div className="flex gap-3">
                 <Button
                   size="sm"
@@ -149,27 +155,26 @@ export default function SecurityClient({ email }: SecurityClientProps) {
               </div>
             </form>
           )}
-        </section>
+        </SettingsSection>
 
         {/* Password */}
-        <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-9 rounded-lg bg-brand-secondary flex items-center justify-center">
-              <Lock01 className="size-4 text-fg-brand-primary" />
-            </div>
-            <p className="text-sm font-semibold text-primary">Mot de passe</p>
-          </div>
-
+        <SettingsSection
+          icon={Lock01}
+          title="Mot de passe"
+          subtitle="Choisissez un mot de passe d’au moins 8 caractères."
+        >
           {!pwOpen ? (
-            <Button
-              size="sm"
-              color="link-color"
-              onClick={() => { setPwOpen(true); setPwMsg(null) }}
-            >
-              Changer le mot de passe
-            </Button>
+            <div>
+              <Button
+                size="sm"
+                color="secondary"
+                onClick={() => { setPwOpen(true); setPwMsg(null) }}
+              >
+                Changer le mot de passe
+              </Button>
+            </div>
           ) : (
-            <form onSubmit={handlePasswordChange} className="space-y-3">
+            <form onSubmit={handlePasswordChange} className="flex flex-col gap-3">
               <PasswordInput
                 label="Nouveau mot de passe"
                 isRequired
@@ -205,25 +210,29 @@ export default function SecurityClient({ email }: SecurityClientProps) {
               </div>
             </form>
           )}
-        </section>
+        </SettingsSection>
 
         {/* Session */}
-        <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-          <p className="text-sm font-semibold text-primary mb-1">Déconnexion</p>
-          <p className="text-xs text-tertiary mb-4">Vous serez redirigé vers la page de connexion.</p>
-          <Button
-            size="sm"
-            color="secondary-destructive"
-            iconLeading={LogOut01}
-            onClick={handleLogout}
-            isDisabled={logoutLoading}
-            isLoading={logoutLoading}
-          >
-            Se déconnecter
-          </Button>
-        </section>
-      </div>
-    </div>
+        <SettingsSection
+          icon={ShieldTick}
+          title="Session"
+          subtitle="Vous serez redirigé vers la page de connexion."
+        >
+          <div>
+            <Button
+              size="sm"
+              color="secondary-destructive"
+              iconLeading={LogOut01}
+              onClick={handleLogout}
+              isDisabled={logoutLoading}
+              isLoading={logoutLoading}
+            >
+              Se déconnecter
+            </Button>
+          </div>
+        </SettingsSection>
+      </SettingsBody>
+    </SettingsPage>
   )
 }
 

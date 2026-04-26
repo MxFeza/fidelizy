@@ -3,9 +3,11 @@
 /**
  * Confidentialite (Story 8.1+8.2+8.3) — sous-page de Reglages.
  *
+ * Refonte 2026-04-27 : sur layout partage SettingsLayout pour uniformite.
+ *
  * - Liens documents legaux (CGU, politique, mentions)
  * - Export RGPD via /api/account/export (ZIP de CSVs)
- * - Suppression compte via /api/account/delete (cascade FK Supabase)
+ * - Suppression compte via /api/account/delete (cascade explicite)
  */
 
 import { useState } from 'react'
@@ -14,6 +16,9 @@ import { Download01, Trash01, AlertTriangle, FileShield02, ArrowUpRight, Loading
 import { Dialog, Modal, ModalOverlay } from '@/components/ui/application/modals/modal'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
+import {
+  SettingsPage, SettingsHeader, SettingsBody, SettingsSection,
+} from '@/components/dashboard/SettingsLayout'
 import { createClient } from '@/lib/supabase/client'
 
 type DeleteStep = 'closed' | 'confirm' | 'typing'
@@ -48,7 +53,6 @@ export default function PrivacyClient({ businessName }: PrivacyClientProps) {
       const a = document.createElement('a')
       a.href = url
 
-      // Extraire le filename depuis Content-Disposition si dispo
       const cd = res.headers.get('Content-Disposition') ?? ''
       const match = cd.match(/filename="?([^"]+)"?/)
       a.download = match ? match[1] : `izou-export-${new Date().toISOString().slice(0, 10)}.zip`
@@ -89,22 +93,20 @@ export default function PrivacyClient({ businessName }: PrivacyClientProps) {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-display-xs font-semibold text-primary">Confidentialité</h1>
-        <p className="text-sm text-tertiary mt-1">Vos données et vos droits RGPD.</p>
-      </div>
+    <SettingsPage>
+      <SettingsHeader
+        title="Confidentialité"
+        subtitle="Vos données et vos droits RGPD."
+      />
 
-      <div className="space-y-4">
+      <SettingsBody>
         {/* Documents legaux */}
-        <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-9 rounded-lg bg-brand-secondary flex items-center justify-center">
-              <FileShield02 className="size-4 text-fg-brand-primary" />
-            </div>
-            <p className="text-sm font-semibold text-primary">Documents légaux</p>
-          </div>
-          <ul className="space-y-2">
+        <SettingsSection
+          icon={FileShield02}
+          title="Documents légaux"
+          subtitle="Conditions, politique de confidentialité et mentions légales."
+        >
+          <ul className="flex flex-col gap-2">
             {[
               { href: '/privacy', label: 'Politique de confidentialité' },
               { href: '/terms', label: 'Conditions d\'utilisation' },
@@ -115,7 +117,7 @@ export default function PrivacyClient({ businessName }: PrivacyClientProps) {
                   href={item.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-brand-secondary hover:text-brand-secondary_hover underline-offset-2 hover:underline"
+                  className="inline-flex items-center gap-1.5 text-md text-brand-secondary hover:text-brand-secondary_hover hover:underline underline-offset-2"
                 >
                   {item.label}
                   <ArrowUpRight className="size-3.5" />
@@ -123,57 +125,65 @@ export default function PrivacyClient({ businessName }: PrivacyClientProps) {
               </li>
             ))}
           </ul>
-        </section>
+        </SettingsSection>
 
         {/* Export RGPD */}
-        <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="size-9 rounded-lg bg-brand-secondary flex items-center justify-center">
-              <Download01 className="size-4 text-fg-brand-primary" />
-            </div>
-            <p className="text-sm font-semibold text-primary">Exporter mes données</p>
-          </div>
-          <p className="text-sm text-tertiary mb-4">
-            Téléchargez l&apos;ensemble des données de <strong className="font-medium text-secondary">{businessName}</strong> :
-            informations du commerce, clients, transactions, paliers et parrainages, au format CSV (ZIP).
+        <SettingsSection
+          icon={Download01}
+          title="Exporter mes données"
+          subtitle="Téléchargez l’ensemble de vos données au format CSV (ZIP)."
+        >
+          <p className="text-sm text-tertiary">
+            Inclus : informations du commerce, clients, transactions, paliers et parrainages
+            de <strong className="font-medium text-secondary">{businessName}</strong>.
           </p>
-          {exportError && (
-            <p className="text-sm text-error-primary mb-3">{exportError}</p>
-          )}
-          <Button
-            size="sm"
-            color="secondary"
-            iconLeading={exporting ? Loading01 : Download01}
-            onClick={handleExport}
-            isDisabled={exporting}
-          >
-            {exporting ? 'Préparation…' : 'Télécharger l\'archive'}
-          </Button>
-        </section>
+          {exportError && <p className="text-sm text-error-primary">{exportError}</p>}
+          <div>
+            <Button
+              size="sm"
+              color="secondary"
+              iconLeading={exporting ? Loading01 : Download01}
+              onClick={handleExport}
+              isDisabled={exporting}
+            >
+              {exporting ? 'Préparation…' : 'Télécharger l\'archive'}
+            </Button>
+          </div>
+        </SettingsSection>
 
-        {/* Suppression compte (zone danger) */}
-        <section className="bg-primary rounded-xl ring-1 ring-error_subtle shadow-xs p-5 md:p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="size-9 rounded-lg bg-error-primary flex items-center justify-center">
+        {/* Suppression compte (zone danger) — design plus discret integre */}
+        <section className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 md:gap-8">
+          <div className="flex md:flex-col items-start gap-3">
+            <div className="size-9 rounded-lg bg-error-primary flex items-center justify-center shrink-0">
               <Trash01 className="size-4 text-fg-error-primary" />
             </div>
-            <p className="text-sm font-semibold text-primary">Supprimer mon compte</p>
+            <div>
+              <h2 className="text-sm font-semibold text-secondary">Supprimer mon compte</h2>
+              <p className="text-sm text-tertiary mt-0.5">
+                Action irréversible : toutes les données seront définitivement supprimées.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-tertiary mb-4">
-            Cette action est <strong className="font-medium text-secondary">irréversible</strong>.
-            Toutes les données du commerce, clients, cartes, transactions et récompenses
-            seront définitivement supprimées.
-          </p>
-          <Button
-            size="sm"
-            color="primary-destructive"
-            iconLeading={Trash01}
-            onClick={() => setDeleteStep('confirm')}
-          >
-            Supprimer mon compte
-          </Button>
+          <div className="bg-primary rounded-xl ring-1 ring-error_subtle shadow-xs">
+            <div className="p-4 md:p-6 flex flex-col gap-4">
+              <p className="text-sm text-tertiary">
+                La suppression efface immédiatement vos données et celles de vos clients : cartes,
+                transactions, récompenses, parrainages et configuration du programme.
+              </p>
+              <div>
+                <Button
+                  size="sm"
+                  color="primary-destructive"
+                  iconLeading={Trash01}
+                  onClick={() => setDeleteStep('confirm')}
+                >
+                  Supprimer mon compte
+                </Button>
+              </div>
+            </div>
+          </div>
         </section>
-      </div>
+      </SettingsBody>
 
       {/* Modale suppression — Step 1 (consequences) */}
       <ModalOverlay isOpen={deleteStep === 'confirm'} onOpenChange={(o) => !o && closeDelete()}>
@@ -234,16 +244,14 @@ export default function PrivacyClient({ businessName }: PrivacyClientProps) {
                 </div>
               </div>
 
-              <div className="ml-14 space-y-3">
+              <div className="ml-14 flex flex-col gap-3">
                 <Input
                   value={confirmText}
                   onChange={(v) => setConfirmText(v.toUpperCase())}
                   placeholder="SUPPRIMER"
                   isDisabled={deleteLoading}
                 />
-                {deleteError && (
-                  <p className="text-sm text-error-primary">{deleteError}</p>
-                )}
+                {deleteError && <p className="text-sm text-error-primary">{deleteError}</p>}
               </div>
 
               <div className="flex gap-3 justify-end mt-5">
@@ -265,6 +273,6 @@ export default function PrivacyClient({ businessName }: PrivacyClientProps) {
           </Dialog>
         </Modal>
       </ModalOverlay>
-    </div>
+    </SettingsPage>
   )
 }

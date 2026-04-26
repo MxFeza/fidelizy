@@ -164,13 +164,11 @@ export default function Sidebar({ businessName, businessEmail, businessLogoUrl }
         <div className="relative flex items-center gap-3 rounded-xl p-3 ring-1 ring-secondary ring-inset">
           {businessLogoUrl ? (
             <div className="size-10 shrink-0 rounded-full bg-secondary ring-1 ring-secondary overflow-hidden flex items-center justify-center">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={businessLogoUrl}
                 alt={businessName}
-                width={80}
-                height={80}
                 className="w-full h-full object-contain p-1"
-                unoptimized
               />
             </div>
           ) : (

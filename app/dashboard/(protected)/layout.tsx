@@ -21,7 +21,7 @@ export default async function ProtectedLayout({
   // businesses.id = auth.users.id (relation 1:1)
   const { data: business } = await supabase
     .from('businesses')
-    .select('id, business_name, primary_color')
+    .select('id, business_name, primary_color, logo_url')
     .eq('id', user.id)
     .single()
 
@@ -29,7 +29,11 @@ export default async function ProtectedLayout({
 
   return (
     <div className="flex h-screen bg-primary">
-      <Sidebar businessName={businessName} businessEmail={user.email} />
+      <Sidebar
+        businessName={businessName}
+        businessEmail={user.email}
+        businessLogoUrl={business?.logo_url}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
         <MobileHeader />
         <main className="flex-1 overflow-auto pb-20 md:pb-0">{children}</main>

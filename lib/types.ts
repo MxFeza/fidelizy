@@ -10,6 +10,7 @@ export interface Business {
   email: string
   business_name: string
   logo_url: string | null
+  banner_url: string | null
   primary_color: string
   secondary_color: string | null
   loyalty_type: LoyaltyType
@@ -27,6 +28,15 @@ export interface Business {
   program_description: string | null
   scan_cooldown_hours: number
   reward_tiers: LoyaltyTier[]
+  // Mon entreprise (Story 8.1)
+  first_name: string | null
+  last_name: string | null
+  address: string | null
+  phone: string | null
+  gmb_url: string | null
+  gmb_visible: boolean
+  description: string | null
+  opening_hours: string | null
   created_at: string
 }
 

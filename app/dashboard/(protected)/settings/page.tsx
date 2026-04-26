@@ -10,11 +10,11 @@ export default async function MyBusinessPage() {
 
   const { data: business } = await supabase
     .from('businesses')
-    .select('id, business_name, primary_color, business_type, short_code, logo_url')
+    .select('*')
     .eq('id', user.id)
     .single()
 
   if (!business) redirect('/dashboard/login')
 
-  return <BusinessClient business={business} />
+  return <BusinessClient business={business} email={user.email ?? ''} />
 }

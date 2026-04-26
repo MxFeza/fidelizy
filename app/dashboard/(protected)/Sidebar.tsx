@@ -18,6 +18,7 @@ import { PUBLIC_ASSETS } from '@/lib/assets'
 interface SidebarProps {
   businessName: string
   businessEmail?: string
+  businessLogoUrl?: string | null
 }
 
 const navItems: NavItemType[] = [
@@ -54,7 +55,7 @@ const navItems: NavItemType[] = [
   },
 ]
 
-export default function Sidebar({ businessName, businessEmail }: SidebarProps) {
+export default function Sidebar({ businessName, businessEmail, businessLogoUrl }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -161,11 +162,24 @@ export default function Sidebar({ businessName, businessEmail }: SidebarProps) {
 
         {/* Account card — pattern NavAccountCard @untitledui/react */}
         <div className="relative flex items-center gap-3 rounded-xl p-3 ring-1 ring-secondary ring-inset">
-          <Avatar
-            size="md"
-            initials={businessName.charAt(0).toUpperCase()}
-            alt={businessName}
-          />
+          {businessLogoUrl ? (
+            <div className="size-10 shrink-0 rounded-full bg-secondary ring-1 ring-secondary overflow-hidden flex items-center justify-center">
+              <Image
+                src={businessLogoUrl}
+                alt={businessName}
+                width={80}
+                height={80}
+                className="w-full h-full object-contain p-1"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <Avatar
+              size="md"
+              initials={businessName.charAt(0).toUpperCase()}
+              alt={businessName}
+            />
+          )}
           <div className="flex flex-col min-w-0 flex-1">
             <p className="text-sm font-semibold text-primary truncate">
               {businessName}

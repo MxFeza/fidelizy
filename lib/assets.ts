@@ -2,12 +2,16 @@
  * Helpers pour resoudre les URLs des assets stockes dans Supabase Storage.
  *
  * Convention de buckets :
- *   - public-assets   : marketing/branding (lecture publique, upload admin via dashboard).
- *                       Ex : auth/balloons-landscape.webp, branding/izou-logo-noir.svg
- *   - business-logos  : logos uploades par les commercants (RLS sur owner).
- *                       Ex : {business_id}/logo.png
- *   - qr-codes        : cache PNG des QR codes generes (RLS sur owner).
- *                       Ex : {business_id}/qr.png
+ *   - public-assets    : marketing/branding (lecture publique, upload admin).
+ *                        Ex : auth/balloons-landscape.webp, branding/izou-logo-noir.svg
+ *   - business-logos   : logos uploades par les commercants. INSERT/UPDATE/DELETE
+ *                        RLS sur owner (premier segment = auth.uid()), SELECT public
+ *                        pour permettre l'affichage cote client (cartes, Apple Wallet).
+ *                        Ex : {business_id}/logo.{ext}
+ *   - business-banners : bannieres uploadees par les commercants. Memes regles que
+ *                        business-logos. Ex : {business_id}/banner.{ext}
+ *   - qr-codes         : cache PNG des QR codes generes (RLS sur owner).
+ *                        Ex : {business_id}/qr.png
  *
  * Voir docs/architecture/assets-strategy.md pour la strategie complete.
  */
@@ -20,12 +24,22 @@ export function getPublicAsset(path: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/public-assets/${clean}`;
 }
 
-/** URL signee a generer cote serveur pour un logo de commercant (private bucket). */
+/** Path Storage pour un logo de commercant. */
 export function getBusinessLogoPath(businessId: string, filename: string): string {
   return `${businessId}/${filename}`;
 }
 
-/** URL signee a generer cote serveur pour un QR code cache (private bucket). */
+/** Path Storage pour une banniere de commercant. */
+export function getBusinessBannerPath(businessId: string, filename: string): string {
+  return `${businessId}/${filename}`;
+}
+
+/** URL publique pour un asset commercant (bucket public-read mais owner-only write). */
+export function getBusinessAssetUrl(bucket: 'business-logos' | 'business-banners', path: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+/** Path Storage pour un QR code cache. */
 export function getQRCodePath(businessId: string): string {
   return `${businessId}/qr.png`;
 }

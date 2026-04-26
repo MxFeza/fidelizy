@@ -1,50 +1,42 @@
 'use client'
 
 /**
- * Mon entreprise (Story 8.1) — sous-page de Reglages.
+ * Mon entreprise (Story 8.1) — implementation conforme Figma G1b (10241:586).
  *
- * Recentre sur les infos du commerce uniquement :
- *   - Nom commercial
- *   - Couleur primaire
- *   - Type de metier (sert aux suggestions de recompense)
- *   - Code commerce (lecture seule + copie + lien d'inscription clients)
+ * Page header : banniere paysage + avatar logo (chevauche), titre + adresse,
+ * actions "Partager" (copie lien d'inscription) et "Voir fiche" (GMB).
  *
- * La configuration du programme de fidelite (tampons/points/paliers/cooldown)
- * a ete deplacee vers /dashboard/marketing/loyalty pour eviter la duplication
- * d'ecran (deux pages ecrivaient sur les memes colonnes business).
+ * Trois sections, layout 2-col (sidebar 280px desktop / pleine largeur mobile) :
+ *  1. Infos personnelles : prenom + nom + email
+ *  2. Mon entreprise : nom commerce + activite + adresse + logo upload
+ *  3. Details du commerce : toggle GMB + telephone + lien GMB + description
+ *     + horaires + apercu Google Maps
+ *
+ * Le ratio uploade pour le logo est PRESERVE partout (sidebar, cartes loyalty,
+ * Apple Wallet) via object-contain.
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { Building07, Copy01, CheckDone01, AlertCircle, ArrowRight } from '@untitledui/icons'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import {
+  Building07, Camera01, MarkerPin01, Phone, Clock, Share04, ArrowUpRight,
+  Copy01, CheckDone01, AlertCircle, Globe01, User01,
+} from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
+import { Toggle } from '@/components/ui/base/toggle/toggle'
+import { AssetUploader } from '@/components/dashboard/AssetUploader'
 import { createClient } from '@/lib/supabase/client'
-import type { BusinessType } from '@/lib/types'
+import type { Business, BusinessType } from '@/lib/types'
 import { cx } from '@/utils/cx'
 
-type BusinessSlim = {
-  id: string
-  business_name: string
-  primary_color: string | null
-  business_type: BusinessType | null
-  short_code: string | null
-  logo_url: string | null
-}
-
 interface BusinessClientProps {
-  business: BusinessSlim
+  business: Business
+  email: string
 }
 
-const PRESET_COLORS: { label: string; value: string }[] = [
-  { label: 'Violet', value: '#7F56D9' },
-  { label: 'Bleu', value: '#2563EB' },
-  { label: 'Indigo', value: '#4F46E5' },
-  { label: 'Vert', value: '#16A34A' },
-  { label: 'Orange', value: '#EA580C' },
-  { label: 'Rose', value: '#E11D48' },
-]
-
-const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
+const ACTIVITIES: { value: BusinessType; label: string }[] = [
   { value: 'cafe', label: 'Café' },
   { value: 'restaurant', label: 'Restaurant' },
   { value: 'bakery', label: 'Boulangerie' },
@@ -53,230 +45,497 @@ const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
   { value: 'nails', label: 'Onglerie' },
 ]
 
-export default function BusinessClient({ business }: BusinessClientProps) {
+const HOUR_PRESETS = [
+  'Lun-Ven : 9h-18h',
+  'Lun-Sam : 8h-19h',
+  'Mar-Sam : 10h-19h',
+  'Tous les jours : 7h-22h',
+]
+
+const MAX_DESC = 280
+
+export default function BusinessClient({ business, email }: BusinessClientProps) {
+  const router = useRouter()
   const supabase = createClient()
 
-  const [name, setName] = useState(business.business_name)
-  const [color, setColor] = useState(business.primary_color ?? '#7F56D9')
-  const [type, setType] = useState<BusinessType | null>(business.business_type)
+  // Avatar/Identité
+  const [logoUrl, setLogoUrl] = useState<string | null>(business.logo_url)
+  const [bannerUrl, setBannerUrl] = useState<string | null>(business.banner_url)
 
-  const [saving, setSaving] = useState(false)
-  const [savedAt, setSavedAt] = useState<Date | null>(null)
+  // Infos personnelles
+  const [firstName, setFirstName] = useState(business.first_name ?? '')
+  const [lastName, setLastName] = useState(business.last_name ?? '')
+
+  // Mon entreprise
+  const [businessName, setBusinessName] = useState(business.business_name)
+  const [businessType, setBusinessType] = useState<BusinessType | null>(business.business_type)
+  const [address, setAddress] = useState(business.address ?? '')
+
+  // Details du commerce
+  const [gmbVisible, setGmbVisible] = useState(business.gmb_visible)
+  const [phone, setPhone] = useState(business.phone ?? '')
+  const [gmbUrl, setGmbUrl] = useState(business.gmb_url ?? '')
+  const [description, setDescription] = useState(business.description ?? '')
+  const [openingHours, setOpeningHours] = useState(business.opening_hours ?? '')
+
+  const [savingSection, setSavingSection] = useState<'personal' | 'business' | 'details' | null>(null)
+  const [savedSection, setSavedSection] = useState<'personal' | 'business' | 'details' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  const isDirty = useMemo(() => (
-    name !== business.business_name ||
-    color !== (business.primary_color ?? '#7F56D9') ||
-    type !== business.business_type
-  ), [name, color, type, business])
+  const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
-    if (!savedAt) return
-    const t = setTimeout(() => setSavedAt(null), 3000)
+    if (!savedSection) return
+    const t = setTimeout(() => setSavedSection(null), 2500)
     return () => clearTimeout(t)
-  }, [savedAt])
+  }, [savedSection])
 
-  async function handleSave() {
-    if (!isDirty) return
-    setSaving(true)
+  const dirtyPersonal = useMemo(() => (
+    firstName !== (business.first_name ?? '') ||
+    lastName !== (business.last_name ?? '')
+  ), [firstName, lastName, business])
+
+  const dirtyBusiness = useMemo(() => (
+    businessName !== business.business_name ||
+    businessType !== business.business_type ||
+    address !== (business.address ?? '')
+  ), [businessName, businessType, address, business])
+
+  const dirtyDetails = useMemo(() => (
+    gmbVisible !== business.gmb_visible ||
+    phone !== (business.phone ?? '') ||
+    gmbUrl !== (business.gmb_url ?? '') ||
+    description !== (business.description ?? '') ||
+    openingHours !== (business.opening_hours ?? '')
+  ), [gmbVisible, phone, gmbUrl, description, openingHours, business])
+
+  async function saveSection(section: 'personal' | 'business' | 'details') {
+    setSavingSection(section)
     setError(null)
     try {
+      const updates: Record<string, unknown> =
+        section === 'personal'
+          ? { first_name: firstName.trim() || null, last_name: lastName.trim() || null }
+          : section === 'business'
+          ? {
+              business_name: businessName.trim(),
+              business_type: businessType,
+              address: address.trim() || null,
+            }
+          : {
+              gmb_visible: gmbVisible,
+              phone: phone.trim() || null,
+              gmb_url: gmbUrl.trim() || null,
+              description: description.trim() || null,
+              opening_hours: openingHours.trim() || null,
+            }
+
       const { error: dbError } = await supabase
         .from('businesses')
-        .update({
-          business_name: name.trim(),
-          primary_color: color,
-          business_type: type,
-        })
+        .update(updates)
         .eq('id', business.id)
 
       if (dbError) throw dbError
-      setSavedAt(new Date())
+      setSavedSection(section)
+      router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde.')
     } finally {
-      setSaving(false)
+      setSavingSection(null)
     }
   }
 
-  async function handleCopyCode() {
+  async function handleShare() {
     if (!business.short_code) return
+    const url = `${window.location.origin}/?code=${business.short_code}`
     try {
-      await navigator.clipboard.writeText(business.short_code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (navigator.share) {
+        await navigator.share({ title: businessName, url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        setShareCopied(true)
+        setTimeout(() => setShareCopied(false), 2000)
+      }
     } catch {
-      // ignore — pas de fallback necessaire
+      // user dismissed share sheet
     }
   }
 
-  const joinUrl = business.short_code
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/?code=${business.short_code}`
-    : ''
+  const displayTitle = firstName ? `${firstName}${lastName ? ' ' + lastName : ''}` : businessName
+  const displaySubtitle = firstName ? businessName : (address || 'Ajoutez votre adresse')
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-display-xs font-semibold text-primary">Mon entreprise</h1>
-        <p className="text-sm text-tertiary mt-1">Personnalisez l&apos;identité de votre commerce.</p>
-      </div>
-
-      <div className="space-y-4">
-        {/* Identite */}
-        <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="size-9 rounded-lg bg-brand-secondary flex items-center justify-center">
-              <Building07 className="size-4 text-fg-brand-primary" />
+    <div className="flex flex-col bg-secondary">
+      {/* Page header */}
+      <header className="bg-primary border-b border-secondary">
+        <div className="relative">
+          {/* Banner */}
+          <div className="relative h-[160px] md:h-[200px] w-full overflow-hidden bg-brand-secondary">
+            {bannerUrl ? (
+              <Image
+                src={bannerUrl}
+                alt="Bannière"
+                fill
+                className="object-cover"
+                unoptimized
+                priority
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-100 to-brand-50" />
+            )}
+            {/* Badge "ajouter / changer banniere" : ancre l'idee qu'elle est editable */}
+            <div className="absolute right-4 top-4">
+              <a
+                href="#banner-upload"
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary/90 backdrop-blur px-3 py-1.5 text-xs font-semibold text-secondary ring-1 ring-secondary shadow-xs hover:bg-primary"
+              >
+                <Camera01 className="size-3.5" />
+                {bannerUrl ? 'Modifier' : 'Ajouter une bannière'}
+              </a>
             </div>
-            <p className="text-sm font-semibold text-primary">Identité</p>
           </div>
 
-          <div className="space-y-4">
-            <Input
-              label="Nom du commerce"
-              value={name}
-              onChange={setName}
-              isRequired
-              placeholder="Ex : Café de la place"
-            />
+          {/* Avatar logo + titre + actions */}
+          <div className="px-4 md:px-8 pb-6">
+            <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-6 -mt-12 md:-mt-16">
+              <div className="size-24 md:size-32 rounded-full bg-primary ring-4 ring-primary shadow-lg overflow-hidden flex items-center justify-center shrink-0">
+                {logoUrl ? (
+                  <Image
+                    src={logoUrl}
+                    alt={businessName}
+                    width={160}
+                    height={160}
+                    className="w-full h-full object-contain p-2"
+                    unoptimized
+                  />
+                ) : (
+                  <span className="text-3xl md:text-4xl font-bold text-fg-brand-primary">
+                    {businessName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-secondary mb-2">
-                Couleur principale
-              </label>
-              <div className="flex items-center gap-2 flex-wrap">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => setColor(c.value)}
-                    className={cx(
-                      'size-9 rounded-full border-2 transition-transform hover:scale-110 cursor-pointer',
-                      color === c.value ? 'ring-2 ring-offset-2 ring-brand' : 'border-transparent',
-                    )}
-                    style={{ backgroundColor: c.value }}
-                    title={c.label}
-                    aria-label={c.label}
-                    aria-pressed={color === c.value}
-                  />
-                ))}
-                <label className="flex items-center gap-2 ml-2">
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                    className="size-9 rounded-lg border border-secondary cursor-pointer p-0.5"
-                  />
-                  <span className="text-xs text-tertiary">Personnalisée</span>
-                </label>
+              <div className="flex-1 flex flex-col md:flex-row md:items-end md:justify-between gap-3 min-w-0 md:pb-2">
+                <div className="min-w-0">
+                  <h1 className="text-display-xs md:text-display-sm font-semibold text-primary truncate">
+                    {displayTitle}
+                  </h1>
+                  <p className="text-sm md:text-md text-tertiary truncate">
+                    {displaySubtitle}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    iconLeading={shareCopied ? CheckDone01 : Share04}
+                    onClick={handleShare}
+                    isDisabled={!business.short_code}
+                  >
+                    {shareCopied ? 'Lien copié' : 'Partager'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    color="primary"
+                    iconLeading={ArrowUpRight}
+                    href={gmbUrl ? (gmbUrl.startsWith('http') ? gmbUrl : `https://${gmbUrl}`) : undefined}
+                    isDisabled={!gmbUrl}
+                  >
+                    Voir fiche
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </header>
 
-        {/* Type de commerce */}
-        <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-          <p className="text-sm font-semibold text-primary mb-1">Type de commerce</p>
-          <p className="text-xs text-tertiary mb-4">
-            Sert à proposer des suggestions de récompenses adaptées à votre métier.
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {BUSINESS_TYPES.map(({ value, label }) => {
-              const active = type === value
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setType(value)}
-                  className={cx(
-                    'px-4 py-3 rounded-lg ring-1 text-sm font-medium transition-colors cursor-pointer',
-                    active
-                      ? 'ring-2 ring-brand bg-brand-secondary text-brand-secondary'
-                      : 'ring-secondary bg-primary text-secondary hover:bg-secondary',
-                  )}
-                  aria-pressed={active}
-                >
-                  {label}
-                </button>
-              )
-            })}
+      <main className="px-4 md:px-8 py-6 md:py-12 flex flex-col gap-8 md:gap-12 max-w-[1080px] w-full mx-auto">
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg bg-error-primary ring-1 ring-error_subtle px-4 py-3">
+            <AlertCircle className="size-5 text-fg-error-primary shrink-0" />
+            <p className="text-sm font-medium text-error-primary">{error}</p>
           </div>
-        </section>
-
-        {/* Code commerce */}
-        {business.short_code && (
-          <section className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs p-5 md:p-6">
-            <p className="text-sm font-semibold text-primary mb-1">Code commerce</p>
-            <p className="text-xs text-tertiary mb-4">
-              Vos clients utilisent ce code pour rejoindre votre programme.
-            </p>
-
-            <div className="flex items-center gap-2">
-              <code className="flex-1 px-4 py-2.5 bg-secondary rounded-lg font-mono text-sm font-semibold text-primary tracking-wider">
-                {business.short_code}
-              </code>
-              <Button
-                size="sm"
-                color="secondary"
-                iconLeading={copied ? CheckDone01 : Copy01}
-                onClick={handleCopyCode}
-              >
-                {copied ? 'Copié' : 'Copier'}
-              </Button>
-            </div>
-
-            {joinUrl && (
-              <p className="text-xs text-tertiary mt-3">
-                Lien d&apos;inscription : <a href={joinUrl} target="_blank" rel="noreferrer" className="text-brand-secondary hover:underline">{joinUrl}</a>
-              </p>
-            )}
-          </section>
         )}
 
-        {/* Pointer vers Marketing pour la config fidelite */}
-        <section className="bg-secondary rounded-xl ring-1 ring-secondary p-5 md:p-6">
-          <p className="text-sm font-semibold text-primary mb-1">Programme de fidélité</p>
-          <p className="text-xs text-tertiary mb-4">
-            La configuration des tampons, points, paliers et délai anti-fraude est dans <strong className="font-medium text-secondary">Marketing &gt; Programme de fidélité</strong>.
-          </p>
-          <Button
-            size="sm"
-            color="link-color"
-            href="/dashboard/marketing/loyalty"
-            iconTrailing={ArrowRight}
-          >
-            Configurer le programme
-          </Button>
-        </section>
+        {/* Section 1 : Infos personnelles */}
+        <Section
+          title="Infos personnelles"
+          subtitle="Mettez à jour vos informations personnelles. Le prénom est utilisé pour les salutations dans l'app."
+          icon={User01}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Prénom" value={firstName} onChange={setFirstName} placeholder="Marie" />
+            <Input label="Nom" value={lastName} onChange={setLastName} placeholder="Dupont" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1.5">Email</label>
+            <div className="px-3.5 py-2.5 rounded-lg ring-1 ring-secondary bg-secondary text-sm text-tertiary">
+              {email}
+            </div>
+            <p className="text-xs text-tertiary mt-1.5">
+              Pour modifier votre email, allez dans <strong className="font-medium">Sécurité</strong>.
+            </p>
+          </div>
+          <SectionFooter
+            isDirty={dirtyPersonal}
+            isSaving={savingSection === 'personal'}
+            isSaved={savedSection === 'personal'}
+            onSave={() => saveSection('personal')}
+          />
+        </Section>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 pt-2 sticky bottom-4 md:static bg-primary rounded-xl shadow-md md:shadow-none p-4 md:p-0 ring-1 ring-secondary md:ring-0">
-          <Button
-            size="sm"
-            color="primary"
-            onClick={handleSave}
-            isDisabled={!isDirty || saving || name.trim().length === 0}
-            isLoading={saving}
-          >
-            Sauvegarder
-          </Button>
+        {/* Section 2 : Mon entreprise */}
+        <Section
+          title="Mon entreprise"
+          subtitle="Informations de votre commerce, visibles par vos clients."
+          icon={Building07}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Nom du commerce"
+              value={businessName}
+              onChange={setBusinessName}
+              isRequired
+              placeholder="Café du Marché"
+            />
+            <div>
+              <label className="block text-sm font-medium text-secondary mb-1.5">Activité</label>
+              <div className="grid grid-cols-3 gap-2">
+                {ACTIVITIES.map((a) => (
+                  <button
+                    key={a.value}
+                    type="button"
+                    onClick={() => setBusinessType(a.value)}
+                    className={cx(
+                      'px-2 py-2 rounded-lg ring-1 text-xs font-semibold transition-colors cursor-pointer',
+                      businessType === a.value
+                        ? 'ring-2 ring-brand bg-brand-secondary text-brand-secondary'
+                        : 'ring-secondary bg-primary text-secondary hover:bg-secondary',
+                    )}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-          {savedAt && (
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-primary">
-              <CheckDone01 className="size-4" />
-              Enregistré
-            </span>
-          )}
-          {error && (
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-error-primary">
-              <AlertCircle className="size-4" />
-              {error}
-            </span>
-          )}
+          <Input
+            label="Adresse"
+            icon={MarkerPin01}
+            value={address}
+            onChange={setAddress}
+            placeholder="15 rue de la Paix, 75002 Paris"
+          />
+
+          <div id="banner-upload" className="pt-2">
+            <p className="text-sm font-medium text-secondary mb-2">Logo du commerce</p>
+            <AssetUploader
+              kind="logo"
+              currentUrl={logoUrl}
+              onUploaded={(url) => { setLogoUrl(url); router.refresh() }}
+              onDeleted={() => { setLogoUrl(null); router.refresh() }}
+            />
+          </div>
+
+          <div className="pt-2">
+            <p className="text-sm font-medium text-secondary mb-2">Bannière</p>
+            <AssetUploader
+              kind="banner"
+              currentUrl={bannerUrl}
+              onUploaded={(url) => { setBannerUrl(url); router.refresh() }}
+              onDeleted={() => { setBannerUrl(null); router.refresh() }}
+            />
+          </div>
+
+          <SectionFooter
+            isDirty={dirtyBusiness}
+            isSaving={savingSection === 'business'}
+            isSaved={savedSection === 'business'}
+            onSave={() => saveSection('business')}
+            disabled={businessName.trim().length === 0}
+          />
+        </Section>
+
+        {/* Section 3 : Details du commerce */}
+        <Section
+          title="Détails du commerce"
+          subtitle="Informations complémentaires affichées sur la carte de fidélité de vos clients."
+          icon={Globe01}
+        >
+          <div className="flex items-start gap-3 rounded-lg bg-secondary px-4 py-3">
+            <Toggle
+              size="sm"
+              isSelected={gmbVisible}
+              onChange={setGmbVisible}
+            />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-secondary">Visible sur la fiche client</p>
+              <p className="text-xs text-tertiary">
+                Afficher téléphone, horaires et lien Google sur la carte de fidélité.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Téléphone"
+              icon={Phone}
+              value={phone}
+              onChange={setPhone}
+              placeholder="01 23 45 67 89"
+              type="tel"
+            />
+            <Input
+              label="Lien Google My Business"
+              value={gmbUrl}
+              onChange={setGmbUrl}
+              placeholder="https://g.page/votre-commerce"
+              hint="Permet à vos clients de laisser un avis Google."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1.5">Horaires d'ouverture</label>
+            <Input
+              icon={Clock}
+              value={openingHours}
+              onChange={setOpeningHours}
+              placeholder="Ex : Lun-Ven 9h-18h"
+            />
+            <div className="flex flex-wrap gap-2 mt-2">
+              {HOUR_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setOpeningHours(preset)}
+                  className="px-2.5 py-1 text-xs font-medium rounded-md ring-1 ring-secondary text-tertiary hover:bg-secondary cursor-pointer"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-medium text-secondary">Description du commerce</label>
+              <span className={cx(
+                'text-xs',
+                description.length > MAX_DESC ? 'text-error-primary' : 'text-tertiary',
+              )}>
+                {description.length} / {MAX_DESC}
+              </span>
+            </div>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESC))}
+              placeholder="Boulangerie artisanale depuis 1987. Pains au levain, viennoiseries maison et pâtisseries fines."
+              rows={4}
+              className="w-full px-3.5 py-2.5 rounded-lg ring-1 ring-secondary bg-primary text-md text-primary placeholder:text-placeholder shadow-xs focus:outline-2 focus:outline-brand resize-none"
+            />
+          </div>
+
+          {/* Map placeholder */}
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1.5">Aperçu cartographique</label>
+            <div className="aspect-[3/1] rounded-lg ring-1 ring-secondary bg-secondary flex flex-col items-center justify-center gap-2">
+              <MarkerPin01 className="size-6 text-fg-quaternary" />
+              <p className="text-sm text-tertiary text-center px-4">
+                {address
+                  ? 'L\'aperçu cartographique sera disponible prochainement'
+                  : 'Renseignez votre adresse pour afficher l\'aperçu'}
+              </p>
+              {address && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-secondary hover:underline"
+                >
+                  Ouvrir dans Google Maps
+                  <ArrowUpRight className="size-3" />
+                </a>
+              )}
+            </div>
+          </div>
+
+          <SectionFooter
+            isDirty={dirtyDetails}
+            isSaving={savingSection === 'details'}
+            isSaved={savedSection === 'details'}
+            onSave={() => saveSection('details')}
+          />
+        </Section>
+      </main>
+    </div>
+  )
+}
+
+// ── Sous-composants ───────────────────────────────────────────
+
+function Section({
+  title,
+  subtitle,
+  icon: Icon,
+  children,
+}: {
+  title: string
+  subtitle: string
+  icon: React.ComponentType<{ className?: string }>
+  children: React.ReactNode
+}) {
+  return (
+    <section className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 md:gap-8">
+      <div className="flex md:flex-col items-start gap-3">
+        <div className="size-9 rounded-lg bg-brand-secondary flex items-center justify-center shrink-0">
+          <Icon className="size-4 text-fg-brand-primary" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold text-secondary">{title}</h2>
+          <p className="text-sm text-tertiary mt-0.5">{subtitle}</p>
         </div>
       </div>
+
+      <div className="bg-primary rounded-xl ring-1 ring-secondary shadow-xs">
+        <div className="p-4 md:p-6 flex flex-col gap-5">
+          {children}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function SectionFooter({
+  isDirty,
+  isSaving,
+  isSaved,
+  onSave,
+  disabled,
+}: {
+  isDirty: boolean
+  isSaving: boolean
+  isSaved: boolean
+  onSave: () => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="-mx-4 md:-mx-6 -mb-4 md:-mb-6 mt-2 px-4 md:px-6 py-4 border-t border-secondary flex items-center justify-end gap-3">
+      {isSaved && (
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-primary">
+          <CheckDone01 className="size-4" />
+          Enregistré
+        </span>
+      )}
+      <Button
+        size="sm"
+        color="primary"
+        onClick={onSave}
+        isDisabled={!isDirty || isSaving || disabled}
+        isLoading={isSaving}
+      >
+        Enregistrer
+      </Button>
     </div>
   )
 }

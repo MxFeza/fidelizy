@@ -62,6 +62,16 @@ describe('loyalty.service', () => {
         single: vi.fn().mockResolvedValue({ data: card }),
       }
 
+      // No recent earn (pas de cooldown actif)
+      const cooldownChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        gt: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+      }
+
       const insertChain = {
         insert: vi.fn().mockReturnThis(),
         throwOnError: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -71,8 +81,9 @@ describe('loyalty.service', () => {
       const supabase = {
         from: vi.fn().mockImplementation(() => {
           fromCallCount++
-          if (fromCallCount <= 1) return selectChain // find card
-          if (fromCallCount === 2) return { ...selectChain, single: vi.fn().mockResolvedValue({ data: { ...card, current_stamps: 4 } }) } // fetch updated
+          if (fromCallCount === 1) return selectChain // find card
+          if (fromCallCount === 2) return cooldownChain // anti-fraude check
+          if (fromCallCount === 3) return { ...selectChain, single: vi.fn().mockResolvedValue({ data: { ...card, current_stamps: 4 } }) } // fetch updated
           return insertChain // transactions
         }),
         rpc: vi.fn().mockReturnValue(rpcChain),
@@ -87,6 +98,7 @@ describe('loyalty.service', () => {
           stamps_required: 10,
           stamps_reward: 'Café offert',
           points_per_euro: null,
+          scan_cooldown_hours: 4,
         },
       })
 
@@ -120,6 +132,63 @@ describe('loyalty.service', () => {
           },
         })
       ).rejects.toThrow(AppError)
+    })
+
+    it('should throw 429 cooldown error when last scan is within cooldown window', async () => {
+      const card = {
+        id: 'card-1',
+        current_stamps: 3,
+        current_points: 0,
+        total_visits: 5,
+        qr_code_id: 'qr-123',
+        customers: { first_name: 'Jean' },
+      }
+
+      const selectChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        ilike: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: card }),
+      }
+
+      // Recent earn 30 min ago (cooldown 4h => still blocked)
+      const recentEarnIso = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const cooldownChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        gt: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { created_at: recentEarnIso } }),
+      }
+
+      let fromCallCount = 0
+      const supabase = {
+        from: vi.fn().mockImplementation(() => {
+          fromCallCount++
+          if (fromCallCount === 1) return selectChain
+          return cooldownChain
+        }),
+        rpc: vi.fn(),
+      }
+
+      await expect(
+        scanCard(supabase as never, {
+          qrCodeId: 'qr-123',
+          business: {
+            id: 'biz-1',
+            business_name: 'Mon Café',
+            loyalty_type: 'stamps',
+            stamps_required: 10,
+            stamps_reward: 'Café offert',
+            points_per_euro: null,
+            scan_cooldown_hours: 4,
+          },
+        })
+      ).rejects.toThrow(/Trop tôt/)
+
+      // RPC ne doit pas etre appele si cooldown bloque
+      expect(supabase.rpc).not.toHaveBeenCalled()
     })
   })
 

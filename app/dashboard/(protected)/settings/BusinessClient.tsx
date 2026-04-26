@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import { AssetUploader } from '@/components/dashboard/AssetUploader'
 import {
-  SettingsPage, SettingsHeader, SettingsBody, SettingsSection, SectionFooter,
+  SettingsPage, SettingsHeader, SettingsBody, SettingsSection,
 } from '@/components/dashboard/SettingsLayout'
 import { createClient } from '@/lib/supabase/client'
 import type { Business } from '@/lib/types'
@@ -66,66 +66,67 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   const [description, setDescription] = useState(business.description ?? '')
   const [openingHours, setOpeningHours] = useState(business.opening_hours ?? '')
 
-  const [savingSection, setSavingSection] = useState<'personal' | 'business' | 'details' | null>(null)
-  const [savedSection, setSavedSection] = useState<'personal' | 'business' | 'details' | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
-    if (!savedSection) return
-    const t = setTimeout(() => setSavedSection(null), 2500)
+    if (!savedAt) return
+    const t = setTimeout(() => setSavedAt(null), 2500)
     return () => clearTimeout(t)
-  }, [savedSection])
+  }, [savedAt])
 
-  const dirtyPersonal = useMemo(() => (
+  // Une seule "dirty" globale : true si n'importe quel champ a change.
+  const isDirty = useMemo(() => (
     firstName !== (business.first_name ?? '') ||
-    lastName !== (business.last_name ?? '')
-  ), [firstName, lastName, business])
-
-  const dirtyBusiness = useMemo(() => (
+    lastName !== (business.last_name ?? '') ||
     businessName !== business.business_name ||
-    address !== (business.address ?? '')
-  ), [businessName, address, business])
-
-  const dirtyDetails = useMemo(() => (
+    address !== (business.address ?? '') ||
     phone !== (business.phone ?? '') ||
     gmbUrl !== (business.gmb_url ?? '') ||
     description !== (business.description ?? '') ||
     openingHours !== (business.opening_hours ?? '')
-  ), [phone, gmbUrl, description, openingHours, business])
+  ), [firstName, lastName, businessName, address, phone, gmbUrl, description, openingHours, business])
 
-  async function saveSection(section: 'personal' | 'business' | 'details') {
-    setSavingSection(section)
+  async function handleSaveAll() {
+    if (!isDirty || saving) return
+    setSaving(true)
     setError(null)
     try {
-      const updates: Record<string, unknown> =
-        section === 'personal'
-          ? { first_name: firstName.trim() || null, last_name: lastName.trim() || null }
-          : section === 'business'
-          ? {
-              business_name: businessName.trim(),
-              address: address.trim() || null,
-            }
-          : {
-              phone: phone.trim() || null,
-              gmb_url: gmbUrl.trim() || null,
-              description: description.trim() || null,
-              opening_hours: openingHours.trim() || null,
-            }
-
       const { error: dbError } = await supabase
         .from('businesses')
-        .update(updates)
+        .update({
+          first_name: firstName.trim() || null,
+          last_name: lastName.trim() || null,
+          business_name: businessName.trim(),
+          address: address.trim() || null,
+          phone: phone.trim() || null,
+          gmb_url: gmbUrl.trim() || null,
+          description: description.trim() || null,
+          opening_hours: openingHours.trim() || null,
+        })
         .eq('id', business.id)
 
       if (dbError) throw dbError
-      setSavedSection(section)
+      setSavedAt(new Date())
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde.')
     } finally {
-      setSavingSection(null)
+      setSaving(false)
     }
+  }
+
+  function handleReset() {
+    setFirstName(business.first_name ?? '')
+    setLastName(business.last_name ?? '')
+    setBusinessName(business.business_name)
+    setAddress(business.address ?? '')
+    setPhone(business.phone ?? '')
+    setGmbUrl(business.gmb_url ?? '')
+    setDescription(business.description ?? '')
+    setOpeningHours(business.opening_hours ?? '')
   }
 
   async function handleShare() {
@@ -220,12 +221,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
               Pour modifier votre email, allez dans <strong className="font-medium">Sécurité</strong>.
             </p>
           </div>
-          <SectionFooter
-            isDirty={dirtyPersonal}
-            isSaving={savingSection === 'personal'}
-            isSaved={savedSection === 'personal'}
-            onSave={() => saveSection('personal')}
-          />
         </SettingsSection>
 
         {/* Section 2 : Mon entreprise */}
@@ -260,13 +255,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
             />
           </div>
 
-          <SectionFooter
-            isDirty={dirtyBusiness}
-            isSaving={savingSection === 'business'}
-            isSaved={savedSection === 'business'}
-            onSave={() => saveSection('business')}
-            disabled={businessName.trim().length === 0}
-          />
         </SettingsSection>
 
         {/* Section 3 : Details du commerce */}
@@ -336,14 +324,34 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
 
           {/* Apercu cartographique : OpenStreetMap embed (pas de cle API) */}
           <MapPreview address={address} />
-
-          <SectionFooter
-            isDirty={dirtyDetails}
-            isSaving={savingSection === 'details'}
-            isSaved={savedSection === 'details'}
-            onSave={() => saveSection('details')}
-          />
         </SettingsSection>
+
+        {/* Save bar globale : 1 seul Enregistrer pour toute la page */}
+        <div className="sticky bottom-4 md:static z-10 mt-2 flex items-center justify-end gap-3 bg-primary md:bg-transparent rounded-xl md:rounded-none ring-1 md:ring-0 ring-secondary shadow-md md:shadow-none px-4 md:px-0 py-3 md:py-0">
+          {savedAt && (
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-primary">
+              <CheckDone01 className="size-4" />
+              Modifications enregistrées
+            </span>
+          )}
+          <Button
+            size="sm"
+            color="secondary"
+            onClick={handleReset}
+            isDisabled={!isDirty || saving}
+          >
+            Annuler
+          </Button>
+          <Button
+            size="sm"
+            color="primary"
+            onClick={handleSaveAll}
+            isDisabled={!isDirty || saving || businessName.trim().length === 0}
+            isLoading={saving}
+          >
+            Enregistrer les modifications
+          </Button>
+        </div>
       </SettingsBody>
     </SettingsPage>
   )

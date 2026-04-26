@@ -21,8 +21,11 @@ import { cx } from '@/utils/cx'
 export interface SubNavItem {
   label: string
   href: string
-  /** Par defaut : match exact du pathname ou prefix. Override pour un match custom. */
-  matcher?: (pathname: string) => boolean
+  /**
+   * Si true, l'item est actif uniquement quand pathname === href (pas de match prefix).
+   * Sert pour un item parent dont l'URL est aussi le prefix des sous-pages.
+   */
+  exact?: boolean
 }
 
 interface SubNavProps {
@@ -44,8 +47,8 @@ export function SubNav({ items, className }: SubNavProps) {
       )}
     >
       {items.map((item) => {
-        const isActive = item.matcher
-          ? item.matcher(pathname)
+        const isActive = item.exact
+          ? pathname === item.href
           : pathname === item.href || pathname.startsWith(item.href + '/')
 
         return (

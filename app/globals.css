@@ -1,66 +1,18 @@
-@import "tailwindcss";
-@import "../styles/izou-tokens.css";
+@import "../styles/globals.css";
 
-@theme {
-  --color-izou-violet: var(--izou-violet);
-  --color-izou-gold: var(--izou-gold);
-  --color-izou-rose: var(--izou-rose);
-  --color-izou-violet-50: var(--izou-violet-50);
-  --color-izou-violet-100: var(--izou-violet-100);
-  --color-izou-violet-200: var(--izou-violet-200);
-  --color-izou-violet-400: var(--izou-violet-400);
-  --color-izou-violet-600: var(--izou-violet-600);
-  --color-izou-violet-800: var(--izou-violet-800);
-  --color-izou-violet-900: var(--izou-violet-900);
-  --color-izou-gold-50: var(--izou-gold-50);
-  --color-izou-gold-100: var(--izou-gold-100);
-  --color-izou-gold-200: var(--izou-gold-200);
-  --color-izou-gold-400: var(--izou-gold-400);
-  --color-izou-gold-600: var(--izou-gold-600);
-  --color-izou-gold-800: var(--izou-gold-800);
-  --color-izou-gold-900: var(--izou-gold-900);
-  --color-izou-rose-50: var(--izou-rose-50);
-  --color-izou-rose-100: var(--izou-rose-100);
-  --color-izou-rose-200: var(--izou-rose-200);
-  --color-izou-rose-400: var(--izou-rose-400);
-  --color-izou-rose-600: var(--izou-rose-600);
-  --color-izou-rose-800: var(--izou-rose-800);
-  --color-izou-rose-900: var(--izou-rose-900);
-  --color-izou-success: var(--izou-success);
-  --color-izou-warning: var(--izou-warning);
-  --color-izou-error: var(--izou-error);
-  --color-izou-info: var(--izou-info);
+/*
+ * Entry point CSS de l'app.
+ * Importe le CSS reel (Tailwind + theme.css Untitled UI + typography.css).
+ *
+ * Bug historique : sans cet import, theme.css n'est pas charge et AUCUN
+ * token semantique (bg-brand-solid, text-secondary...) n'est genere par
+ * Tailwind → tous les elements selectionnes deviennent blancs sur blanc.
+ */
 
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
+html {
+  color-scheme: only light;
 }
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* Force dark text in all form inputs (dashboard uses light backgrounds) */
 input, textarea, select {
   color: #111827;
 }

@@ -39,6 +39,13 @@ export const GET = withErrorHandler(async () => {
     .eq('business_id', businessId)
     .gte('created_at', monthStart.toISOString())
 
+  const { count: visitsMonth } = await supabase
+    .from('transactions')
+    .select('*', { count: 'exact', head: true })
+    .eq('business_id', businessId)
+    .eq('type', 'earn')
+    .gte('created_at', monthStart.toISOString())
+
   const { data: monthTransactions } = await supabase
     .from('transactions')
     .select('stamps_added, points_added')
@@ -85,13 +92,20 @@ export const GET = withErrorHandler(async () => {
     return diff >= MS_60
   }).length ?? 0
 
+  const clientsInactifs = clientsARisque
+  const clientsActifs = Math.max(0, totalCards - clientsInactifs - clientsPerdus)
+
   return NextResponse.json({
     visitsToday: visitsToday ?? 0,
+    visitsMonth: visitsMonth ?? 0,
     newClientsMonth: newClientsMonth ?? 0,
     distributedMonth,
     loyaltyType: business.loyalty_type,
     tauxRetour,
     frequenceMoyenne,
+    clientsTotal: totalCards,
+    clientsActifs,
+    clientsInactifs,
     clientsARisque,
     clientsPerdus,
   })

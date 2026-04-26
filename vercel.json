@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/push-inactive",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/push-scheduled",
+      "schedule": "* * * * *"
     }
   ]
 }

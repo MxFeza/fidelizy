@@ -54,7 +54,8 @@ export async function findCardByReferralCode(
 
 /**
  * Process a referral: create referral record, credit both parties, notify.
- * Defaults: 5 points parrain, 2 points filleul.
+ * Bonus values come from `businesses.referral_referrer_bonus` / `referral_referred_bonus`.
+ * Skipped silently if `businesses.referral_enabled` is false.
  */
 export async function processReferral(
   supabase: SupabaseClient,
@@ -62,11 +63,19 @@ export async function processReferral(
 ): Promise<void> {
   const { referralCode, referredCardId, businessId, referredFirstName } = params
 
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('referral_enabled, referral_referrer_bonus, referral_referred_bonus')
+    .eq('id', businessId)
+    .single<{ referral_enabled: boolean; referral_referrer_bonus: number; referral_referred_bonus: number }>()
+
+  if (!business?.referral_enabled) return
+
   const referrerCard = await findCardByReferralCode(referralCode, businessId, supabase)
   if (!referrerCard) return
 
-  const referrerPoints = 5
-  const referredPoints = 2
+  const referrerPoints = business.referral_referrer_bonus ?? 5
+  const referredPoints = business.referral_referred_bonus ?? 2
 
   // Create referral entry
   await supabase.from('referrals').insert({

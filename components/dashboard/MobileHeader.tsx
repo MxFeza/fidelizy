@@ -1,21 +1,47 @@
 'use client'
 
+import Image from 'next/image'
+import Link from 'next/link'
+import { Bell01 } from '@untitledui/icons'
+import { PUBLIC_ASSETS } from '@/lib/assets'
+
 interface MobileHeaderProps {
-  businessName: string
+  /** Si true, affiche un dot rouge sur la bell. */
+  hasUnread?: boolean
 }
 
-export default function MobileHeader({ businessName }: MobileHeaderProps) {
+/**
+ * Header mobile : logo Izou a gauche + bell (inbox notifications) a droite.
+ * La bell pointe vers /dashboard/notifications qui est l'inbox des notifications
+ * RECUES par le commercant (pas l'emission push qui est sur /dashboard/marketing/push).
+ */
+export default function MobileHeader({ hasUnread = false }: MobileHeaderProps) {
   return (
-    <header className="flex md:hidden items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
-          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-          </svg>
-        </div>
-        <span className="text-sm font-bold text-indigo-600">Izou</span>
-      </div>
-      <p className="text-sm font-semibold text-gray-700 truncate max-w-[180px]">{businessName}</p>
+    <header className="flex md:hidden items-center justify-between px-4 py-3 bg-primary border-b border-secondary">
+      <Link href="/dashboard" aria-label="Tableau de bord" className="flex items-center">
+        <Image
+          src={PUBLIC_ASSETS.branding.logoNoir}
+          alt="Izou"
+          width={72}
+          height={20}
+          className="h-5 w-auto"
+          priority
+        />
+      </Link>
+
+      <Link
+        href="/dashboard/notifications"
+        aria-label="Notifications reçues"
+        className="relative shrink-0 flex items-center justify-center rounded-md p-1.5 text-fg-quaternary transition-colors duration-100 ease-linear hover:bg-primary_hover hover:text-fg-quaternary_hover outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        <Bell01 aria-hidden="true" className="size-5" />
+        {hasUnread && (
+          <span
+            aria-label="Notifications non lues"
+            className="absolute top-1 right-1 size-2 rounded-full bg-error-solid ring-2 ring-primary"
+          />
+        )}
+      </Link>
     </header>
   )
 }

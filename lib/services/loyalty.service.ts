@@ -30,7 +30,7 @@ interface ClaimResult {
 
 export async function scanCard(
   supabase: SupabaseClient,
-  params: { qrCodeId: string; business: { id: string; business_name: string; loyalty_type: string; stamps_required: number | null; stamps_reward: string; points_per_euro: number | null } }
+  params: { qrCodeId: string; business: { id: string; business_name: string; loyalty_type: string; stamps_required: number | null; stamps_reward: string; points_per_euro: number | null; scan_cooldown_hours?: number | null } }
 ): Promise<EarnResult> {
   const { qrCodeId, business } = params
 
@@ -59,6 +59,34 @@ export async function scanCard(
 
   if (!card) {
     throw new AppError('Carte introuvable ou ne correspond pas à ce commerce.', 404)
+  }
+
+  // Anti-fraude : delai mini entre 2 scans automatiques du meme client.
+  // S'applique uniquement au QR comptoir (scanCard), pas aux ajouts manuels (addToCard).
+  const cooldownHours = business.scan_cooldown_hours ?? 4
+  if (cooldownHours > 0) {
+    const cooldownMs = cooldownHours * 60 * 60 * 1000
+    const cutoffIso = new Date(Date.now() - cooldownMs).toISOString()
+
+    const { data: recentEarn } = await supabase
+      .from('transactions')
+      .select('created_at')
+      .eq('loyalty_card_id', card.id)
+      .eq('business_id', business.id)
+      .eq('type', 'earn')
+      .gt('created_at', cutoffIso)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (recentEarn) {
+      const elapsedMs = Date.now() - new Date(recentEarn.created_at).getTime()
+      const remainingMin = Math.max(1, Math.ceil((cooldownMs - elapsedMs) / 60_000))
+      const wait = remainingMin >= 60
+        ? `${Math.ceil(remainingMin / 60)} h`
+        : `${remainingMin} min`
+      throw new AppError(`Trop tôt — attends encore ${wait} avant le prochain scan.`, 429)
+    }
   }
 
   if (business.loyalty_type === 'stamps') {

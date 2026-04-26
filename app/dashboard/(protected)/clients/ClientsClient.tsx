@@ -1,26 +1,39 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+/**
+ * Liste des clients commercants — Figma F1.
+ * Refactor 2026-04-25 : tokens Untitled UI, layout F1, pas de raw gray-*.
+ */
+
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, Loader2 } from 'lucide-react'
+import {
+  Bell01,
+  Download01,
+  QrCode01,
+  SearchLg,
+  FilterLines,
+  Calendar,
+  ArrowDown,
+  ArrowUp,
+  ArrowLeft,
+  ArrowRight,
+  Loading01,
+  Trash01,
+  DotsHorizontal,
+} from '@untitledui/icons'
 import type { Business, Customer, LoyaltyCard } from '@/lib/types'
+import { Button } from '@/components/ui/base/buttons/button'
+import { cx } from '@/utils/cx'
 
 type ClientWithCard = LoyaltyCard & { customers: Customer }
 type SortKey = 'name' | 'loyalty' | 'visits' | 'last_visit' | 'status'
 type SortDir = 'asc' | 'desc'
 type StatusFilter = 'all' | 'active' | 'at_risk' | 'inactive' | 'lost'
 
-interface Stats {
-  active: number
-  inactive: number
-  lost: number
-  returnRate: number
-}
-
 interface Props {
   clients: ClientWithCard[]
   business: Business
-  stats: Stats
 }
 
 const MS_20 = 20 * 24 * 60 * 60 * 1000
@@ -52,14 +65,22 @@ function relativeDate(dateString: string | null): string {
   return `Il y a ${Math.floor(days / 365)} an${Math.floor(days / 365) > 1 ? 's' : ''}`
 }
 
-const STATUS_CONFIG = {
-  active: { label: 'Actif', cls: 'bg-green-100 text-green-700' },
-  at_risk: { label: 'À risque', cls: 'bg-orange-100 text-orange-700' },
-  inactive: { label: 'Inactif', cls: 'bg-amber-100 text-amber-700' },
-  lost: { label: 'Perdu', cls: 'bg-red-100 text-red-700' },
+function StatusBadge({ status }: { status: ReturnType<typeof getStatus> }) {
+  const config = {
+    active:   { label: 'Actif',    bg: 'bg-success-secondary',  text: 'text-success-primary',  dot: 'bg-success-primary' },
+    at_risk:  { label: 'À risque', bg: 'bg-warning-secondary',  text: 'text-warning-primary',  dot: 'bg-warning-primary' },
+    inactive: { label: 'Inactif',  bg: 'bg-warning-secondary',  text: 'text-warning-primary',  dot: 'bg-warning-primary' },
+    lost:     { label: 'Perdu',    bg: 'bg-error-secondary',    text: 'text-error-primary',    dot: 'bg-error-primary' },
+  }[status]
+  return (
+    <span className={cx('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium', config.bg, config.text)}>
+      <span className={cx('size-1.5 rounded-full', config.dot)} />
+      {config.label}
+    </span>
+  )
 }
 
-export default function ClientsClient({ clients, business, stats }: Props) {
+export default function ClientsClient({ clients, business }: Props) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -67,14 +88,13 @@ export default function ClientsClient({ clients, business, stats }: Props) {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
   const [exporting, setExporting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('desc')
-    }
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('desc') }
     setPage(0)
   }
 
@@ -85,35 +105,22 @@ export default function ClientsClient({ clients, business, stats }: Props) {
       if (!res.ok) throw new Error('Erreur API')
       const data = await res.json()
       const biz = data.business
-      const rows: string[][] = []
-
       const isStamps = biz.loyalty_type === 'stamps'
-      rows.push([
-        'Prenom',
-        'Telephone',
-        'Email',
+
+      const rows: string[][] = [[
+        'Prenom', 'Telephone', 'Email',
         isStamps ? 'Tampons actuels' : 'Points actuels',
         isStamps ? 'Tampons requis' : 'Max',
-        'Date inscription',
-        'Derniere visite',
-        'Nombre visites',
-        'Statut',
-      ])
-
-      const MS_20_CSV = 20 * 86400000
-      const MS_60_CSV = 60 * 86400000
+        'Date inscription', 'Derniere visite', 'Nombre visites', 'Statut',
+      ]]
       const now = Date.now()
-
       for (const c of data.clients) {
         const cust = c.customers
-        const ref = c.last_visit_at
-          ? new Date(c.last_visit_at).getTime()
-          : new Date(c.created_at).getTime()
+        const ref = c.last_visit_at ? new Date(c.last_visit_at).getTime() : new Date(c.created_at).getTime()
         const diff = now - ref
         let statut = 'actif'
-        if (diff >= MS_60_CSV) statut = 'perdu'
-        else if (diff >= MS_20_CSV) statut = 'a risque'
-
+        if (diff >= MS_60) statut = 'perdu'
+        else if (diff >= MS_20) statut = 'a risque'
         rows.push([
           cust?.first_name ?? '',
           cust?.phone ?? '',
@@ -127,27 +134,14 @@ export default function ClientsClient({ clients, business, stats }: Props) {
         ])
       }
 
-      const csvContent = rows
-        .map((row) =>
-          row.map((cell) => {
-            const escaped = cell.replace(/"/g, '""')
-            return `"${escaped}"`
-          }).join(';')
-        )
-        .join('\n')
-
-      // UTF-8 BOM for Excel compatibility
-      const bom = '\uFEFF'
-      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const csvContent = rows.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(';')).join('\n')
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      const date = new Date().toISOString().slice(0, 10)
       a.href = url
-      a.download = `clients-${biz.business_name.replace(/\s+/g, '-').toLowerCase()}-${date}.csv`
+      a.download = `clients-${biz.business_name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
       URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Erreur export CSV:', error)
     } finally {
       setExporting(false)
     }
@@ -155,9 +149,7 @@ export default function ClientsClient({ clients, business, stats }: Props) {
 
   const filtered = useMemo(() => {
     let result = clients
-    if (statusFilter !== 'all') {
-      result = result.filter((c) => getStatus(c) === statusFilter)
-    }
+    if (statusFilter !== 'all') result = result.filter((c) => getStatus(c) === statusFilter)
     const q = search.toLowerCase().trim()
     if (q) {
       result = result.filter((c) => {
@@ -177,10 +169,9 @@ export default function ClientsClient({ clients, business, stats }: Props) {
           diff = (a.customers?.first_name ?? '').localeCompare(b.customers?.first_name ?? '', 'fr')
           break
         case 'loyalty':
-          diff =
-            business.loyalty_type === 'stamps'
-              ? (a.current_stamps ?? 0) - (b.current_stamps ?? 0)
-              : (a.current_points ?? 0) - (b.current_points ?? 0)
+          diff = business.loyalty_type === 'stamps'
+            ? (a.current_stamps ?? 0) - (b.current_stamps ?? 0)
+            : (a.current_points ?? 0) - (b.current_points ?? 0)
           break
         case 'visits':
           diff = (a.total_visits ?? 0) - (b.total_visits ?? 0)
@@ -204,226 +195,326 @@ export default function ClientsClient({ clients, business, stats }: Props) {
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
   const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
+  const filters = [
+    { key: 'all', label: 'Tous' },
+    { key: 'active', label: 'Actifs' },
+    { key: 'inactive', label: 'Inactifs' },
+    { key: 'lost', label: 'Perdus' },
+    { key: 'at_risk', label: 'À risque' },
+  ] as const
+
   return (
-    <div className="p-4 md:p-8 max-w-6xl">
-      {/* Header */}
-      <div className="mb-6 md:mb-8">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mes clients</h1>
-            <span className="text-gray-400 text-sm font-normal">{clients.length} client{clients.length !== 1 ? 's' : ''}</span>
-          </div>
-          <button
-            onClick={handleExportCsv}
-            disabled={exporting || clients.length === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-          >
-            {exporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            <span className="hidden sm:inline">Exporter CSV</span>
-            <span className="sm:hidden">CSV</span>
-          </button>
+    <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 space-y-6">
+      {/* Page header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-display-sm font-semibold text-primary">Clients</h1>
+          <p className="text-md text-tertiary mt-1">
+            Gérez et consultez tous vos clients fidélité.
+          </p>
         </div>
-        <p className="text-gray-400 text-sm mt-0.5 hidden sm:block">Base de données de votre programme de fidélité</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-        <StatCard label="Actifs" value={stats.active} hint="< 30 jours" color="green" />
-        <StatCard label="Inactifs" value={stats.inactive} hint="30–60 jours" color="amber" />
-        <StatCard label="Perdus" value={stats.lost} hint="> 60 jours" color="red" />
-        <StatCard label="Taux de retour" value={`${stats.returnRate}%`} hint="2+ visites" color="indigo" />
-      </div>
-
-      {/* Status filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {([
-          { key: 'all', label: 'Tous' },
-          { key: 'active', label: 'Actifs' },
-          { key: 'at_risk', label: 'À risque' },
-          { key: 'inactive', label: 'Inactifs' },
-          { key: 'lost', label: 'Perdus' },
-        ] as const).map((f) => (
+        <div className="flex flex-wrap items-center gap-2 lg:gap-3">
           <button
-            key={f.key}
-            onClick={() => { setStatusFilter(f.key); setPage(0) }}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              statusFilter === f.key
-                ? 'bg-indigo-600 text-white'
-                : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
+            type="button"
+            aria-label="Notifications"
+            className="size-10 inline-flex items-center justify-center rounded-lg bg-primary border border-secondary text-fg-secondary hover:bg-primary_hover transition-colors"
+            onClick={() => router.push('/dashboard/notifications')}
           >
-            {f.label}
+            <Bell01 className="size-5" />
           </button>
-        ))}
+          <Button
+            color="secondary"
+            size="md"
+            iconLeading={exporting ? Loading01 : Download01}
+            isDisabled={exporting || clients.length === 0}
+            onClick={handleExportCsv}
+          >
+            {exporting ? 'Export...' : 'Exporter CSV'}
+          </Button>
+          <Button color="primary" size="md" iconLeading={QrCode01} onClick={() => router.push('/dashboard?action=scan')}>
+            <span className="hidden sm:inline">Scanner client</span>
+            <span className="sm:hidden">Scanner</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-5 sticky top-0 z-10 bg-gray-50 py-2 -mt-2 md:static md:bg-transparent md:py-0 md:mt-0">
-        <div className="relative max-w-full sm:max-w-sm">
-          <svg
-            className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      {/* Search + filters bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <SearchLg className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fg-quaternary pointer-events-none" />
           <input
             type="text"
-            placeholder="Rechercher par nom ou téléphone…"
+            placeholder="Rechercher dans l'historique"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-primary border border-primary text-md text-primary placeholder:text-placeholder focus:outline-none focus:ring-2 focus:ring-brand transition-shadow"
           />
+        </div>
+        <div className="flex gap-2 sm:ml-auto">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-primary border border-secondary text-sm font-semibold text-secondary hover:bg-primary_hover transition-colors"
+          >
+            <Calendar className="size-4" />
+            {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-primary border border-secondary text-sm font-semibold text-secondary hover:bg-primary_hover transition-colors"
+          >
+            <FilterLines className="size-4" />
+            Filtres
+          </button>
         </div>
       </div>
 
-      {/* Desktop table */}
-      <div className="hidden sm:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/50">
-              <SortTh label="Nom" sortKey="name" current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Téléphone
-              </th>
-              <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">
-                Email
-              </th>
-              <SortTh
-                label={business.loyalty_type === 'stamps' ? 'Tampons' : 'Points'}
-                sortKey="loyalty"
-                current={sortKey}
-                dir={sortDir}
-                onSort={toggleSort}
-              />
-              <SortTh label="Visites" sortKey="visits" current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <SortTh label="Dernière visite" sortKey="last_visit" current={sortKey} dir={sortDir} onSort={toggleSort} />
-              <SortTh label="Statut" sortKey="status" current={sortKey} dir={sortDir} onSort={toggleSort} />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {paginated.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center px-5 py-14 text-gray-400 text-sm">
-                  {search ? 'Aucun client trouvé pour cette recherche.' : "Aucun client pour l'instant."}
-                </td>
-              </tr>
+      {/* Status tab chips */}
+      <div className="flex flex-wrap gap-2">
+        {filters.map((f) => {
+          const active = statusFilter === f.key
+          return (
+            <button
+              key={f.key}
+              onClick={() => { setStatusFilter(f.key); setPage(0) }}
+              className={cx(
+                'px-3.5 py-1.5 rounded-md text-sm font-semibold transition-colors',
+                active
+                  ? 'bg-brand-solid text-white'
+                  : 'bg-primary border border-secondary text-secondary hover:bg-primary_hover',
+              )}
+            >
+              {f.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Table card */}
+      <div className="rounded-xl bg-primary border border-secondary overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-secondary">
+          <h2 className="text-lg font-semibold text-primary">
+            Fichier client
+            {selected.size > 0 ? (
+              <span className="ml-3 text-sm font-normal text-brand-secondary">
+                ({selected.size} sélectionné{selected.size > 1 ? 's' : ''})
+              </span>
             ) : (
-              paginated.map((c) => {
-                const status = getStatus(c)
-                const sc = STATUS_CONFIG[status]
+              <span className="ml-3 text-sm font-normal text-tertiary">({sorted.length})</span>
+            )}
+          </h2>
+          <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setConfirmBulkDelete(true)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-error-secondary border border-error text-error-primary text-sm font-semibold hover:bg-error-secondary_hover transition-colors"
+              >
+                <Trash01 className="size-4" />
+                Supprimer
+              </button>
+            )}
+            <button type="button" className="text-tertiary hover:text-primary p-1.5 rounded-md hover:bg-secondary transition-colors">
+              <DotsHorizontal className="size-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-secondary bg-secondary/30">
+                <th className="w-10 px-6 py-3">
+                  <input
+                    type="checkbox"
+                    checked={paginated.length > 0 && paginated.every((c) => selected.has(c.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelected(new Set(paginated.map((c) => c.id)))
+                      else setSelected(new Set())
+                    }}
+                    className="size-4 rounded border-2 border-primary accent-brand-solid cursor-pointer"
+                  />
+                </th>
+                <SortTh label="Nom" sortKey="name" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <th className="text-left px-6 py-3 text-xs font-medium text-tertiary uppercase tracking-wide">
+                  Téléphone
+                </th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-tertiary uppercase tracking-wide hidden xl:table-cell">
+                  Email
+                </th>
+                <SortTh
+                  label={business.loyalty_type === 'stamps' ? 'Tampons' : 'Points'}
+                  sortKey="loyalty" current={sortKey} dir={sortDir} onSort={toggleSort}
+                />
+                <SortTh label="Dernière visite" sortKey="last_visit" current={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortTh label="Statut" sortKey="status" current={sortKey} dir={sortDir} onSort={toggleSort} />
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center px-6 py-14 text-quaternary text-sm">
+                    {search ? 'Aucun client trouvé pour cette recherche.' : "Aucun client pour l'instant."}
+                  </td>
+                </tr>
+              ) : paginated.map((c) => {
+                const isSelected = selected.has(c.id)
                 return (
                   <tr
                     key={c.id}
-                    onClick={() => router.push(`/dashboard/clients/${c.id}`)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={cx(
+                      'border-b border-secondary last:border-0 transition-colors',
+                      isSelected ? 'bg-brand-secondary/40' : 'hover:bg-primary_hover',
+                    )}
                   >
-                    <td className="px-5 py-4">
+                    <td className="px-6 py-4">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          setSelected((s) => {
+                            const next = new Set(s)
+                            if (next.has(c.id)) next.delete(c.id)
+                            else next.add(c.id)
+                            return next
+                          })
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="size-4 rounded border-2 border-primary accent-brand-solid cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-6 py-4 cursor-pointer" onClick={() => router.push(`/dashboard/clients/${c.id}`)}>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-                          <span className="text-indigo-700 font-semibold text-xs">
+                        <div className="size-8 rounded-full bg-brand-secondary flex items-center justify-center shrink-0">
+                          <span className="text-xs font-semibold text-fg-brand-primary">
                             {c.customers?.first_name?.[0]?.toUpperCase() ?? '?'}
                           </span>
                         </div>
-                        <span className="font-medium text-gray-900">{c.customers?.first_name ?? '—'}</span>
+                        <span className="font-medium text-primary">{c.customers?.first_name ?? '—'}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-gray-500">{c.customers?.phone ?? '—'}</td>
-                    <td className="px-5 py-4 text-gray-400 hidden lg:table-cell">{c.customers?.email ?? '—'}</td>
-                    <td className="px-5 py-4 font-semibold text-gray-900">
+                    <td className="px-6 py-4 text-tertiary cursor-pointer" onClick={() => router.push(`/dashboard/clients/${c.id}`)}>{c.customers?.phone ?? '—'}</td>
+                    <td className="px-6 py-4 text-tertiary hidden xl:table-cell cursor-pointer" onClick={() => router.push(`/dashboard/clients/${c.id}`)}>{c.customers?.email ?? '—'}</td>
+                    <td className="px-6 py-4 font-semibold text-primary cursor-pointer" onClick={() => router.push(`/dashboard/clients/${c.id}`)}>
                       {business.loyalty_type === 'stamps'
                         ? `${c.current_stamps ?? 0}/${business.stamps_required}`
                         : `${c.current_points ?? 0} pts`}
                     </td>
-                    <td className="px-5 py-4 text-gray-500">{c.total_visits ?? 0}</td>
-                    <td className="px-5 py-4 text-gray-400 text-sm">{relativeDate(c.last_visit_at)}</td>
-                    <td className="px-5 py-4">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sc.cls}`}>
-                        {sc.label}
-                      </span>
-                    </td>
+                    <td className="px-6 py-4 text-tertiary text-sm cursor-pointer" onClick={() => router.push(`/dashboard/clients/${c.id}`)}>{relativeDate(c.last_visit_at)}</td>
+                    <td className="px-6 py-4 cursor-pointer" onClick={() => router.push(`/dashboard/clients/${c.id}`)}><StatusBadge status={getStatus(c)} /></td>
                   </tr>
                 )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+              })}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Mobile cards */}
-      <div className="sm:hidden space-y-3">
-        {paginated.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">
-            {search ? 'Aucun client trouvé.' : "Aucun client pour l'instant."}
-          </div>
-        ) : (
-          paginated.map((c) => {
-            const status = getStatus(c)
-            const sc = STATUS_CONFIG[status]
-            return (
-              <div
-                key={c.id}
-                onClick={() => router.push(`/dashboard/clients/${c.id}`)}
-                className="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer hover:border-indigo-200 transition-colors active:bg-gray-50"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-                      <span className="text-indigo-700 font-semibold text-sm">
-                        {c.customers?.first_name?.[0]?.toUpperCase() ?? '?'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{c.customers?.first_name ?? '—'}</p>
-                      <p className="text-xs text-gray-400">{c.customers?.phone ?? ''}</p>
-                    </div>
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y divide-secondary">
+          {paginated.length === 0 ? (
+            <div className="px-6 py-14 text-center text-quaternary text-sm">
+              {search ? 'Aucun client trouvé.' : "Aucun client pour l'instant."}
+            </div>
+          ) : paginated.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => router.push(`/dashboard/clients/${c.id}`)}
+              className="w-full text-left px-4 py-4 hover:bg-primary_hover transition-colors"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-full bg-brand-secondary flex items-center justify-center shrink-0">
+                    <span className="text-sm font-semibold text-fg-brand-primary">
+                      {c.customers?.first_name?.[0]?.toUpperCase() ?? '?'}
+                    </span>
                   </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sc.cls}`}>
-                    {sc.label}
-                  </span>
+                  <div>
+                    <p className="font-medium text-primary text-sm">{c.customers?.first_name ?? '—'}</p>
+                    <p className="text-xs text-tertiary">{c.customers?.phone ?? ''}</p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-50">
-                  <span>
-                    {business.loyalty_type === 'stamps'
-                      ? `${c.current_stamps ?? 0}/${business.stamps_required} tampons`
-                      : `${c.current_points ?? 0} pts`}
-                  </span>
-                  <span>{c.total_visits ?? 0} visite{(c.total_visits ?? 0) !== 1 ? 's' : ''}</span>
-                  <span>{relativeDate(c.last_visit_at)}</span>
-                </div>
+                <StatusBadge status={getStatus(c)} />
               </div>
-            )
-          })
+              <div className="flex items-center justify-between text-xs text-tertiary pt-2 border-t border-secondary">
+                <span>
+                  {business.loyalty_type === 'stamps'
+                    ? `${c.current_stamps ?? 0}/${business.stamps_required} tampons`
+                    : `${c.current_points ?? 0} pts`}
+                </span>
+                <span>{c.total_visits ?? 0} visite{(c.total_visits ?? 0) !== 1 ? 's' : ''}</span>
+                <span>{relativeDate(c.last_visit_at)}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-secondary">
+            <p className="text-xs text-tertiary">
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} sur {sorted.length}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                color="secondary" size="sm"
+                iconLeading={ArrowLeft}
+                isDisabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Précédent
+              </Button>
+              <Button
+                color="secondary" size="sm"
+                iconTrailing={ArrowRight}
+                isDisabled={page === totalPages - 1}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Suivant
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-5">
-          <p className="text-xs text-gray-400">
-            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} sur {sorted.length}
-          </p>
-          <div className="flex gap-2">
-            <button
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              ← Précédent
-            </button>
-            <button
-              disabled={page === totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Suivant →
-            </button>
+      {/* Confirm bulk delete modal */}
+      {confirmBulkDelete && (
+        <div className="fixed inset-0 bg-overlay/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-primary rounded-2xl w-full max-w-md shadow-2xl p-6">
+            <h3 className="text-lg font-semibold text-error-primary mb-2">
+              Supprimer {selected.size} client{selected.size > 1 ? 's' : ''} ?
+            </h3>
+            <p className="text-sm text-tertiary mb-6">
+              Toutes les donnees (cartes, transactions, profils) des clients selectionnes seront definitivement effacees. Action irreversible (RGPD).
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button color="secondary" size="md" onClick={() => setConfirmBulkDelete(false)}>Annuler</Button>
+              <Button
+                color="primary"
+                size="md"
+                isDisabled={bulkDeleting}
+                onClick={async () => {
+                  setBulkDeleting(true)
+                  for (const cardId of Array.from(selected)) {
+                    try {
+                      await fetch('/api/card/delete-data', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ card_id: cardId }),
+                      })
+                    } catch {
+                      // continue on error
+                    }
+                  }
+                  setSelected(new Set())
+                  setConfirmBulkDelete(false)
+                  setBulkDeleting(false)
+                  router.refresh()
+                }}
+              >
+                {bulkDeleting ? 'Suppression...' : 'Supprimer'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -431,40 +522,10 @@ export default function ClientsClient({ clients, business, stats }: Props) {
   )
 }
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
-
-function StatCard({
-  label,
-  value,
-  hint,
-  color,
-}: {
-  label: string
-  value: string | number
-  hint: string
-  color: 'green' | 'amber' | 'red' | 'indigo'
-}) {
-  const styles = {
-    green: 'text-green-700 bg-green-50 border-green-100',
-    amber: 'text-amber-700 bg-amber-50 border-amber-100',
-    red: 'text-red-700 bg-red-50 border-red-100',
-    indigo: 'text-indigo-700 bg-indigo-50 border-indigo-100',
-  }
-  return (
-    <div className={`rounded-2xl p-5 border ${styles[color]}`}>
-      <p className="text-2xl font-bold leading-none">{value}</p>
-      <p className="text-sm font-semibold mt-1.5">{label}</p>
-      <p className="text-xs opacity-60 mt-0.5">{hint}</p>
-    </div>
-  )
-}
+// ─── Sub-components ──────────────────────────────────────────────
 
 function SortTh({
-  label,
-  sortKey: key,
-  current,
-  dir,
-  onSort,
+  label, sortKey: key, current, dir, onSort,
 }: {
   label: string
   sortKey: SortKey
@@ -476,13 +537,15 @@ function SortTh({
   return (
     <th
       onClick={() => onSort(key)}
-      className="text-left px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 select-none"
+      className="text-left px-6 py-3 text-xs font-medium text-tertiary uppercase tracking-wide cursor-pointer hover:text-secondary select-none transition-colors"
     >
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         {label}
-        <span className={active ? 'text-indigo-500' : 'text-gray-200'}>
-          {active && dir === 'asc' ? '↑' : '↓'}
-        </span>
+        {active ? (
+          dir === 'asc' ? <ArrowUp className="size-3.5 text-brand-secondary" /> : <ArrowDown className="size-3.5 text-brand-secondary" />
+        ) : (
+          <ArrowDown className="size-3.5 text-fg-quinary" />
+        )}
       </div>
     </th>
   )

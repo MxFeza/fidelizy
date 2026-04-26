@@ -32,16 +32,30 @@ export async function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl
-  const isAuthPage =
-    pathname === '/dashboard/login' || pathname === '/dashboard/register'
+  // Routes accessibles sans etre connecte (auth flow public).
+  const PUBLIC_AUTH_ROUTES = new Set([
+    '/dashboard/login',
+    '/dashboard/register',
+    '/dashboard/forgot-password',
+    '/dashboard/reset-password',
+  ])
+  // Routes ou un utilisateur deja connecte est redirige vers /dashboard
+  // (on garde forgot/reset accessibles meme connecte au cas ou).
+  const REDIRECT_IF_LOGGED_IN = new Set([
+    '/dashboard/login',
+    '/dashboard/register',
+  ])
 
-  if (!isAuthPage && !user) {
+  const isPublic = PUBLIC_AUTH_ROUTES.has(pathname)
+  const isLoginOrRegister = REDIRECT_IF_LOGGED_IN.has(pathname)
+
+  if (!isPublic && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard/login'
     return NextResponse.redirect(url)
   }
 
-  if (isAuthPage && user) {
+  if (isLoginOrRegister && user) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

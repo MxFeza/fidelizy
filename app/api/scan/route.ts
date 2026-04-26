@@ -23,7 +23,7 @@ export const POST = withErrorHandler(async (request) => {
 
   const { data: business } = await supabase
     .from('businesses')
-    .select('id, business_name, stamps_required, stamps_reward, loyalty_type, points_per_euro')
+    .select('id, business_name, stamps_required, stamps_reward, loyalty_type, points_per_euro, scan_cooldown_hours')
     .eq('id', user.id)
     .single()
 

@@ -20,8 +20,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
-  Building07, Camera01, MarkerPin01, Phone, Clock, Share04, ArrowUpRight,
-  Copy01, CheckDone01, AlertCircle, Globe01, User01,
+  Building07, MarkerPin01, Phone, Clock, Share04, ArrowUpRight,
+  CheckDone01, AlertCircle, Globe01, User01,
 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
@@ -168,7 +168,7 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
       {/* Page header */}
       <header className="bg-primary border-b border-secondary">
         <div className="relative">
-          {/* Banner */}
+          {/* Banner — affiche-only ici. L'upload se fait dans la section "Mon entreprise". */}
           <div className="relative h-[160px] md:h-[200px] w-full overflow-hidden bg-brand-secondary">
             {bannerUrl ? (
               <Image
@@ -182,16 +182,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-brand-100 to-brand-50" />
             )}
-            {/* Badge "ajouter / changer banniere" : ancre l'idee qu'elle est editable */}
-            <div className="absolute right-4 top-4">
-              <a
-                href="#banner-upload"
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary/90 backdrop-blur px-3 py-1.5 text-xs font-semibold text-secondary ring-1 ring-secondary shadow-xs hover:bg-primary"
-              >
-                <Camera01 className="size-3.5" />
-                {bannerUrl ? 'Modifier' : 'Ajouter une bannière'}
-              </a>
-            </div>
           </div>
 
           {/* Avatar logo + titre + actions */}
@@ -328,7 +318,7 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
             placeholder="15 rue de la Paix, 75002 Paris"
           />
 
-          <div id="banner-upload" className="pt-2">
+          <div className="pt-2">
             <p className="text-sm font-medium text-secondary mb-2">Logo du commerce</p>
             <AssetUploader
               kind="logo"

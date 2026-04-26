@@ -28,10 +28,10 @@ export default async function ProtectedLayout({
   const businessName = business?.business_name ?? 'Mon Commerce'
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar businessName={businessName} />
+    <div className="flex h-screen bg-primary">
+      <Sidebar businessName={businessName} businessEmail={user.email} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <MobileHeader businessName={businessName} />
+        <MobileHeader />
         <main className="flex-1 overflow-auto pb-20 md:pb-0">{children}</main>
       </div>
       <BottomNav businessName={businessName} />

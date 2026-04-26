@@ -69,6 +69,8 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(10)
 
+  const showWelcome = !(business as Business).welcome_seen
+
   return (
     <DashboardClient
       business={business as Business}
@@ -76,6 +78,7 @@ export default async function DashboardPage() {
       visitsToday={visitsToday ?? 0}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recentScans={(recentScans ?? []) as any}
+      showWelcome={showWelcome}
     />
   )
 }

@@ -3,6 +3,8 @@
 
 export type LoyaltyType = 'stamps' | 'points'
 
+export type BusinessType = 'cafe' | 'restaurant' | 'bakery' | 'snack' | 'hair' | 'nails'
+
 export interface Business {
   id: string
   email: string
@@ -16,7 +18,28 @@ export interface Business {
   points_per_euro: number
   is_active: boolean
   short_code: string | null
+  business_type: BusinessType | null
+  welcome_seen: boolean
+  referral_enabled: boolean
+  referral_referrer_bonus: number
+  referral_referred_bonus: number
+  program_name: string | null
+  program_description: string | null
+  scan_cooldown_hours: number
+  reward_tiers: LoyaltyTier[]
   created_at: string
+}
+
+/**
+ * Palier de recompense (JSONB stocke dans businesses.reward_tiers).
+ * Distinct de l'ancienne interface RewardTier (table dediee jamais utilisee).
+ */
+export interface LoyaltyTier {
+  id: string
+  emoji: string
+  name: string
+  /** Seuil = nb tampons (mode stamps) OU nb points (mode points) */
+  threshold: number
 }
 
 export interface Customer {

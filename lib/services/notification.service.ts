@@ -44,13 +44,22 @@ export async function notifyClient(
 
 /**
  * Broadcast notification to all clients of a business.
+ * Returns the number of clients targeted (subscriptions count at send time).
  */
 export async function broadcastToBusinessClients(
   businessId: string,
   payload: NotificationPayload
-): Promise<void> {
+): Promise<{ recipientCount: number }> {
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const supabase = createServiceClient()
+  const { count } = await supabase
+    .from('push_subscriptions')
+    .select('id', { count: 'exact', head: true })
+    .eq('business_id', businessId)
+
   await sendPushToAllBusinessClients(businessId, {
     title: payload.title,
     body: payload.body,
   })
+  return { recipientCount: count ?? 0 }
 }

@@ -1,5 +1,5 @@
 # generated: 2026-04-12
-# last_updated: 2026-04-12
+# last_updated: 2026-04-22
 # project: Izou
 # project_key: NOKEY
 # tracking_system: file-system
@@ -31,7 +31,7 @@
 # - ~10 semaines estimated total
 
 generated: 2026-04-12
-last_updated: 2026-04-12
+last_updated: 2026-04-25
 project: Izou
 project_key: NOKEY
 tracking_system: file-system
@@ -46,32 +46,33 @@ development_status:
   0-4-error-handling-standardise: done
   epic-0-retrospective: optional
 
-  # ── Epic 1: Navigation & Design System ── S3
-  epic-1: backlog
-  1-1-sidebar-desktop-v4: backlog
-  1-2-bottom-nav-mobile-commercant: backlog
-  1-3-bell-notifications-design-tokens: backlog
+  # ── Epic 1: Navigation & Design System ── S3 — DONE 2026-04-22
+  epic-1: done
+  1-1-sidebar-desktop-v4: done
+  1-2-bottom-nav-mobile-commercant: done
+  1-3-bell-notifications-design-tokens: done
+  1-4-sub-navigation-onglets: done
   epic-1-retrospective: optional
 
-  # ── Epic 7: Auth & Onboarding Commercant ── S3
-  epic-7: backlog
-  7-1-login-register: backlog
-  7-2-onboarding-choix-metier: backlog
-  7-3-otp-commercant: backlog
+  # ── Epic 7: Auth & Onboarding Commercant ── S3 — DONE 2026-04-25
+  epic-7: done
+  7-1-login-register: done  # login + register + forgot + reset + onboarding J3 + welcome modal. Polish final 2026-04-25.
+  7-2-onboarding-choix-metier: done  # couvert integralement par 7.1 (J3 + business_type + stamps_reward)
+  7-3-otp-commercant: deferred  # 2FA defer : decision user "pas d'OTP au login". Endpoints API existent. Story future si 2FA devient priorite.
   epic-7-retrospective: optional
 
-  # ── Epic 2: Dashboard Commercant ── S4
-  epic-2: backlog
-  2-1-vue-ensemble-desktop: backlog
-  2-2-vue-ensemble-mobile: backlog
-  2-3-page-statistiques-placeholder: backlog
+  # ── Epic 2: Dashboard Commercant ── S4 — DONE 2026-04-26
+  epic-2: done
+  2-1-vue-ensemble-desktop: done  # refactor visuel complet : hero, KPIs Figma E1, code commerce + QR, top 3, table activites
+  2-2-vue-ensemble-mobile: done   # responsive integre dans le meme composant (lg:* breakpoints)
+  2-3-page-statistiques-placeholder: cancelled  # decision user 2026-04-22 : statistiques retiree de la nav
   epic-2-retrospective: optional
 
-  # ── Epic 3: Gestion Clients ── S5
-  epic-3: backlog
-  3-1-liste-clients-desktop: backlog
-  3-2-fiche-client-detail: backlog
-  3-3-liste-clients-mobile: backlog
+  # ── Epic 3: Gestion Clients ── S5 — DONE 2026-04-26
+  epic-3: done
+  3-1-liste-clients-desktop: done  # v2: stats retirees (deplacees vers dashboard), checkboxes bulk select + bulk delete, date filter, dots menu
+  3-2-fiche-client-detail: done    # v2 rewrite COMPLET F2 : header back+title+status, LoyaltyCardVisual, toolbar 5 actions, ajustement manuel input, tabs Historique/Recompenses, transactions table avec checkboxes, modales confirm
+  3-3-liste-clients-mobile: done   # responsive integre dans 3.1 (cards mobile en md:hidden)
   epic-3-retrospective: optional
 
   # ── Epic 4: Refactor UI Client ── S6-S8
@@ -85,13 +86,13 @@ development_status:
   4-7-profil-client: backlog
   epic-4-retrospective: optional
 
-  # ── Epic 5: Marketing & Engagement ── S9
-  epic-5: backlog
-  5-1-section-marketing-navigation: backlog
-  5-2-push-notifications: backlog
-  5-3-programme-fidelite: backlog
-  5-4-parrainage: backlog
-  5-5-placeholders-sms-automatisations: backlog
+  # ── Epic 5: Marketing & Engagement ── S6 — review 2026-04-26
+  epic-5: in-progress
+  5-1-section-marketing-navigation: done  # sub-nav avec Programme/Parrainage/Push (sans SMS/Auto v2)
+  5-2-push-notifications: review  # form 50/100, apercu mobile, modale confirm, badge abonnes, limite 5/h serveur
+  5-3-programme-fidelite: review  # switch tampons/points, presets stamps, templates par metier, apercu live
+  5-4-parrainage: review  # toggle + bonus parrain/filleul, stats, service backend connecte au config (referral_enabled gate)
+  5-5-placeholders-sms-automatisations: cancelled  # regle user "no_placeholder_v2" : pas d'UI pour features v2
   epic-5-retrospective: optional
 
   # ── Epic 6: Apple Wallet + Google Wallet ── S10

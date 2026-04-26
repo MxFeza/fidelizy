@@ -21,6 +21,7 @@
     "@types/qrcode": "^1.5.6",
     "@untitledui/file-icons": "^0.0.9",
     "@untitledui/icons": "^0.0.21",
+    "@untitledui/react": "github:untitleduico/react",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.3",
     "framer-motion": "^12.36.0",

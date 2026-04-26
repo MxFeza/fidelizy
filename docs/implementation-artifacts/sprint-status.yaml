@@ -31,7 +31,7 @@
 # - ~10 semaines estimated total
 
 generated: 2026-04-12
-last_updated: 2026-04-25
+last_updated: 2026-04-26
 project: Izou
 project_key: NOKEY
 tracking_system: file-system
@@ -86,12 +86,12 @@ development_status:
   4-7-profil-client: backlog
   epic-4-retrospective: optional
 
-  # ── Epic 5: Marketing & Engagement ── S6 — review 2026-04-26
-  epic-5: in-progress
+  # ── Epic 5: Marketing & Engagement ── S6 — DONE 2026-04-26
+  epic-5: done
   5-1-section-marketing-navigation: done  # sub-nav avec Programme/Parrainage/Push (sans SMS/Auto v2)
-  5-2-push-notifications: review  # form 50/100, apercu mobile, modale confirm, badge abonnes, limite 5/h serveur
-  5-3-programme-fidelite: review  # switch tampons/points, presets stamps, templates par metier, apercu live
-  5-4-parrainage: review  # toggle + bonus parrain/filleul, stats, service backend connecte au config (referral_enabled gate)
+  5-2-push-notifications: done  # form 50/100, apercu mobile, modale confirm, badge abonnes, limite 5/h serveur, cron push-scheduled
+  5-3-programme-fidelite: done  # switch tampons/points, presets stamps, templates par metier (cafe/resto/boulangerie/snack/coiffeur/onglerie), apercu live, scan_cooldown_hours branche dans /api/scan (2026-04-26)
+  5-4-parrainage: done  # toggle + bonus parrain/filleul, stats, service backend connecte au config (referral_enabled gate)
   5-5-placeholders-sms-automatisations: cancelled  # regle user "no_placeholder_v2" : pas d'UI pour features v2
   epic-5-retrospective: optional
 
@@ -103,9 +103,9 @@ development_status:
   6-4-design-cartes-wallet-natives: backlog
   epic-6-retrospective: optional
 
-  # ── Epic 8: Mon Espace & RGPD ── S10
-  epic-8: backlog
-  8-1-restructurer-mon-espace: backlog
-  8-2-suppression-compte-rgpd: backlog
-  8-3-export-donnees-rgpd: backlog
+  # ── Epic 8: Mon Espace & RGPD ── S10 — review 2026-04-26
+  epic-8: in-progress
+  8-1-restructurer-mon-espace: review  # routes /dashboard/settings/{security,plan,privacy} + sub-nav layout, /profile redirige vers /security
+  8-2-suppression-compte-rgpd: review  # cascade explicite (wallet_registrations, push_subscriptions, reward_claims, referrals, transactions, reward_tiers, loyalty_cards, customers orphelins, business, auth user) + modale 2-steps "tapez SUPPRIMER"
+  8-3-export-donnees-rgpd: review  # /api/account/export retourne ZIP de CSVs (business, customers, loyalty_cards, transactions, reward_claims, referrals) + README explicatif
   epic-8-retrospective: optional

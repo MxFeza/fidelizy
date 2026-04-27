@@ -9,6 +9,17 @@ vi.mock('@/lib/wallet/push', () => ({
   notifyWalletDevices: vi.fn().mockResolvedValue(undefined),
 }))
 
+// Mock createServiceClient pour eviter le besoin d'env vars Supabase en CI
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn().mockResolvedValue({ count: 5, data: null, error: null }),
+      })),
+    })),
+  })),
+}))
+
 import { notifyClient, broadcastToBusinessClients } from '../notification.service'
 import { sendPushToCard, sendPushToAllBusinessClients } from '@/lib/push/sendPush'
 import { notifyWalletDevices } from '@/lib/wallet/push'

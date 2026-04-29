@@ -31,7 +31,7 @@
 # - ~10 semaines estimated total
 
 generated: 2026-04-12
-last_updated: 2026-04-26
+last_updated: 2026-04-30
 project: Izou
 project_key: NOKEY
 tracking_system: file-system
@@ -103,9 +103,22 @@ development_status:
   6-4-design-cartes-wallet-natives: backlog
   epic-6-retrospective: optional
 
-  # ── Epic 8: Mon Espace & RGPD ── S10 — review 2026-04-26
-  epic-8: in-progress
-  8-1-restructurer-mon-espace: review  # routes /dashboard/settings/{security,plan,privacy} + sub-nav layout, /profile redirige vers /security
-  8-2-suppression-compte-rgpd: review  # cascade explicite (wallet_registrations, push_subscriptions, reward_claims, referrals, transactions, reward_tiers, loyalty_cards, customers orphelins, business, auth user) + modale 2-steps "tapez SUPPRIMER"
-  8-3-export-donnees-rgpd: review  # /api/account/export retourne ZIP de CSVs (business, customers, loyalty_cards, transactions, reward_claims, referrals) + README explicatif
+  # ── Epic 8: Mon Espace & RGPD ── S10 — DONE 2026-04-30
+  epic-8: done
+  8-1-restructurer-mon-espace: done  # /dashboard/settings/{,security,plan,privacy} + SettingsLayout partage, single global save bar, AssetUploader logo + Google Maps embed, banner retiree (decision user 2026-04-27), activite + toggle GMB visible retires, dashboard greeting first_name
+  8-2-suppression-compte-rgpd: done  # cascade explicite 9 etapes + modale 2-steps
+  8-3-export-donnees-rgpd: done  # /api/account/export ZIP CSVs + README
   epic-8-retrospective: optional
+
+infrastructure:
+  # Hardening + tooling 2026-04-27 / 2026-04-30
+  supabase_security_perf_migration: done  # 20260427_security_perf_hardening.sql : search_path, RLS auth.uid SELECT, indexes FK, REVOKE EXECUTE
+  github_actions_ci: done  # .github/workflows/ci.yml : typecheck + tests + lint sur push develop/main
+  github_actions_cron_push_scheduled: done  # remplace Vercel cron */1 (Pro only) — gratuit, 5 min granularite
+  github_actions_auto_pr: done  # auto-PR develop -> main + auto-merge si CI verts
+  vercel_analytics: done  # @vercel/analytics + <Analytics /> dans layout root
+  branch_protection_main: done  # Active 2026-04-29
+  dependabot: done
+  vercel_envs_sensitive: done  # CRON_SECRET, VAPID, KV, WALLET, SUPABASE_SERVICE = Sensitive
+  sentry: deferred  # backlog : a activer >50 commercants
+  leaked_password_protection: deferred  # require Supabase Pro

@@ -24,6 +24,7 @@
     "@untitledui/react": "github:untitleduico/react",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.3",
+    "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.36.0",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.0",

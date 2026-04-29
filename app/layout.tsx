@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import RegisterSW from "@/app/components/RegisterSW";
 import { Providers } from "@/app/providers";
 
@@ -67,6 +68,7 @@ export default function RootLayout({
           {children}
           <RegisterSW />
         </Providers>
+        <Analytics />
       </body>
     </html>
   );

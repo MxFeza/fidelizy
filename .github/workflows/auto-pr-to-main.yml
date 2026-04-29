@@ -1,0 +1,109 @@
+name: Auto PR develop → main
+
+# A chaque push sur develop, cree (ou met a jour) une PR vers main
+# avec auto-merge active. Quand les CI passent (Typecheck + Unit tests),
+# GitHub merge automatiquement, ce qui declenche le deploy Vercel prod.
+#
+# Le user n'a plus rien a faire si tout est vert. Si rouge, il voit
+# la PR ouverte avec les checks rouges.
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-or-update-pr:
+    name: Ensure PR develop → main exists
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create or update PR
+        id: open-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+
+            // Cherche une PR ouverte develop -> main
+            const { data: existing } = await github.rest.pulls.list({
+              owner, repo, state: 'open', head: `${owner}:develop`, base: 'main',
+            });
+
+            // Recupere les commits develop pas encore sur main pour le body
+            const { data: comparison } = await github.rest.repos.compareCommits({
+              owner, repo, base: 'main', head: 'develop',
+            });
+
+            const commitList = comparison.commits
+              .map(c => `- ${c.commit.message.split('\n')[0]} (${c.sha.substring(0, 7)})`)
+              .join('\n');
+
+            const body = [
+              '## Auto-PR develop → main',
+              '',
+              `**${comparison.commits.length} commit(s) ahead of main**`,
+              '',
+              '### Commits inclus',
+              commitList || '_(aucun)_',
+              '',
+              '---',
+              '_Cette PR est cree automatiquement par .github/workflows/auto-pr-to-main.yml._',
+              '_Auto-merge active : sera mergee des que les CI passent._',
+            ].join('\n');
+
+            let pr;
+            if (existing.length === 0) {
+              const { data: created } = await github.rest.pulls.create({
+                owner, repo,
+                title: `Deploy: ${comparison.commits.length} commit(s) develop → main`,
+                head: 'develop',
+                base: 'main',
+                body,
+              });
+              pr = created;
+              core.info(`Created PR #${pr.number}`);
+            } else {
+              pr = existing[0];
+              await github.rest.pulls.update({
+                owner, repo, pull_number: pr.number,
+                title: `Deploy: ${comparison.commits.length} commit(s) develop → main`,
+                body,
+              });
+              core.info(`Updated PR #${pr.number}`);
+            }
+
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('pr_node_id', pr.node_id);
+
+      - name: Enable auto-merge
+        if: steps.open-pr.outputs.pr_node_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNodeId = '${{ steps.open-pr.outputs.pr_node_id }}';
+            try {
+              await github.graphql(`
+                mutation EnableAutoMerge($prId: ID!) {
+                  enablePullRequestAutoMerge(input: {
+                    pullRequestId: $prId,
+                    mergeMethod: SQUASH
+                  }) {
+                    pullRequest { id autoMergeRequest { mergeMethod } }
+                  }
+                }
+              `, { prId: prNodeId });
+              core.info('Auto-merge enabled on PR');
+            } catch (err) {
+              // Auto-merge peut echouer si :
+              // - "Allow auto-merge" pas active sur le repo (Settings)
+              // - PR deja mergeable et pas en attente de checks
+              // - Pas de status checks requis configure
+              core.warning(`Auto-merge could not be enabled: ${err.message}`);
+            }

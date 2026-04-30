@@ -112,25 +112,32 @@ export default function RecoverForm() {
     setLoading(true)
     setError('')
 
-    const res = await fetch('/api/auth/verify-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: phone.trim(), token }),
-    })
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), token }),
+      })
 
-    const data = await res.json()
+      const data = await res.json().catch(() => ({}))
 
-    if (data.status === 'invalid') {
+      if (!res.ok) {
+        setError(data?.error || 'Erreur de vérification. Veuillez réessayer.')
+        return
+      }
+
+      if (data.status === 'verified') {
+        setCards(data.cards ?? [])
+        setStep('cards')
+        return
+      }
+
+      // 'invalid' or any other status
       setError('Code invalide. Veuillez réessayer.')
+    } catch {
+      setError('Erreur de connexion. Veuillez réessayer.')
+    } finally {
       setLoading(false)
-      return
-    }
-
-    if (data.status === 'verified') {
-      setCards(data.cards ?? [])
-      setStep('cards')
-      setLoading(false)
-      return
     }
   }
 

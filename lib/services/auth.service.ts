@@ -51,32 +51,32 @@ export async function sendOtp(
 }
 
 /**
- * Verify OTP and return customer cards.
+ * Verify OTP by phone (lookup email server-side to avoid leak) and return customer cards.
  */
 export async function verifyOtp(
   supabase: SupabaseClient,
   supabaseAuth: SupabaseClient,
   params: VerifyOtpInput
 ): Promise<{ status: string; cards?: Record<string, unknown>[] }> {
-  const { email, token } = params
+  const { phone, token } = params
+
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('id, email')
+    .eq('phone', phone.trim())
+    .maybeSingle()
+
+  if (!customer || !customer.email) {
+    return { status: 'invalid' }
+  }
 
   const { error } = await supabaseAuth.auth.verifyOtp({
-    email,
+    email: customer.email,
     token,
     type: 'email',
   })
 
   if (error) {
-    return { status: 'invalid' }
-  }
-
-  const { data: customer } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle()
-
-  if (!customer) {
     return { status: 'invalid' }
   }
 

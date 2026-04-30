@@ -51,8 +51,15 @@ export default function BottomNav(_props: BottomNavProps) {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-primary border-t border-secondary md:hidden">
-      <ul className="flex items-stretch h-16 pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-primary border-t border-secondary md:hidden"
+      style={{
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+    >
+      <ul className="flex items-stretch h-16">
         {tabs.map((tab) => {
           const active = tab.isActive(pathname)
           const Icon = tab.icon

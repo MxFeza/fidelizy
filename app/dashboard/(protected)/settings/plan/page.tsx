@@ -30,7 +30,7 @@ export default async function PlanPage() {
 
       <SettingsBody>
         {/* Banniere : pilote gratuit */}
-        <div className="flex items-start gap-3 rounded-xl bg-brand-secondary ring-1 ring-brand_subtle px-5 py-4">
+        <div className="flex items-start gap-3 rounded-xl bg-brand-secondary ring-1 ring-brand px-5 py-4">
           <div className="size-9 rounded-lg bg-brand-solid flex items-center justify-center shrink-0">
             <CheckCircle className="size-4 text-white" />
           </div>

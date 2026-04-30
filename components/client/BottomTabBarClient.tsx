@@ -84,8 +84,15 @@ export default function BottomTabBarClient({
   const itemClass = 'flex h-full w-full flex-col items-center justify-center gap-1 transition-colors duration-100'
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t border-gray-100">
-      <ul className="max-w-md mx-auto flex items-stretch h-16 pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t border-gray-100"
+      style={{
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+    >
+      <ul className="max-w-md mx-auto flex items-stretch h-16">
         {/* Carte */}
         <li className="flex-1">
           {onLocalChange ? (

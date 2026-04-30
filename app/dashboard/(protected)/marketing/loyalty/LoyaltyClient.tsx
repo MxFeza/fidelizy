@@ -135,40 +135,14 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 lg:mb-8">
-        <div>
-          <h1 className="text-display-xs sm:text-display-sm font-semibold text-primary">
-            Programme de fidélité
-          </h1>
-          <p className="text-sm sm:text-md text-tertiary mt-1">
-            Configurez le fonctionnement de votre carte de fidélité.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {savedAt && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-success-primary">
-              <CheckDone01 className="size-4" />
-              Enregistré
-            </span>
-          )}
-          {error && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-error-primary">
-              <AlertCircle className="size-4" />
-              {error}
-            </span>
-          )}
-          <Button
-            color="primary"
-            size="md"
-            className="flex-1 sm:flex-none"
-            isDisabled={!isDirty || saving}
-            iconLeading={saving ? Loading01 : undefined}
-            onClick={handleSave}
-          >
-            {saving ? 'Enregistrement...' : 'Enregistrer'}
-          </Button>
-        </div>
+      {/* Header — title only ; save actions sont dans la save bar globale en bas */}
+      <div className="mb-6 lg:mb-8">
+        <h1 className="text-display-xs sm:text-display-sm font-semibold text-primary">
+          Programme de fidélité
+        </h1>
+        <p className="text-sm sm:text-md text-tertiary mt-1">
+          Configurez le fonctionnement de votre carte de fidélité.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -346,6 +320,31 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
             </div>
           </div>
         </aside>
+      </div>
+
+      {/* Save bar globale : sticky bottom mobile, static desktop. Pattern uniforme avec BusinessClient. */}
+      <div className="sticky bottom-4 md:static z-10 mt-6 flex flex-wrap items-center justify-end gap-3 bg-primary md:bg-transparent rounded-xl md:rounded-none ring-1 md:ring-0 ring-secondary shadow-md md:shadow-none px-4 md:px-0 py-3 md:py-0">
+        {savedAt && (
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-primary">
+            <CheckDone01 className="size-4" />
+            Modifications enregistrées
+          </span>
+        )}
+        {error && (
+          <span className="inline-flex items-center gap-1.5 text-sm text-error-primary">
+            <AlertCircle className="size-4" />
+            {error}
+          </span>
+        )}
+        <Button
+          color="primary"
+          size="md"
+          isDisabled={!isDirty || saving}
+          iconLeading={saving ? Loading01 : undefined}
+          onClick={handleSave}
+        >
+          {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+        </Button>
       </div>
     </div>
   )

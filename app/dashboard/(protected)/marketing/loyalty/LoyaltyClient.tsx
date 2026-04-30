@@ -322,8 +322,8 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
         </aside>
       </div>
 
-      {/* Save bar globale : sticky bottom mobile, static desktop. Pattern uniforme avec BusinessClient. */}
-      <div className="sticky bottom-4 md:static z-10 mt-6 flex flex-wrap items-center justify-end gap-3 bg-primary md:bg-transparent rounded-xl md:rounded-none ring-1 md:ring-0 ring-secondary shadow-md md:shadow-none px-4 md:px-0 py-3 md:py-0">
+      {/* Save bar globale en bas (static, pas sticky — feedback user 2026-05-01 : la bar flottante mangeait l'ecran) */}
+      <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
         {savedAt && (
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-primary">
             <CheckDone01 className="size-4" />

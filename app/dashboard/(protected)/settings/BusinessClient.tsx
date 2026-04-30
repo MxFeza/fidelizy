@@ -326,8 +326,8 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           <MapPreview address={address} />
         </SettingsSection>
 
-        {/* Save bar globale : 1 seul Enregistrer pour toute la page */}
-        <div className="sticky bottom-4 md:static z-10 mt-2 flex items-center justify-end gap-3 bg-primary md:bg-transparent rounded-xl md:rounded-none ring-1 md:ring-0 ring-secondary shadow-md md:shadow-none px-4 md:px-0 py-3 md:py-0">
+        {/* Save bar globale : 1 seul Enregistrer pour toute la page (static, pas sticky — feedback user 2026-05-01) */}
+        <div className="mt-2 flex items-center justify-end gap-3 px-0 py-0">
           {savedAt && (
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-primary">
               <CheckDone01 className="size-4" />

@@ -2,25 +2,25 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CreditCard02, Clock, Scan, Gift01, User01 } from '@untitledui/icons'
+import { CreditCard02, Building02, Scan, Gift01, User01 } from '@untitledui/icons'
 import type { FC, HTMLAttributes } from 'react'
 import { cx } from '@/utils/cx'
 
-type LocalTabId = 'card' | 'history' | 'profile'
+type LocalTabId = 'card' | 'profile'
 
 interface BottomTabBarClientProps {
   cardId: string
   /**
-   * Quand fourni : Carte / Historique / Profil sont des boutons qui appellent onLocalChange
+   * Quand fourni : Carte / Profil sont des boutons qui appellent onLocalChange
    * (utilise sur la page principale /card/[cardId]).
-   * Sinon (sur /scan, /referral) : ils sont des Link qui retournent vers la home.
+   * Sinon (sur /business, /scan, /referral) : ils sont des Link qui retournent vers la home.
    */
   onLocalChange?: (tab: LocalTabId) => void
   activeLocal?: LocalTabId
 }
 
 interface RouteTab {
-  id: 'scan' | 'referral'
+  id: 'business' | 'scan' | 'referral'
   href: string
   label: string
   icon: FC<HTMLAttributes<HTMLOrSVGElement>>
@@ -41,18 +41,15 @@ export default function BottomTabBarClient({
   const pathname = usePathname()
   const base = `/card/${cardId}`
 
-  const localTabs: LocalTab[] = [
-    { id: 'card', href: base, label: 'Carte', icon: CreditCard02 },
-    { id: 'history', href: `${base}?tab=history`, label: 'Historique', icon: Clock },
-    { id: 'profile', href: `${base}?tab=profile`, label: 'Profil', icon: User01 },
-  ]
+  const cardTab: LocalTab = { id: 'card', href: base, label: 'Carte', icon: CreditCard02 }
+  const profileTab: LocalTab = { id: 'profile', href: `${base}?tab=profile`, label: 'Profil', icon: User01 }
 
-  const routeTabs: RouteTab[] = [
-    { id: 'scan', href: `${base}/scan`, label: 'Scanner', icon: Scan },
-    { id: 'referral', href: `${base}/referral`, label: 'Parrainage', icon: Gift01 },
-  ]
+  const businessTab: RouteTab = { id: 'business', href: `${base}/business`, label: 'Entreprise', icon: Building02 }
+  const scanTab: RouteTab = { id: 'scan', href: `${base}/scan`, label: 'Scanner', icon: Scan }
+  const referralTab: RouteTab = { id: 'referral', href: `${base}/referral`, label: 'Parrainage', icon: Gift01 }
 
   // Active states
+  const onBusiness = pathname.startsWith(`${base}/business`)
   const onScan = pathname.startsWith(`${base}/scan`)
   const onReferral = pathname.startsWith(`${base}/referral`)
   const onHome = pathname === base
@@ -93,7 +90,7 @@ export default function BottomTabBarClient({
       }}
     >
       <ul className="max-w-md mx-auto flex items-stretch h-16">
-        {/* Carte */}
+        {/* Carte (local) */}
         <li className="flex-1">
           {onLocalChange ? (
             <button
@@ -102,62 +99,54 @@ export default function BottomTabBarClient({
               aria-current={isLocalActive('card') ? 'page' : undefined}
               className={itemClass}
             >
-              {renderIcon(localTabs[0].icon, isLocalActive('card'))}
-              {renderLabel(localTabs[0].label, isLocalActive('card'))}
+              {renderIcon(cardTab.icon, isLocalActive('card'))}
+              {renderLabel(cardTab.label, isLocalActive('card'))}
             </button>
           ) : (
-            <Link href={localTabs[0].href} className={itemClass}>
-              {renderIcon(localTabs[0].icon, false)}
-              {renderLabel(localTabs[0].label, false)}
+            <Link href={cardTab.href} className={itemClass}>
+              {renderIcon(cardTab.icon, false)}
+              {renderLabel(cardTab.label, false)}
             </Link>
           )}
         </li>
 
-        {/* Historique */}
+        {/* Entreprise (route) */}
         <li className="flex-1">
-          {onLocalChange ? (
-            <button
-              type="button"
-              onClick={() => onLocalChange('history')}
-              aria-current={isLocalActive('history') ? 'page' : undefined}
-              className={itemClass}
-            >
-              {renderIcon(localTabs[1].icon, isLocalActive('history'))}
-              {renderLabel(localTabs[1].label, isLocalActive('history'))}
-            </button>
-          ) : (
-            <Link href={localTabs[1].href} className={itemClass}>
-              {renderIcon(localTabs[1].icon, false)}
-              {renderLabel(localTabs[1].label, false)}
-            </Link>
-          )}
+          <Link
+            href={businessTab.href}
+            aria-current={onBusiness ? 'page' : undefined}
+            className={itemClass}
+          >
+            {renderIcon(businessTab.icon, onBusiness)}
+            {renderLabel(businessTab.label, onBusiness)}
+          </Link>
         </li>
 
         {/* Scanner (route) */}
         <li className="flex-1">
           <Link
-            href={routeTabs[0].href}
+            href={scanTab.href}
             aria-current={onScan ? 'page' : undefined}
             className={itemClass}
           >
-            {renderIcon(routeTabs[0].icon, onScan)}
-            {renderLabel(routeTabs[0].label, onScan)}
+            {renderIcon(scanTab.icon, onScan)}
+            {renderLabel(scanTab.label, onScan)}
           </Link>
         </li>
 
         {/* Parrainage (route) */}
         <li className="flex-1">
           <Link
-            href={routeTabs[1].href}
+            href={referralTab.href}
             aria-current={onReferral ? 'page' : undefined}
             className={itemClass}
           >
-            {renderIcon(routeTabs[1].icon, onReferral)}
-            {renderLabel(routeTabs[1].label, onReferral)}
+            {renderIcon(referralTab.icon, onReferral)}
+            {renderLabel(referralTab.label, onReferral)}
           </Link>
         </li>
 
-        {/* Profil */}
+        {/* Profil (local) */}
         <li className="flex-1">
           {onLocalChange ? (
             <button
@@ -166,13 +155,13 @@ export default function BottomTabBarClient({
               aria-current={isLocalActive('profile') ? 'page' : undefined}
               className={itemClass}
             >
-              {renderIcon(localTabs[2].icon, isLocalActive('profile'))}
-              {renderLabel(localTabs[2].label, isLocalActive('profile'))}
+              {renderIcon(profileTab.icon, isLocalActive('profile'))}
+              {renderLabel(profileTab.label, isLocalActive('profile'))}
             </button>
           ) : (
-            <Link href={localTabs[2].href} className={itemClass}>
-              {renderIcon(localTabs[2].icon, false)}
-              {renderLabel(localTabs[2].label, false)}
+            <Link href={profileTab.href} className={itemClass}>
+              {renderIcon(profileTab.icon, false)}
+              {renderLabel(profileTab.label, false)}
             </Link>
           )}
         </li>

@@ -8,7 +8,6 @@ import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@
 import { type Tab, isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
 import ConfettiEffect from './components/ConfettiEffect'
 import CardTab from './components/CardTab'
-import HistoryTab from './components/HistoryTab'
 import WheelModal from './components/WheelModal'
 import PushBanner from './components/PushBanner'
 import ProfileTab from './components/ProfileTab'
@@ -27,7 +26,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const searchParams = useSearchParams()
   const initialTab = (() => {
     const t = searchParams.get('tab')
-    if (t === 'history' || t === 'profile') return t
+    if (t === 'profile') return t
     return 'card' as const
   })()
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
@@ -331,13 +330,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
             />
           )}
 
-          {activeTab === 'history' && (
-            <HistoryTab
-              transactions={transactions}
-              business={business}
-              color={color}
-            />
-          )}
 
           {activeTab === 'profile' && (
             <ProfileTab

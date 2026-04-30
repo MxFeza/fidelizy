@@ -1,20 +1,11 @@
 name: Auto PR develop → main
 
-# A chaque push sur develop, cree (ou met a jour) une PR vers main.
+# A chaque push sur develop, cree (ou met a jour) une PR vers main
+# avec auto-merge active. Quand les CI passent (Typecheck + Unit tests),
+# GitHub merge automatiquement, ce qui declenche le deploy Vercel prod.
 #
-# IMPORTANT: auto-merge est DESACTIVE depuis Epic 4 (UI client).
-# Raison : les ecrans client en cours de dev ne doivent PAS partir
-# en prod tant que le user n'a pas valide visuellement le preview
-# Vercel. Le merge final main est manuel.
-#
-# Workflow attendu :
-#   1. Push develop -> preview Vercel auto
-#   2. PR develop -> main ouverte ici (pas de merge auto)
-#   3. CI tournent (typecheck + tests + lint)
-#   4. User valide visuellement sur preview URL
-#   5. Optionnel : /ultrareview avant merge
-#   6. User clique "Merge" sur la PR
-#   7. Vercel auto-deploy prod sur main
+# Le user n'a plus rien a faire si tout est vert. Si rouge, il voit
+# la PR ouverte avec les checks rouges.
 
 on:
   push:
@@ -91,31 +82,24 @@ jobs:
             core.setOutput('pr_number', pr.number);
             core.setOutput('pr_node_id', pr.node_id);
 
-      # Auto-merge desactive volontairement pour Epic 4 (UI client).
-      # Le user merge manuellement apres validation visuelle preview.
-      # Pour reactiver auto-merge plus tard, decommenter le step ci-dessous.
-      #
-      # - name: Enable auto-merge
-      #   if: steps.open-pr.outputs.pr_node_id != ''
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       const prNodeId = '${{ steps.open-pr.outputs.pr_node_id }}';
-      #       try {
-      #         await github.graphql(`
-      #           mutation EnableAutoMerge($prId: ID!) {
-      #             enablePullRequestAutoMerge(input: {
-      #               pullRequestId: $prId,
-      #               mergeMethod: SQUASH
-      #             }) {
-      #               pullRequest { id autoMergeRequest { mergeMethod } }
-      #             }
-      #           }
-      #         `, { prId: prNodeId });
-      #         core.info('Auto-merge enabled on PR');
-      #       } catch (err) {
-              // - "Allow auto-merge" pas active sur le repo (Settings)
-              // - PR deja mergeable et pas en attente de checks
-              // - Pas de status checks requis configure
-      #         core.warning(`Auto-merge could not be enabled: ${err.message}`);
-      #       }
+      - name: Enable auto-merge
+        if: steps.open-pr.outputs.pr_node_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNodeId = '${{ steps.open-pr.outputs.pr_node_id }}';
+            try {
+              await github.graphql(`
+                mutation EnableAutoMerge($prId: ID!) {
+                  enablePullRequestAutoMerge(input: {
+                    pullRequestId: $prId,
+                    mergeMethod: SQUASH
+                  }) {
+                    pullRequest { id autoMergeRequest { mergeMethod } }
+                  }
+                }
+              `, { prId: prNodeId });
+              core.info('Auto-merge enabled on PR');
+            } catch (err) {
+              core.warning(`Auto-merge could not be enabled: ${err.message}`);
+            }

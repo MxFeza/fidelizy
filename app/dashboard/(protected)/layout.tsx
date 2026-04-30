@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Sidebar from './Sidebar'
 import BottomNav from '@/components/dashboard/BottomNav'
 import MobileHeader from '@/components/dashboard/MobileHeader'
+import FeedbackBubble from '@/components/dashboard/FeedbackBubble'
 
 export default async function ProtectedLayout({
   children,
@@ -39,6 +40,7 @@ export default async function ProtectedLayout({
         <main className="flex-1 overflow-auto pb-20 md:pb-0">{children}</main>
       </div>
       <BottomNav businessName={businessName} />
+      <FeedbackBubble />
     </div>
   )
 }

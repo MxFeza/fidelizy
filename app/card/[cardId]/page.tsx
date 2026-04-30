@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -87,12 +88,14 @@ export default async function CardPage({ params }: PageProps) {
   }
 
   return (
-    <CardPageClient
-      card={card}
-      business={business}
-      transactions={transactions ?? []}
-      rewardTiers={rewardTiers}
-      cardToken={cardToken}
-    />
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <CardPageClient
+        card={card}
+        business={business}
+        transactions={transactions ?? []}
+        rewardTiers={rewardTiers}
+        cardToken={cardToken}
+      />
+    </Suspense>
   )
 }

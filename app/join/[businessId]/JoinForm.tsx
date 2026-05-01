@@ -78,28 +78,36 @@ export default function JoinForm({ business, initialReferralCode }: JoinFormProp
     setLoading(true)
     setError('')
 
-    const res = await fetch('/api/auth/verify-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim().toLowerCase(), token }),
-    })
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Body: phone (pas email) — API verify-otp lookup customer.email server-side
+        // depuis le phone (commit b3bf1a4 — fix B1 OTP). Avant ce fix l'API
+        // attendait email mais /recover envoyait phone, ce qui cassait le login.
+        // Apres le fix, /join doit aussi envoyer phone pour matcher le contrat.
+        body: JSON.stringify({ phone: phone.trim(), token }),
+      })
 
-    const data = await res.json()
+      const data = await res.json().catch(() => ({}))
 
-    if (data.status === 'invalid') {
+      if (!res.ok) {
+        setError(data?.error || 'Erreur de vérification. Veuillez réessayer.')
+        return
+      }
+
+      if (data.status === 'verified' && Array.isArray(data.cards) && data.cards.length > 0) {
+        router.push(`/card/${data.cards[0].qr_code_id}`)
+        return
+      }
+
+      // 'invalid' or any unexpected status
       setError('Code invalide. Veuillez réessayer.')
+    } catch {
+      setError('Erreur de connexion. Veuillez réessayer.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    if (data.status === 'verified' && data.cards?.length > 0) {
-      router.push(`/card/${data.cards[0].qr_code_id}`)
-      return
-    }
-
-    // Fallback
-    setError('Erreur de vérification. Veuillez réessayer.')
-    setLoading(false)
   }
 
   if (step === 'otp') {

@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
-import type { Business, LoyaltyCard, Customer, RewardTier } from '@/lib/types'
+import type { Business, LoyaltyCard, Customer, LoyaltyTier } from '@/lib/types'
 
 interface CardTabProps {
   card: LoyaltyCard & { customers: Customer | null }
   business: Business
   stampsCount: number
   pointsBalance: number
-  liveTiers: RewardTier[]
+  liveTiers: LoyaltyTier[]
   wheelStatus: { enabled: boolean; cost: number; eligible: boolean } | null
   color: string
   shortCode: string
@@ -177,10 +177,10 @@ export default function CardTab({
           </div>
 
           {liveTiers.length > 0 && (() => {
-            const maxPts = liveTiers[liveTiers.length - 1]?.points_required ?? 1
+            const maxPts = liveTiers[liveTiers.length - 1]?.threshold ?? 1
             const progressPct = Math.min(100, (pointsBalance / maxPts) * 100)
-            const nextTier = liveTiers.find((t) => t.points_required > pointsBalance)
-            const remaining = nextTier ? nextTier.points_required - pointsBalance : 0
+            const nextTier = liveTiers.find((t) => t.threshold > pointsBalance)
+            const remaining = nextTier ? nextTier.threshold - pointsBalance : 0
 
             return (
               <div className="space-y-3">
@@ -193,8 +193,8 @@ export default function CardTab({
                   </div>
 
                   {liveTiers.map((tier) => {
-                    const pos = (tier.points_required / maxPts) * 100
-                    const reached = pointsBalance >= tier.points_required
+                    const pos = (tier.threshold / maxPts) * 100
+                    const reached = pointsBalance >= tier.threshold
                     return (
                       <div
                         key={tier.id}
@@ -212,10 +212,10 @@ export default function CardTab({
                           {reached ? '✓' : '🔒'}
                         </div>
                         <span className="text-[10px] font-semibold mt-1 whitespace-nowrap" style={{ color: reached ? '#16a34a' : '#9ca3af' }}>
-                          {tier.points_required}
+                          {tier.threshold}
                         </span>
-                        <span className="text-[9px] text-gray-400 mt-0.5 max-w-[60px] truncate text-center" title={tier.reward_name}>
-                          {tier.reward_name}
+                        <span className="text-[9px] text-gray-400 mt-0.5 max-w-[60px] truncate text-center" title={tier.name}>
+                          {tier.name}
                         </span>
                       </div>
                     )
@@ -225,7 +225,7 @@ export default function CardTab({
                 {nextTier && (
                   <p className="text-center text-xs text-gray-500">
                     Plus que <span className="font-bold" style={{ color }}>{remaining} point{remaining > 1 ? 's' : ''}</span> pour{' '}
-                    <span className="font-semibold">{nextTier.reward_name}</span>
+                    <span className="font-semibold">{nextTier.name}</span>
                   </p>
                 )}
                 {!nextTier && liveTiers.length > 0 && (

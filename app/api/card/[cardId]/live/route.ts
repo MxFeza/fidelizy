@@ -1,7 +1,9 @@
 import { createServiceClient } from '@/lib/supabase/service'
+import { resolveClientTiers } from '@/lib/services/loyalty.tiers'
 import { NextRequest, NextResponse } from 'next/server'
+import type { LoyaltyTier } from '@/lib/types'
 
-// Lightweight polling endpoint — returns mutable fields + rewards.
+// Lightweight polling endpoint — returns mutable fields + tiers (JSONB).
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ cardId: string }> }
@@ -19,27 +21,17 @@ export async function GET(
 
   const { data: business } = await supabase
     .from('businesses')
-    .select('loyalty_type')
+    .select('loyalty_type, reward_tiers, stamps_required, stamps_reward')
     .eq('id', card.business_id)
     .single()
 
-  // Reward tiers (for points-based businesses)
-  let rewards: { id: string; reward_name: string; points_required: number }[] = []
-  if (business?.loyalty_type === 'points') {
-    const { data: tiers } = await supabase
-      .from('reward_tiers')
-      .select('id, reward_name, points_required')
-      .eq('business_id', card.business_id)
-      .order('points_required', { ascending: true })
-
-    rewards = tiers ?? []
-  }
+  const tiers: LoyaltyTier[] = business ? resolveClientTiers(business) : []
 
   return NextResponse.json(
     {
       stamps: card.current_stamps ?? 0,
       points: card.current_points ?? 0,
-      rewards,
+      tiers,
     },
     { headers: { 'Cache-Control': 'no-store' } }
   )

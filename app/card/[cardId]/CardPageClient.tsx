@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@/lib/types'
+import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
 import { type Tab, isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
 import ConfettiEffect from './components/ConfettiEffect'
 import CardTab from './components/CardTab'
@@ -18,11 +18,11 @@ interface Props {
   card: LoyaltyCard & { customers: Customer | null }
   business: Business
   transactions: Transaction[]
-  rewardTiers: RewardTier[]
+  tiers: LoyaltyTier[]
   cardToken: string
 }
 
-export default function CardPageClient({ card, business, transactions, rewardTiers, cardToken }: Props) {
+export default function CardPageClient({ card, business, transactions, tiers, cardToken }: Props) {
   const searchParams = useSearchParams()
   const initialTab = (() => {
     const t = searchParams.get('tab')
@@ -37,7 +37,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const [showConfetti, setShowConfetti] = useState(false)
   const [walletAvailable, setWalletAvailable] = useState(false)
   const [showPushBanner, setShowPushBanner] = useState(false)
-  const [liveTiers, setLiveTiers] = useState(rewardTiers)
+  const [liveTiers, setLiveTiers] = useState(tiers)
   const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
   const [showWheel, setShowWheel] = useState(false)
 
@@ -97,14 +97,14 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     fetch(`/api/pwa-visit/${card.qr_code_id}`, { method: 'POST' }).catch(() => {})
   }, [card.qr_code_id])
 
-  // Fetch live data immediately on mount (for wheel status) then poll every 8s
+  // Fetch live data immediately on mount then poll every 8s
   useEffect(() => {
     async function fetchLive() {
       try {
         const res = await fetch(`/api/card/${card.qr_code_id}/live`, { cache: 'no-store' })
         if (!res.ok) return
         const data = await res.json()
-        if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
+        if (Array.isArray(data.tiers)) setLiveTiers(data.tiers as LoyaltyTier[])
         if (data.wheel !== undefined) setWheelStatus(data.wheel)
         setPointsBalance(data.points)
       } catch { /* ignore */ }
@@ -121,7 +121,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         const data: {
           stamps: number
           points: number
-          rewards?: { id: string; reward_name: string; points_required: number }[]
+          tiers?: LoyaltyTier[]
           wheel?: { enabled: boolean; cost: number; eligible: boolean } | null
         } = await res.json()
 
@@ -149,7 +149,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         setStampsCount(capped)
         setPointsBalance(data.points)
 
-        if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
+        if (Array.isArray(data.tiers)) setLiveTiers(data.tiers)
         if (data.wheel !== undefined) setWheelStatus(data.wheel)
       } catch {
         // ignore transient network errors

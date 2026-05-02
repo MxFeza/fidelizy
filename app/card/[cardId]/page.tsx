@@ -2,8 +2,8 @@ import { Suspense } from 'react'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import type { RewardTier } from '@/lib/types'
 import { generateCardToken } from '@/lib/auth/cardToken'
+import { resolveClientTiers } from '@/lib/services/loyalty.tiers'
 import CardPageClient from './CardPageClient'
 
 interface PageProps {
@@ -77,15 +77,7 @@ export default async function CardPage({ params }: PageProps) {
     .eq('loyalty_card_id', card.id)
     .order('created_at', { ascending: false })
 
-  let rewardTiers: RewardTier[] = []
-  if (business.loyalty_type === 'points') {
-    const { data: tiers } = await supabase
-      .from('reward_tiers')
-      .select('*')
-      .eq('business_id', business.id)
-      .order('sort_order', { ascending: true })
-    rewardTiers = tiers ?? []
-  }
+  const tiers = resolveClientTiers(business)
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
@@ -93,7 +85,7 @@ export default async function CardPage({ params }: PageProps) {
         card={card}
         business={business}
         transactions={transactions ?? []}
-        rewardTiers={rewardTiers}
+        tiers={tiers}
         cardToken={cardToken}
       />
     </Suspense>

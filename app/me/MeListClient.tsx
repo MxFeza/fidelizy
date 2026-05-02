@@ -7,10 +7,11 @@
  * Bouton "+ Ajouter une carte" → /me/add (Story 4.10.b a venir).
  */
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Plus, LogOut01, Building02, CreditCard02 } from '@untitledui/icons'
+import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01 } from '@untitledui/icons'
 import { createClient } from '@/lib/supabase/client'
 
 interface Customer {
@@ -43,12 +44,67 @@ interface MeListClientProps {
 
 export default function MeListClient({ customer, cards }: MeListClientProps) {
   const router = useRouter()
+  const [showAddSheet, setShowAddSheet] = useState(false)
+  const [shortCode, setShortCode] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [addInfo, setAddInfo] = useState('')
 
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/me')
     router.refresh()
+  }
+
+  function openAddSheet() {
+    setShowAddSheet(true)
+    setShortCode('')
+    setAddError('')
+    setAddInfo('')
+  }
+
+  function closeAddSheet() {
+    if (adding) return
+    setShowAddSheet(false)
+  }
+
+  async function handleAddCard(e: React.FormEvent) {
+    e.preventDefault()
+    setAddError('')
+    setAddInfo('')
+    const trimmed = shortCode.trim().toUpperCase()
+    if (trimmed.length < 4) {
+      setAddError('Code commerçant invalide.')
+      return
+    }
+    setAdding(true)
+    try {
+      const res = await fetch('/api/me/add-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ short_code: trimmed }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setAddError(data?.error || 'Erreur lors de l\'ajout de la carte.')
+        return
+      }
+      if (data.status === 'created') {
+        router.push(`/card/${data.qr_code_id}`)
+        return
+      }
+      if (data.status === 'already_exists' && data.qr_code_id) {
+        setAddInfo(data.message || 'Carte déjà existante. Redirection…')
+        setTimeout(() => router.push(`/card/${data.qr_code_id}`), 1200)
+        return
+      }
+      setAddError('Réponse inattendue du serveur.')
+    } catch {
+      setAddError('Erreur de connexion. Veuillez réessayer.')
+    } finally {
+      setAdding(false)
+    }
   }
 
   return (
@@ -145,16 +201,14 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
           </ul>
         )}
 
-        {/* Add card CTA — Story 4.10.b a venir */}
+        {/* Add card CTA */}
         <button
           type="button"
-          disabled
-          aria-disabled="true"
-          title="Ajout via code commerçant : disponible très bientôt"
-          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors text-sm font-semibold cursor-not-allowed opacity-60"
+          onClick={openAddSheet}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl border-2 border-dashed border-gray-300 text-brand-secondary hover:border-brand-secondary hover:bg-brand-secondary/5 transition-colors text-sm font-semibold"
         >
           <Plus className="size-5" aria-hidden="true" />
-          Ajouter une carte (bientôt — code commerçant ou scan QR)
+          Ajouter une carte
         </button>
 
         <footer className="mt-8 text-center text-[11px] text-gray-400 space-x-2">
@@ -165,6 +219,97 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
           <Link href="/legal" className="hover:text-gray-600 underline">Mentions légales</Link>
         </footer>
       </main>
+
+      {/* Bottom-sheet : ajouter une carte par code court commerçant */}
+      {showAddSheet && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center p-0 md:p-4"
+          onClick={closeAddSheet}
+        >
+          <div
+            className="w-full md:max-w-md bg-white rounded-t-2xl md:rounded-2xl p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Ajouter une carte</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Entrez le code à 6 caractères affiché chez votre commerçant.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAddSheet}
+                aria-label="Fermer"
+                disabled={adding}
+                className="size-9 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center text-gray-400 disabled:opacity-50"
+              >
+                <XIcon className="size-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCard} className="space-y-4">
+              <div>
+                <label htmlFor="shortCode" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Code commerçant
+                </label>
+                <input
+                  id="shortCode"
+                  type="text"
+                  value={shortCode}
+                  onChange={(e) => { setShortCode(e.target.value.toUpperCase()); setAddError('') }}
+                  placeholder="XXXXXX"
+                  maxLength={8}
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl text-lg font-mono tracking-[0.4em] text-center bg-white text-gray-900 placeholder:text-gray-300 focus:outline-none focus:border-brand-solid uppercase"
+                />
+                <p className="text-xs text-gray-400 mt-1.5 text-center">
+                  Demandez le code à votre commerçant ou trouvez-le sur l&apos;affiche en magasin.
+                </p>
+              </div>
+
+              {addError && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 text-red-700 text-sm">
+                  <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
+                  <p className="font-medium">{addError}</p>
+                </div>
+              )}
+
+              {addInfo && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-green-50 text-green-700 text-sm">
+                  <CheckDone01 className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
+                  <p className="font-medium">{addInfo}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeAddSheet}
+                  disabled={adding}
+                  className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={adding || shortCode.trim().length < 4}
+                  className="flex-1 rounded-xl bg-brand-solid hover:bg-brand-solid_hover px-4 py-3 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {adding ? 'Ajout en cours…' : 'Ajouter ma carte'}
+                </button>
+              </div>
+            </form>
+
+            <p className="text-xs text-gray-400 mt-4 text-center">
+              Le scan du QR code sera bientôt disponible directement depuis votre appareil photo.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

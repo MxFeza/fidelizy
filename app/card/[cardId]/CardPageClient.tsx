@@ -322,6 +322,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
             <CardTab
               card={card}
               business={business}
+              transactions={transactions}
               stampsCount={stampsCount}
               pointsBalance={pointsBalance}
               liveTiers={liveTiers}

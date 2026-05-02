@@ -5,11 +5,13 @@ import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import TierProgressBar from './TierProgressBar'
-import type { Business, LoyaltyCard, Customer, LoyaltyTier } from '@/lib/types'
+import RecentActivity from './RecentActivity'
+import type { Business, LoyaltyCard, Customer, LoyaltyTier, Transaction } from '@/lib/types'
 
 interface CardTabProps {
   card: LoyaltyCard & { customers: Customer | null }
   business: Business
+  transactions: Transaction[]
   stampsCount: number
   pointsBalance: number
   liveTiers: LoyaltyTier[]
@@ -25,6 +27,7 @@ interface CardTabProps {
 export default function CardTab({
   card,
   business,
+  transactions,
   stampsCount,
   pointsBalance,
   liveTiers,
@@ -121,6 +124,9 @@ export default function CardTab({
           Ajouter à Apple Wallet
         </a>
       )}
+
+      {/* Activité récente (5 dernières transactions) */}
+      <RecentActivity transactions={transactions} cardId={card.qr_code_id} />
 
       {/* QR code fullscreen modal */}
       {showQrModal && (

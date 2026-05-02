@@ -6,29 +6,75 @@ Source de référence pour la migration de durcissement déjà appliquée : `sup
 
 ---
 
-## 🔴 CRITIQUE — SECURITY DEFINER exposées à `anon` (3 fonctions)
+## 🔴 CRITIQUE — SECURITY DEFINER exposées sans check d'ownership (3 fonctions)
 
-Ces 3 RPC sont les fonctions cœur du loyalty, et elles sont **callable sans auth** via `/rest/v1/rpc/*`. Risque : un attaquant connaissant un `card_id` peut ajouter ou retirer des points/stamps sans authentification.
+Ces 3 RPC sont les fonctions cœur du loyalty, **callable directement via REST** (`/rest/v1/rpc/*`) en bypassant l'API Next.js et donc en bypassant tous les checks d'ownership applicatifs.
 
 | Fonction | Signature | Endpoint exposé | Roles concernés |
 |---|---|---|---|
 | `public.deduct_points_safe` | `(p_card_id uuid, p_amount integer)` | `/rest/v1/rpc/deduct_points_safe` | `anon` + `authenticated` |
-| `public.increment_stamps` | `(p_card_id uuid, p_amount integer)` | `/rest/v1/rpc/increment_stamps` | `anon` + `authenticated` |
+| `public.increment_stamps` | `(p_card_id uuid, p_amount int, p_stamps_required int)` | `/rest/v1/rpc/increment_stamps` | `anon` + `authenticated` |
 | `public.reset_stamps_atomic` | `(p_card_id uuid)` | `/rest/v1/rpc/reset_stamps_atomic` | `anon` + `authenticated` |
 
-**Remédiation** (à appliquer en migration dédiée, sprint Couche 2) :
+### Audit caller (effectué 2026-05-02)
 
+| Caller | Fichier | Client utilisé | Notes |
+|---|---|---|---|
+| `scanCard()` | `lib/services/loyalty.service.ts` | `createClient` SSR (cookie auth, **authenticated**) | Check `business_id` côté JS avant RPC |
+| `addToCard()` | idem | idem | Check `business_id` côté JS avant RPC |
+| `deductFromCard()` | idem | idem | idem |
+| `claimReward()` | idem | idem | idem |
+| `resetCard()` | idem | idem | idem |
+| Routes API | `app/api/scan`, `app/api/card/{add,deduct,reset,claim-reward}` | Toutes en `createClient()` SSR + `getUser()` | Auth merchant + rate limit |
+
+**Conclusion** : l'app utilise le client `authenticated` pour appeler ces RPC, **pas service-role**. Donc :
+- ❌ `REVOKE EXECUTE FROM authenticated` casserait toute l'app (tous les scans)
+- ✅ `REVOKE EXECUTE FROM anon` est safe et bloque les calls non-auth
+- ⚠️ Mais `authenticated` reste exposé : un utilisateur final connecté qui connaît un `card_id` peut appeler la RPC en direct depuis curl/Postman et drainer/inflater n'importe quelle carte
+
+### Migration `20260427_security_perf_hardening.sql`
+
+Cette migration locale **n'est PAS appliquée en prod** (vérifié via `mcp__claude_ai_Supabase__list_migrations` le 2026-05-02 : dernière migration appliquée = `20260430121409_fix_business_logos_public_and_url_cleanup`).
+
+Elle contient `REVOKE EXECUTE ... FROM anon, authenticated;` — la pousser **telle quelle casserait la prod**.
+
+### Remédiation correcte (à valider via /ultrareview Loyalty)
+
+**Option A — Quick win (sécurise contre anon non-auth, ne ferme pas la fenêtre authenticated)**
 ```sql
--- Option A : revoke EXECUTE pour anon + authenticated, garder service_role
-REVOKE EXECUTE ON FUNCTION public.deduct_points_safe(uuid, integer) FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.increment_stamps(uuid, integer) FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.reset_stamps_atomic(uuid) FROM anon, authenticated;
-
--- Option B : SECURITY INVOKER + RLS plutot que SECURITY DEFINER
--- (a faire si une part du flux passe via authenticated et qu'on veut RLS)
+REVOKE EXECUTE ON FUNCTION public.deduct_points_safe(uuid, integer) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.increment_stamps(uuid, int, int) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.reset_stamps_atomic(uuid) FROM anon;
+-- Keep authenticated grant
 ```
+Effort : 15 min. Réduit la surface de 50% (anon = curl public). Ne protège pas contre un client final connecté.
 
-**Vérifier d'abord** : est-ce que `lib/supabase/service.ts` (service-role) est le seul appelant côté app ? Si oui, Option A est safe. Si l'app appelle en mode authenticated, il faut Option B.
+**Option B — Fix complet (recommandé)** : Ajouter check d'ownership dans la fonction SQL elle-même
+```sql
+CREATE OR REPLACE FUNCTION increment_stamps(...) ... AS $$
+DECLARE
+  v_caller uuid;
+BEGIN
+  v_caller := auth.uid();
+  IF NOT EXISTS (
+    SELECT 1 FROM loyalty_cards
+    WHERE id = p_card_id AND business_id = v_caller
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized: card does not belong to caller';
+  END IF;
+  -- ... existing logic
+END;
+$$;
+```
+Effort : 1h + tests. Couvre tous les cas (anon ET authenticated non-owner).
+
+**Option C — Refactor backend (architecturalement le plus propre)** : passer les API routes en service-role pour ces opérations puis Option A.
+Effort : 2-3h. Le bon design long terme mais touche 5 routes API en plein milieu d'Epic 4.
+
+### Recommandation
+
+Pour cette semaine : Option A (15 min, déploiement immédiat, ferme la porte anon).
+Pour le sprint Couche 2 / Epic 4 close : Option B après validation /ultrareview.
 
 Doc Supabase : https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable
 
@@ -85,11 +131,13 @@ Doc : https://supabase.com/docs/guides/database/database-linter?lint=0005_unused
 
 | # | Action | Priorité | Effort | Quand |
 |---|---|---|---|---|
-| 1 | Audit caller des 3 RPC SECURITY DEFINER (service-role only ?) | 🔴 P0 | 30 min | **Cette semaine** |
-| 2 | Migration de revoke EXECUTE sur les 3 RPC | 🔴 P0 | 30 min | **Cette semaine** |
-| 3 | Activer Leaked Password Protection | 🟠 P1 | 5 min | **Cette semaine** |
-| 4 | Commentaires RLS-locked sur push_subscriptions + wallet_registrations | 🟡 P2 | 10 min | Sprint Couche 2 |
-| 5 | Re-check unused indexes après 3 mois usage | 🟡 P3 | 15 min | 2026-08 |
+| 1 | Audit caller des 3 RPC ✅ effectué 2026-05-02 | 🔴 P0 | done | done |
+| 2 | Migration **Option A** (REVOKE FROM anon uniquement, NOT authenticated) | 🔴 P0 | 15 min | **Cette semaine** |
+| 3 | `/ultrareview` Loyalty pour valider Option B (ownership check interne) | 🔴 P0 | 5-10 min remote | **Cette semaine** (avant 2026-05-05 = expiration runs gratuits) |
+| 4 | Migration **Option B** post-/ultrareview | 🟠 P1 | 1h + tests | Sprint Couche 2 |
+| 5 | Activer Leaked Password Protection (Supabase Dashboard) | 🟠 P1 | 5 min | **Cette semaine** |
+| 6 | Commentaires RLS-locked sur push_subscriptions + wallet_registrations | 🟡 P2 | 10 min | Sprint Couche 2 |
+| 7 | Re-check unused indexes après 3 mois usage | 🟡 P3 | 15 min | 2026-08 |
 
 ---
 

@@ -111,31 +111,16 @@ export default function CardTab({
         </div>
       )}
 
-      {/* Add to Wallet */}
-      <div className="bg-white rounded-2xl shadow-sm p-4">
-        {walletAvailable ? (
-          <a
-            href={`/api/wallet/${card.qr_code_id}`}
-            className="w-full flex items-center justify-center gap-2.5 bg-black text-white font-semibold py-3 px-4 rounded-xl text-sm"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.273 5.625A4.483 4.483 0 015.25 4.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0018.75 3H5.25a3 3 0 00-2.977 2.625zM2.273 8.125A4.483 4.483 0 015.25 7.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0018.75 6H5.25a3 3 0 00-2.977 2.125zM5.25 9a3 3 0 00-3 3v6a3 3 0 003 3h13.5a3 3 0 003-3v-6a3 3 0 00-3-3H5.25zm10.5 6.75a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" />
-            </svg>
-            Ajouter au Wallet Apple
-          </a>
-        ) : (
-          <button
-            disabled
-            title="Disponible sur iOS uniquement"
-            className="w-full flex items-center justify-center gap-2.5 bg-gray-50 text-gray-400 font-medium py-3 px-4 rounded-xl cursor-not-allowed text-sm border border-gray-100"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V9M3 9V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v3" />
-            </svg>
-            Wallet Apple — iOS uniquement
-          </button>
-        )}
-      </div>
+      {/* Add to Apple Wallet (iOS only — Google Wallet attendu en Epic 6) */}
+      {walletAvailable && (
+        <a
+          href={`/api/wallet/${card.qr_code_id}`}
+          className="w-full flex items-center justify-center gap-2 bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3.5 px-4 rounded-2xl text-sm transition-colors shadow-sm"
+        >
+          <span aria-hidden="true" className="text-base">🍎</span>
+          Ajouter à Apple Wallet
+        </a>
+      )}
 
       {/* QR code fullscreen modal */}
       {showQrModal && (

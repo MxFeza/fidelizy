@@ -4,6 +4,7 @@ import { useState } from 'react'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
+import TierProgressBar from './TierProgressBar'
 import type { Business, LoyaltyCard, Customer, LoyaltyTier } from '@/lib/types'
 
 interface CardTabProps {
@@ -68,7 +69,7 @@ export default function CardTab({
         businessLogoUrl={business.logo_url}
       />
 
-      {/* Reward unlocked banner (stamps mode) */}
+      {/* Reward unlocked banner (stamps mode, single-tier) */}
       {business.loyalty_type === 'stamps' && stampsCount >= stampsRequired && business.stamps_reward && (
         <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center">
           <p className="text-sm font-semibold text-success-primary">
@@ -80,76 +81,22 @@ export default function CardTab({
         </div>
       )}
 
-      {/* Points tier progress (legacy bar — replaced by TierProgressBar in next commit) */}
-      {business.loyalty_type === 'points' && (
-        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-          {liveTiers.length > 0 && (() => {
-            const maxPts = liveTiers[liveTiers.length - 1]?.threshold ?? 1
-            const progressPct = Math.min(100, (pointsBalance / maxPts) * 100)
-            const nextTier = liveTiers.find((t) => t.threshold > pointsBalance)
-            const remaining = nextTier ? nextTier.threshold - pointsBalance : 0
+      {/* Tier progress bar (BK-style — paliers JSONB ou palier virtuel single-tier) */}
+      {liveTiers.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <TierProgressBar
+            tiers={liveTiers}
+            currentValue={business.loyalty_type === 'stamps' ? stampsCount : pointsBalance}
+            loyaltyType={business.loyalty_type}
+            color={color}
+          />
 
-            return (
-              <div className="space-y-3">
-                <div className="relative pt-2 pb-8">
-                  <div className="h-2 bg-gray-100 rounded-full relative">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${progressPct}%`, backgroundColor: color }}
-                    />
-                  </div>
-
-                  {liveTiers.map((tier) => {
-                    const pos = (tier.threshold / maxPts) * 100
-                    const reached = pointsBalance >= tier.threshold
-                    return (
-                      <div
-                        key={tier.id}
-                        className="absolute flex flex-col items-center"
-                        style={{ left: `${pos}%`, top: '-2px', transform: 'translateX(-50%)' }}
-                      >
-                        <div
-                          className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] bg-white z-10"
-                          style={{
-                            borderColor: reached ? '#16a34a' : '#d1d5db',
-                            backgroundColor: reached ? '#16a34a' : 'white',
-                            color: reached ? 'white' : '#9ca3af',
-                          }}
-                        >
-                          {reached ? '✓' : '🔒'}
-                        </div>
-                        <span className="text-[10px] font-semibold mt-1 whitespace-nowrap" style={{ color: reached ? '#16a34a' : '#9ca3af' }}>
-                          {tier.threshold}
-                        </span>
-                        <span className="text-[9px] text-gray-400 mt-0.5 max-w-[60px] truncate text-center" title={tier.name}>
-                          {tier.name}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {nextTier && (
-                  <p className="text-center text-xs text-gray-500">
-                    Plus que <span className="font-bold" style={{ color }}>{remaining} point{remaining > 1 ? 's' : ''}</span> pour{' '}
-                    <span className="font-semibold">{nextTier.name}</span>
-                  </p>
-                )}
-                {!nextTier && liveTiers.length > 0 && (
-                  <p className="text-center text-xs text-green-600 font-medium">
-                    Tous les paliers atteints !
-                  </p>
-                )}
-              </div>
-            )
-          })()}
-
-          {/* Wheel button */}
-          {wheelStatus?.enabled && (
+          {/* Wheel button (points mode only) */}
+          {business.loyalty_type === 'points' && wheelStatus?.enabled && (
             <button
               onClick={onShowWheel}
               disabled={!wheelStatus.eligible}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full mt-4 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: wheelStatus.eligible ? color : `${color}15`,
                 color: wheelStatus.eligible ? 'white' : color,

@@ -14,11 +14,11 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 
 ### TD-001 — RPC SECURITY DEFINER sans check d'ownership
 **Identifié** : 2026-05-02 (audit advisors Supabase)
-**Statut** : OPEN
+**Statut** : PARTIAL 2026-05-02
 **Détail** : voir [SECURITY-ADVISORS-2026-05-01.md](./SECURITY-ADVISORS-2026-05-01.md) section CRITIQUE
-**Impact** : un user authenticated peut modifier n'importe quelle carte loyalty en bypass de l'API
-**Fix immédiat (Option A)** : migration REVOKE FROM anon (15 min)
-**Fix complet (Option B)** : ownership check `auth.uid()` dans les fonctions SQL (1h + /ultrareview)
+**Option A (anon revoke)** : RESOLVED 2026-05-02 par migration `20260502_revoke_anon_loyalty_rpcs.sql` (commit `44e402a`). À pousser en prod via `supabase db push`.
+**Option B (ownership check)** : OPEN — nécessite `/ultrareview` Loyalty pour valider l'approche avant écriture
+**Impact résiduel post-Option A** : un user authenticated qui devine un card_id peut toujours appeler la RPC en direct. Mitigation app : `business_id` filter dans `lib/services/loyalty.service.ts`.
 
 ---
 
@@ -26,28 +26,23 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 
 ### TD-002 — jsPDF v < 3.0.4 — CRITICAL CVE (PDF Object Injection + HTML Injection)
 **Identifié** : 2026-05-02 (npm audit)
-**Statut** : OPEN
+**Statut** : RESOLVED 2026-05-02 (commit `f2787b0` chore(deps): npm audit fix)
 **CVE** : [GHSA-7x6v-j9x4-qf24](https://github.com/advisories/GHSA-7x6v-j9x4-qf24), [GHSA-wfv2-pwc8-crg5](https://github.com/advisories/GHSA-wfv2-pwc8-crg5)
-**Caller** : à identifier (probablement export PDF dans dashboard ou wallet pass)
-**Fix** : `npm audit fix` (auto)
-**Impact** : injection PDF/HTML si le contenu provient d'une source non fiable
+**Validation** : typecheck ✓, tests ✓, build ✓
 
 ### TD-003 — node-forge HIGH CVE
 **Identifié** : 2026-05-02 (npm audit)
-**Statut** : OPEN
+**Statut** : RESOLVED 2026-05-02 (commit `f2787b0`)
 **Caller** : `lib/wallet/generatePass.ts` (signature Apple Wallet certs)
-**Fix** : `npm audit fix`
-**Impact** : à valider — usage côté serveur sur des certs internes, pas d'input user direct
+**Validation** : typecheck ✓, tests ✓, build ✓
 
 ### TD-004 — flatted HIGH CVE (DoS unbounded recursion)
 **Identifié** : 2026-05-02
-**Statut** : OPEN
-**Fix** : `npm audit fix` (transitive dep)
+**Statut** : RESOLVED 2026-05-02 (commit `f2787b0`)
 
 ### TD-005 — picomatch HIGH CVE (ReDoS)
 **Identifié** : 2026-05-02
-**Statut** : OPEN
-**Fix** : `npm audit fix`
+**Statut** : RESOLVED 2026-05-02 (commit `f2787b0`)
 
 ### TD-006 — Leaked Password Protection désactivé
 **Identifié** : 2026-05-02 (advisors Supabase)
@@ -56,9 +51,9 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 
 ### TD-007 — Migration `20260427_security_perf_hardening.sql` non appliquée
 **Identifié** : 2026-05-02
-**Statut** : OPEN
-**Détail** : la migration existe en local mais `mcp__claude_ai_Supabase__list_migrations` confirme qu'elle n'est PAS en prod. **Ne PAS la pousser telle quelle** (REVOKE FROM authenticated casserait le scan).
-**Fix** : créer une migration de remplacement avec Option A (REVOKE FROM anon only)
+**Statut** : SUPERSEDED 2026-05-02 par migration `20260502_revoke_anon_loyalty_rpcs.sql` (commit `44e402a`)
+**Détail** : la migration locale `20260427` n'a pas été appliquée. Plutôt que de la pousser (cassait `authenticated`), elle est remplacée par Option A safe.
+**Action** : la migration `20260427_security_perf_hardening.sql` peut être supprimée du repo (ou laissée comme référence). Décision user.
 
 ### TD-008 — Sentry pas branché — zéro observabilité prod
 **Identifié** : 2026-05-01
@@ -86,13 +81,11 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 
 ### TD-011 — DOMPurify v ≤ 3.3.3 (moderate CVE)
 **Identifié** : 2026-05-02
-**Statut** : OPEN
-**Fix** : `npm audit fix`
+**Statut** : RESOLVED 2026-05-02 (commit `f2787b0`)
 
 ### TD-012 — brace-expansion moderate CVE (DoS)
 **Identifié** : 2026-05-02
-**Statut** : OPEN
-**Fix** : `npm audit fix` (transitive dep, fix dispo)
+**Statut** : RESOLVED 2026-05-02 (commit `f2787b0`)
 
 ### TD-013 — postcss < 8.5.10 moderate CVE (XSS via CSS Stringify)
 **Identifié** : 2026-05-02

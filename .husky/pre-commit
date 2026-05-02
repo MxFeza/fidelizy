@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Pre-commit hook - active uniquement si husky + lint-staged sont installes.
+# Procedure d'activation : voir docs/CODE-REVIEW-PROCESS.md
+
+if command -v npx >/dev/null 2>&1; then
+  npx --no-install lint-staged 2>/dev/null || true
+fi

@@ -92,6 +92,31 @@ export default function ProfileTab({ card, business, cardToken, color }: Profile
         </div>
       )}
 
+      {/* Quick switcher : Mes cartes (Story 4.10.c) */}
+      <a
+        href="/me"
+        className="flex items-center gap-3 bg-white rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow"
+      >
+        <div
+          className="size-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `${color}15` }}
+        >
+          <svg className="w-5 h-5" style={{ color }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-900 text-sm">Mes cartes</p>
+          <p className="text-xs text-gray-500 mt-0.5">Voir et basculer entre vos cartes fidélité</p>
+        </div>
+        <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
+
       {/* Section 1: Mes informations */}
       <div className="bg-white rounded-2xl shadow-sm p-5">
         <h3 className="font-semibold text-gray-900 mb-4">Mes informations</h3>

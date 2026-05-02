@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Bell01 } from '@untitledui/icons'
+import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@/lib/types'
@@ -287,13 +287,23 @@ export default function CardPageClient({ card, business, transactions, rewardTie
       <div className="min-h-screen bg-gray-50 pb-24">
         <TopBarClient
           rightSlot={
-            <Link
-              href={`/card/${card.qr_code_id}/notifications`}
-              aria-label="Notifications"
-              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <Bell01 className="size-5" aria-hidden="true" />
-            </Link>
+            <div className="flex items-center gap-1">
+              <Link
+                href="/me"
+                aria-label="Mes cartes"
+                title="Mes cartes"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <Grid01 className="size-5" aria-hidden="true" />
+              </Link>
+              <Link
+                href={`/card/${card.qr_code_id}/notifications`}
+                aria-label="Notifications"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <Bell01 className="size-5" aria-hidden="true" />
+              </Link>
+            </div>
           }
         />
 

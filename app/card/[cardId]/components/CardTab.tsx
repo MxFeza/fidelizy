@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
+import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import type { Business, LoyaltyCard, Customer, LoyaltyTier } from '@/lib/types'
 
 interface CardTabProps {
@@ -14,7 +15,6 @@ interface CardTabProps {
   wheelStatus: { enabled: boolean; cost: number; eligible: boolean } | null
   color: string
   shortCode: string
-  stampCols: number
   stampsRequired: number
   walletAvailable: boolean
   onShowWheel: () => void
@@ -30,7 +30,6 @@ export default function CardTab({
   wheelStatus,
   color,
   shortCode,
-  stampCols,
   stampsRequired,
   walletAvailable,
   onShowWheel,
@@ -59,123 +58,31 @@ export default function CardTab({
         </div>
       </div>
 
-      {/* Stamps card */}
-      {business.loyalty_type === 'stamps' && (
-        <div
-          className="bg-white rounded-2xl overflow-hidden"
-          style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)' }}
-        >
-          <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-          <div className="p-5 space-y-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                  Carte à tampons
-                </p>
-                {stampsCount >= stampsRequired ? (
-                  <p className="text-sm font-bold text-green-700">🎉 Récompense débloquée !</p>
-                ) : (
-                  <p className="text-sm text-gray-600">
-                    Encore{' '}
-                    <span className="font-bold" style={{ color }}>
-                      {stampsRequired - stampsCount} tampon
-                      {stampsRequired - stampsCount > 1 ? 's' : ''}
-                    </span>{' '}
-                    pour votre récompense
-                  </p>
-                )}
-              </div>
-              <div
-                className="w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shrink-0"
-                style={{ backgroundColor: stampsCount >= stampsRequired ? '#16a34a' : color }}
-              >
-                <span className="text-lg font-black leading-none">{stampsCount}</span>
-                <span className="text-[9px] font-semibold leading-none opacity-75">
-                  /{stampsRequired}
-                </span>
-              </div>
-            </div>
+      {/* Loyalty card visual (Figma B4 — carte v1 noire + image standard + logo transparent) */}
+      <LoyaltyCardVisual
+        customerName={card.customers?.first_name?.trim() || 'Client'}
+        loyaltyType={business.loyalty_type}
+        currentStamps={stampsCount}
+        stampsRequired={stampsRequired}
+        currentPoints={pointsBalance}
+        businessLogoUrl={business.logo_url}
+      />
 
-            <div
-              className="grid gap-2.5"
-              style={{ gridTemplateColumns: `repeat(${stampCols}, 1fr)` }}
-            >
-              {Array.from({ length: stampsRequired }).map((_, i) => {
-                const filled = i < stampsCount
-                return (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-full flex items-center justify-center transition-all duration-200"
-                    style={
-                      filled
-                        ? { backgroundColor: color, boxShadow: `0 2px 6px ${color}55` }
-                        : { backgroundColor: '#f9fafb', border: '2px dashed #e5e7eb' }
-                    }
-                  >
-                    {filled ? (
-                      <svg
-                        className="text-white"
-                        style={{ width: '52%', height: '52%' }}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <span className="text-xs text-gray-300 font-medium select-none">
-                        {i + 1}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {business.stamps_reward && (
-              <div
-                className="text-sm font-semibold text-center py-2.5 px-4 rounded-xl"
-                style={
-                  stampsCount >= stampsRequired
-                    ? {
-                        backgroundColor: '#f0fdf4',
-                        color: '#15803d',
-                        border: '1px solid #bbf7d0',
-                      }
-                    : {
-                        backgroundColor: `${color}12`,
-                        color,
-                        border: `1px solid ${color}28`,
-                      }
-                }
-              >
-                {stampsCount >= stampsRequired ? '🎁 Récompense disponible : ' : '🎯 '}
-                {business.stamps_reward}
-              </div>
-            )}
-
-            {stampsCount >= stampsRequired && (
-              <p className="text-center text-xs text-green-600 font-medium -mt-2">
-                Présentez cette carte au commerçant pour en profiter
-              </p>
-            )}
-          </div>
+      {/* Reward unlocked banner (stamps mode) */}
+      {business.loyalty_type === 'stamps' && stampsCount >= stampsRequired && business.stamps_reward && (
+        <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center">
+          <p className="text-sm font-semibold text-success-primary">
+            🎁 Récompense disponible : {business.stamps_reward}
+          </p>
+          <p className="text-xs text-success-primary/80 mt-0.5">
+            Présentez votre carte au commerçant pour en profiter
+          </p>
         </div>
       )}
 
-      {/* Points card — Horizontal Tier Bar */}
+      {/* Points tier progress (legacy bar — replaced by TierProgressBar in next commit) */}
       {business.loyalty_type === 'points' && (
         <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-          <div className="text-center">
-            <p className="text-4xl font-bold" style={{ color }}>
-              {pointsBalance}
-            </p>
-            <p className="text-gray-400 text-sm mt-1">points cumulés</p>
-          </div>
-
           {liveTiers.length > 0 && (() => {
             const maxPts = liveTiers[liveTiers.length - 1]?.threshold ?? 1
             const progressPct = Math.min(100, (pointsBalance / maxPts) * 100)

@@ -47,7 +47,6 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
   const [pointsBalance, setPointsBalance] = useState(card.current_points ?? 0)
   const stampsRef = useRef(stampsCount)
   const shortCode = `${card.qr_code_id.slice(0, 4).toUpperCase()}-${card.qr_code_id.slice(4, 8).toUpperCase()}`
-  const stampCols = stampsRequired <= 5 ? stampsRequired : stampsRequired % 4 === 0 ? 4 : 5
 
   const firstName = card.customers?.first_name?.trim() || 'Client'
   const statusLine = (() => {
@@ -329,7 +328,6 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
               wheelStatus={wheelStatus}
               color={color}
               shortCode={shortCode}
-              stampCols={stampCols}
               stampsRequired={stampsRequired}
               walletAvailable={walletAvailable}
               onShowWheel={() => setShowWheel(true)}

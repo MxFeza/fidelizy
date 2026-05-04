@@ -22,13 +22,13 @@ export default function RecentActivity({
   limit = 5,
 }: RecentActivityProps) {
   const items = transactions.slice(0, limit)
-  const hasMore = transactions.length > limit
+  const hasAny = transactions.length > 0
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-primary">Activité récente</h2>
-        {hasMore && (
+        {hasAny && (
           <Link
             href={`/card/${cardId}/history`}
             className="inline-flex items-center gap-1 text-xs font-semibold text-brand-secondary hover:underline"

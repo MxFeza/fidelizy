@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CreditCard02 } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
@@ -114,13 +115,20 @@ export default function CardTab({
         </div>
       )}
 
-      {/* Add to Apple Wallet (iOS only — Google Wallet attendu en Epic 6) */}
+      {/* Add to Apple Wallet (iOS only — Google Wallet attendu en Epic 6).
+          target="_blank" force l'ouverture dans Safari standard meme en mode
+          PWA standalone — sinon le webview affiche le .pkpass en plain text
+          au lieu de le router vers PassKit (bug client signale 2026-05-04).
+          Epic 6 remplacera ce bouton par le badge officiel Apple "Add to Apple
+          Wallet" + variante Google Wallet detectee via userAgent. */}
       {walletAvailable && (
         <a
           href={`/api/wallet/${card.qr_code_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="w-full flex items-center justify-center gap-2 bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3.5 px-4 rounded-2xl text-sm transition-colors shadow-sm"
         >
-          <span aria-hidden="true" className="text-base">🍎</span>
+          <CreditCard02 className="size-5" aria-hidden="true" />
           Ajouter à Apple Wallet
         </a>
       )}

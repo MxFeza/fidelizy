@@ -71,7 +71,11 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
   }, [])
 
   // iOS install suggestion + wallet availability
+  // En dev, on force walletAvailable=true pour pouvoir verifier le rendu desktop.
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      setWalletAvailable(true)
+    }
     if (isIOS()) {
       setWalletAvailable(true)
       if (!isInStandaloneMode() && !sessionStorage.getItem('ios_install_dismissed')) {

@@ -16,7 +16,7 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 **Identifié** : 2026-05-02 (audit advisors Supabase)
 **Statut** : PARTIAL 2026-05-02
 **Détail** : voir [SECURITY-ADVISORS-2026-05-01.md](./SECURITY-ADVISORS-2026-05-01.md) section CRITIQUE
-**Option A (anon revoke)** : RESOLVED 2026-05-02 par migration `20260502_revoke_anon_loyalty_rpcs.sql` (commit `44e402a`). À pousser en prod via `supabase db push`.
+**Option A (anon revoke)** : RESOLVED 2026-05-04 — migration `20260502_revoke_anon_loyalty_rpcs.sql` appliquée en prod via `mcp__claude_ai_Supabase__apply_migration` (project `ggzgffwykthufieeikzb`). Commit local : `e51ee8c` (rebased).
 **Option B (ownership check)** : OPEN — nécessite `/ultrareview` Loyalty pour valider l'approche avant écriture
 **Impact résiduel post-Option A** : un user authenticated qui devine un card_id peut toujours appeler la RPC en direct. Mitigation app : `business_id` filter dans `lib/services/loyalty.service.ts`.
 
@@ -57,9 +57,9 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 
 ### TD-008 — Sentry pas branché — zéro observabilité prod
 **Identifié** : 2026-05-01
-**Statut** : OPEN — user action required
-**Détail** : voir [CODE-REVIEW-PROCESS.md § 5](./CODE-REVIEW-PROCESS.md#5-observabilité-à-brancher)
-**Impact** : bugs prod actuels (OTP, logos, montgolfière, etc.) auraient été visibles avant que le user les rencontre
+**Statut** : RESOLVED 2026-05-04 (commit `1af136c`)
+**Détail** : Projet `ebella/fidelizy` créé sur `de.sentry.io` via MCP. SDK + config files + instrumentation hook installés. CSP étendu pour autoriser ingest.
+**Reste user-action** : ajouter `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` (optionnel, pour source maps) en env vars Vercel — sans ça, Sentry capture quand même les erreurs prod, juste sans source maps.
 
 ---
 
@@ -100,9 +100,8 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 
 ### TD-015 — Husky pre-commit en mode dormant
 **Identifié** : 2026-05-01
-**Statut** : OPEN — décision user
-**Détail** : squelette installé, activation = `npm i -D husky lint-staged && npm pkg set scripts.prepare="husky" && npm run prepare`
-**Fix** : 2 min user
+**Statut** : RESOLVED 2026-05-04 (commit `1af136c`)
+**Détail** : `husky` + `lint-staged` installés. Hook actif lance `eslint --fix` sur fichiers TS/TSX staged. Vérifié fonctionnel sur ce commit même.
 
 ---
 

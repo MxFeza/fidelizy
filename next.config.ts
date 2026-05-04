@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const supabaseHost = (() => {
   try {
@@ -16,7 +17,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://${supabaseHost}`,
   "font-src 'self' data:",
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://*.upstash.io https://api.notion.com https://vitals.vercel-insights.com${isDev ? ' ws://localhost:* http://localhost:*' : ''}`,
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://*.upstash.io https://api.notion.com https://vitals.vercel-insights.com https://*.ingest.de.sentry.io${isDev ? ' ws://localhost:* http://localhost:*' : ''}`,
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
   "frame-ancestors 'none'",
@@ -53,4 +54,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap with Sentry — source maps uploaded to Sentry on build (requires SENTRY_AUTH_TOKEN
+// in CI/Vercel env). Without the token, the build still succeeds but source maps are skipped.
+export default withSentryConfig(nextConfig, {
+  org: "ebella",
+  project: "fidelizy",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+});

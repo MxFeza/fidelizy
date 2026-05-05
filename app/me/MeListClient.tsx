@@ -11,7 +11,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01, QrCode02 } from '@untitledui/icons'
+import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01, QrCode02, User01 } from '@untitledui/icons'
 import { createClient } from '@/lib/supabase/client'
 
 interface Customer {
@@ -113,13 +113,22 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-100">
         <div className="max-w-md mx-auto h-14 px-4 flex items-center justify-between">
           <Image src="/izou-logo.svg" alt="Izou" width={84} height={20} priority />
-          <button
-            onClick={handleLogout}
-            aria-label="Se déconnecter"
-            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <LogOut01 className="size-5" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/me/profile"
+              aria-label="Mon profil"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <User01 className="size-5" aria-hidden="true" />
+            </Link>
+            <button
+              onClick={handleLogout}
+              aria-label="Se déconnecter"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <LogOut01 className="size-5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </header>
 

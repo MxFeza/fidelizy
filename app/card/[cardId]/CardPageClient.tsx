@@ -14,6 +14,7 @@ import ProfileTab from './components/ProfileTab'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
 import Toast from '@/components/client/Toast'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -41,6 +42,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
   const [liveTiers, setLiveTiers] = useState(tiers)
   const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
   const [showWheel, setShowWheel] = useState(false)
+  const isOnline = useOnlineStatus()
 
   const color = business.primary_color || '#7F56D9'
   const stampsRequired = business.stamps_required ?? 10
@@ -223,6 +225,20 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
           }}
         >
           <Toast variant="success" title={notification} />
+        </div>
+      )}
+
+      {/* Offline status — toast persistant tant que navigator.onLine === false */}
+      {!isOnline && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-md"
+          style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
+        >
+          <Toast
+            variant="error"
+            title="Hors ligne"
+            message="Vos tampons se synchroniseront à la reconnexion"
+          />
         </div>
       )}
 

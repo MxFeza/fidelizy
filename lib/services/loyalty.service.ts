@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { notifyClient } from './notification.service'
+import { resolveClientTiers } from './loyalty.tiers'
 import { AppError } from '@/lib/errors'
 import type { LoyaltyCard, Customer } from '@/lib/types'
 import type { AddToCardInput, DeductFromCardInput, ClaimRewardInput, ResetCardInput } from './loyalty.schemas'
@@ -231,21 +232,32 @@ export async function claimReward(
     throw new AppError('Carte introuvable', 404)
   }
 
-  const { data: tier } = await supabase
-    .from('reward_tiers')
-    .select('id, reward_name, points_required')
-    .eq('id', rewardTierId)
-    .eq('business_id', businessId)
+  // Lit le tier depuis business.reward_tiers JSONB (Story 4.4 — table legacy
+  // reward_tiers n'est plus consultee). resolveClientTiers gere aussi le palier
+  // virtuel single-tier en mode stamps.
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('loyalty_type, reward_tiers, stamps_required, stamps_reward')
+    .eq('id', businessId)
     .single()
+
+  if (!business) {
+    throw new AppError('Commerce introuvable', 404)
+  }
+
+  const tiers = resolveClientTiers(business)
+  const tier = tiers.find((t) => t.id === rewardTierId)
 
   if (!tier) {
     throw new AppError('Palier de récompense introuvable', 404)
   }
 
+  const pointsRequired = tier.threshold
+
   // Atomic deduction via RPC — prevents spending more than available
   const { data: deductResult, error: deductError } = await supabase.rpc('deduct_points', {
     p_card_id: card.id,
-    p_amount: tier.points_required,
+    p_amount: pointsRequired,
   }).single() as { data: { new_points: number; success: boolean } | null; error: unknown }
 
   if (deductError || !deductResult) {
@@ -253,16 +265,16 @@ export async function claimReward(
   }
 
   if (!deductResult.success) {
-    throw new AppError(`Points insuffisants (${card.current_points ?? 0}/${tier.points_required})`, 400)
+    throw new AppError(`Points insuffisants (${card.current_points ?? 0}/${pointsRequired})`, 400)
   }
 
   const newPoints = deductResult.new_points
 
   await supabase.from('reward_claims').insert({
     loyalty_card_id: card.id,
-    reward_tier_id: tier.id,
-    reward_name: tier.reward_name,
-    points_spent: tier.points_required,
+    reward_tier_id: tier.id, // UUID JSONB — plus de FK strict depuis Story 4.4
+    reward_name: tier.name,
+    points_spent: pointsRequired,
   }).throwOnError()
 
   await supabase.from('transactions').insert({
@@ -271,18 +283,18 @@ export async function claimReward(
     type: 'redeem',
     stamps_added: null,
     points_added: null,
-    description: `Récompense : ${tier.reward_name} (-${tier.points_required} pts)`,
+    description: `Récompense : ${tier.name} (-${pointsRequired} pts)`,
   }).throwOnError()
 
   setPendingWalletAction(card.qr_code_id, 'claim-reward')
   notifyClient(card.id, card.qr_code_id, {
     title: 'Récompense !',
-    body: `${tier.reward_name} — montre ta carte au comptoir.`,
+    body: `${tier.name} — montre ta carte au comptoir.`,
   }).catch(() => {})
 
   return {
     success: true,
-    message: `${tier.reward_name} accordé ! (-${tier.points_required} pts, reste ${newPoints} pts)`,
+    message: `${tier.name} accordé ! (-${pointsRequired} pts, reste ${newPoints} pts)`,
     newPoints,
   }
 }

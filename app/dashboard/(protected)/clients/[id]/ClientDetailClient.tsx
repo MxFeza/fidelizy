@@ -349,6 +349,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
         stampsRequired={stampsRequired}
         currentPoints={currentPoints}
         businessLogoUrl={business.logo_url}
+        cardImageUrl={business.card_image_url}
       />
 
       {/* Action toolbar */}

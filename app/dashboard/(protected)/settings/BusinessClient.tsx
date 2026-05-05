@@ -49,9 +49,10 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   const router = useRouter()
   const supabase = createClient()
 
-  // Logo + bannière
+  // Logo + bannière + image carte
   const [logoUrl, setLogoUrl] = useState<string | null>(business.logo_url)
   const [bannerUrl, setBannerUrl] = useState<string | null>(business.banner_url)
+  const [cardImageUrl, setCardImageUrl] = useState<string | null>(business.card_image_url)
 
   // Infos personnelles
   const [firstName, setFirstName] = useState(business.first_name ?? '')
@@ -263,6 +264,16 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
               currentUrl={bannerUrl}
               onUploaded={(url) => { setBannerUrl(url); router.refresh() }}
               onDeleted={() => { setBannerUrl(null); router.refresh() }}
+            />
+          </div>
+
+          <div className="pt-2">
+            <p className="text-sm font-medium text-secondary mb-2">Image de votre carte de fidélité</p>
+            <AssetUploader
+              kind="card"
+              currentUrl={cardImageUrl}
+              onUploaded={(url) => { setCardImageUrl(url); router.refresh() }}
+              onDeleted={() => { setCardImageUrl(null); router.refresh() }}
             />
           </div>
 

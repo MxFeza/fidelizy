@@ -31,6 +31,8 @@ interface LoyaltyCardVisualProps {
   currentPoints?: number
   /** Logo du commerce (depuis business.logo_url). Affiche en bas a droite, sans fond. */
   businessLogoUrl?: string | null
+  /** Image custom cote droit (depuis business.card_image_url). Remplace la montgolfiere standard si fournie. */
+  cardImageUrl?: string | null
   /** Affiche un fond gradient (purple→orange→rose) autour de la carte, comme dans Figma F2/F3. Default: true. */
   withGradientBackground?: boolean
   className?: string
@@ -43,6 +45,7 @@ export default function LoyaltyCardVisual({
   stampsRequired = 10,
   currentPoints = 0,
   businessLogoUrl,
+  cardImageUrl,
   withGradientBackground = true,
   className,
 }: LoyaltyCardVisualProps) {
@@ -71,15 +74,16 @@ export default function LoyaltyCardVisual({
         </p>
       </div>
 
-      {/* Cote droit — image standard (paysage montgolfiere) */}
+      {/* Cote droit — image custom du commerce si presente, sinon image standard (paysage montgolfiere) */}
       <div className="relative flex-[0.38] overflow-hidden">
         <Image
-          src={PUBLIC_ASSETS.cards.loyaltyDefault}
+          src={cardImageUrl || PUBLIC_ASSETS.cards.loyaltyDefault}
           alt=""
           fill
           sizes="(min-width: 1024px) 200px, 40vw"
-          className="object-cover object-top"
+          className={cardImageUrl ? 'object-cover object-center' : 'object-cover object-top'}
           priority
+          unoptimized={!!cardImageUrl}
         />
 
         {/* Badge points/tampons (flottant, toujours visible) */}

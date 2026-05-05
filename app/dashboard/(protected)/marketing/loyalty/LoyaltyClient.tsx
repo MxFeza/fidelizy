@@ -286,6 +286,7 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
               stampsRequired={stampsRequired}
               currentPoints={loyaltyType === 'points' ? Math.round(20 * pointsPerEuro) : 0}
               businessLogoUrl={business.logo_url}
+              cardImageUrl={business.card_image_url}
             />
             <div className="mt-5 rounded-lg bg-primary border border-secondary p-4">
               <p className="text-sm font-medium text-primary mb-2">

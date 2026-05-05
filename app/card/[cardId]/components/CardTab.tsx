@@ -63,7 +63,7 @@ export default function CardTab({
         </div>
       </div>
 
-      {/* Loyalty card visual (Figma B4 — carte v1 noire + image standard + logo transparent) */}
+      {/* Loyalty card visual — image carte custom merchant (Story 4.3.f) sinon standard */}
       <LoyaltyCardVisual
         customerName={card.customers?.first_name?.trim() || 'Client'}
         loyaltyType={business.loyalty_type}
@@ -71,6 +71,7 @@ export default function CardTab({
         stampsRequired={stampsRequired}
         currentPoints={pointsBalance}
         businessLogoUrl={business.logo_url}
+        cardImageUrl={business.card_image_url}
       />
 
       {/* Reward unlocked banner (stamps mode, single-tier) */}

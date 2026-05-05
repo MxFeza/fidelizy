@@ -1,20 +1,24 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { Building02, CreditCard02, ArrowRight, QrCode02 } from '@untitledui/icons'
+import { Building02, CreditCard02, ArrowRight } from '@untitledui/icons'
 
 export const metadata = {
   title: 'Izou — Cartes de fidélité digitales',
 }
 
 /**
- * Home / — Page d'accueil avec 3 entrées : scanner direct, espace client,
- * espace commerçant.
+ * Home / — Page d'accueil avec 2 espaces : client et commerçant.
  *
  * En production future, les espaces commerçant et client seront sur des
  * subdomains differents. Pendant les phases de dev/test, cette home sert
  * de point d'entree unique.
  *
- * Decision user 2026-05-01 + ajout entry point /scan en 4.2.f.
+ * Le scan QR n'est PAS un point d'entree landing : un commerçant qui
+ * affiche son QR redirige directement vers `/join/{shortCode}` (URL
+ * encodee dans le QR), et la fonction `/scan` interne sert depuis l'espace
+ * client `/me` (ajout de carte ou check-in en caisse).
+ *
+ * Decision user 2026-05-01 (2 espaces) + 2026-05-05 (retrait CTA scan home).
  */
 export default function HomePage() {
   return (
@@ -36,24 +40,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* CTA principal — scanner direct */}
-          <Link
-            href="/scan"
-            className="group flex items-center gap-4 bg-brand-solid hover:bg-brand-solid_hover transition-colors rounded-2xl shadow-sm p-5 mb-3"
-          >
-            <div className="size-12 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-              <QrCode02 className="size-6 text-white" aria-hidden="true" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-base">Scanner un QR code</p>
-              <p className="text-sm text-white/80 mt-0.5">
-                Rejoignez un commerce en un instant
-              </p>
-            </div>
-            <ArrowRight className="size-5 text-white shrink-0 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
-          </Link>
-
-          {/* CTAs secondaires — espaces dédiés */}
+          {/* 2 espaces : client + commerçant */}
           <div className="space-y-3">
             <Link
               href="/me"

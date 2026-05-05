@@ -30,7 +30,11 @@ import { CheckDone01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 
 export function SettingsPage({ children }: { children: React.ReactNode }) {
-  return <div className="bg-primary min-h-full">{children}</div>
+  // min-h-full assure que le wrapper couvre la hauteur visible du main parent
+  // (dashboard layout : flex h-screen → main flex-1 overflow-auto). Sur desktop
+  // si la page settings est courte, on évite d'afficher un trou visuel sous
+  // le contenu via le bg-primary.
+  return <div className="bg-primary min-h-full flex flex-col">{children}</div>
 }
 
 interface SettingsHeaderProps {
@@ -66,8 +70,11 @@ export function SettingsHeader({ title, subtitle, actions, leading }: SettingsHe
 }
 
 export function SettingsBody({ children }: { children: React.ReactNode }) {
+  // flex-1 + pb généreux pour qu'on ne voit jamais le bord blanc du parent
+  // affleurer le dernier élément. La save bar globale a un breathing space
+  // confortable en desktop, et l'espace est cohérent entre les pages settings.
   return (
-    <main className="px-4 md:px-8 py-6 md:py-12 flex flex-col gap-8 md:gap-12 max-w-[1080px] w-full mx-auto">
+    <main className="flex-1 px-4 md:px-8 pt-6 md:pt-10 pb-16 md:pb-24 flex flex-col gap-8 md:gap-12 max-w-[1080px] w-full mx-auto">
       {children}
     </main>
   )

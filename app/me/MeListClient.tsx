@@ -11,7 +11,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01 } from '@untitledui/icons'
+import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01, QrCode02 } from '@untitledui/icons'
 import { createClient } from '@/lib/supabase/client'
 
 interface Customer {
@@ -201,15 +201,24 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
           </ul>
         )}
 
-        {/* Add card CTA */}
-        <button
-          type="button"
-          onClick={openAddSheet}
-          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl border-2 border-dashed border-gray-300 text-brand-secondary hover:border-brand-secondary hover:bg-brand-secondary/5 transition-colors text-sm font-semibold"
-        >
-          <Plus className="size-5" aria-hidden="true" />
-          Ajouter une carte
-        </button>
+        {/* CTAs — Scanner (primaire) + Ajouter via code court (secondaire) */}
+        <div className="mt-4 space-y-2">
+          <Link
+            href="/scan"
+            className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-brand-solid hover:bg-brand-solid_hover text-white transition-colors text-sm font-semibold"
+          >
+            <QrCode02 className="size-5" aria-hidden="true" />
+            Scanner un QR code
+          </Link>
+          <button
+            type="button"
+            onClick={openAddSheet}
+            className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl border-2 border-dashed border-gray-300 text-brand-secondary hover:border-brand-secondary hover:bg-brand-secondary/5 transition-colors text-sm font-semibold"
+          >
+            <Plus className="size-5" aria-hidden="true" />
+            Ajouter via un code commerçant
+          </button>
+        </div>
 
         <footer className="mt-8 text-center text-[11px] text-gray-400 space-x-2">
           <Link href="/privacy" className="hover:text-gray-600 underline">Confidentialité</Link>
@@ -305,7 +314,7 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
             </form>
 
             <p className="text-xs text-gray-400 mt-4 text-center">
-              Le scan du QR code sera bientôt disponible directement depuis votre appareil photo.
+              Vous pouvez aussi <Link href="/scan" className="text-brand-secondary font-semibold underline">scanner directement le QR code</Link> du commerçant.
             </p>
           </div>
         </div>

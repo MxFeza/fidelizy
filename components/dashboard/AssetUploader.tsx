@@ -12,7 +12,7 @@
 import type { ReactNode } from 'react'
 import { useCallback, useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
-import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01 } from '@untitledui/icons'
+import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01, Crop01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { cx } from '@/utils/cx'
 
@@ -114,6 +114,12 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
   const [zoom, setZoom] = useState(1)
   const [croppedArea, setCroppedArea] = useState<Area | null>(null)
 
+  // DataURL de la photo originale (avant crop) gardée en mémoire pour
+  // permettre le re-crop fidèle. Persiste tant que le composant est monté
+  // (perdu au refresh — le user devra réuploader pour recadrer après).
+  const [originalSrc, setOriginalSrc] = useState<string | null>(null)
+  const [originalFileName, setOriginalFileName] = useState<string | null>(null)
+
   const hint = HINT[kind]
   const cropRatio = CROP_RATIO[kind]
 
@@ -156,6 +162,9 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
         const dataUrl = await fileToDataUrl(file)
         setPendingFile(file)
         setPendingSrc(dataUrl)
+        // Mémorise l'original pour le re-crop fidèle plus tard
+        setOriginalSrc(dataUrl)
+        setOriginalFileName(file.name)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Lecture du fichier impossible.')
       }
@@ -163,6 +172,17 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
     }
     // No crop required (logo) — upload direct
     await uploadBlob(file, file.name)
+  }
+
+  /** Réouvre le crop modal sur la photo ORIGINALE encore en mémoire. */
+  function handleRecrop() {
+    if (!originalSrc || !cropRatio) return
+    setError(null)
+    // Reset position/zoom pour repartir d'un crop neutre
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setPendingFile(new File([], originalFileName ?? 'recrop.jpg'))
+    setPendingSrc(originalSrc)
   }
 
   async function handleConfirmCrop() {
@@ -296,17 +316,29 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
           )}
 
           {currentUrl && (
-            <Button
-              size="sm"
-              color="link-destructive"
-              iconLeading={Trash01}
-              onClick={handleDelete}
-              isDisabled={deleting}
-              isLoading={deleting}
-              className="mt-2"
-            >
-              Supprimer
-            </Button>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {originalSrc && cropRatio ? (
+                <Button
+                  size="sm"
+                  color="tertiary"
+                  iconLeading={Crop01}
+                  onClick={handleRecrop}
+                  isDisabled={uploading}
+                >
+                  Recadrer
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                color="link-destructive"
+                iconLeading={Trash01}
+                onClick={handleDelete}
+                isDisabled={deleting}
+                isLoading={deleting}
+              >
+                Supprimer
+              </Button>
+            </div>
           )}
         </div>
       </div>

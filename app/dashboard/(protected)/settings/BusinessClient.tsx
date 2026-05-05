@@ -196,6 +196,20 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
 
   return (
     <SettingsPage>
+      {/* Bannière en hero — pattern Twitter/Insta : cover photo full-width
+          au-dessus du logo. Cliquable pour upload, modale crop 3:1 ouvre
+          au choix de l'image. */}
+      <div className="relative w-full">
+        <div className="max-w-[1080px] mx-auto px-4 md:px-8 pt-4 md:pt-6">
+          <AssetUploader
+            kind="banner"
+            currentUrl={bannerUrl}
+            onUploaded={(url) => { setBannerUrl(url); router.refresh() }}
+            onDeleted={() => { setBannerUrl(null); router.refresh() }}
+          />
+        </div>
+      </div>
+
       <SettingsHeader
         title={businessName}
         subtitle={address || 'Ajoutez votre adresse pour qu’elle apparaisse ici'}
@@ -253,16 +267,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
             onChange={setAddress}
             placeholder="15 rue de la Paix, 75002 Paris"
           />
-
-          <div className="pt-2">
-            <p className="text-sm font-medium text-secondary mb-2">Bannière de votre fiche entreprise</p>
-            <AssetUploader
-              kind="banner"
-              currentUrl={bannerUrl}
-              onUploaded={(url) => { setBannerUrl(url); router.refresh() }}
-              onDeleted={() => { setBannerUrl(null); router.refresh() }}
-            />
-          </div>
 
           <div className="pt-2">
             <p className="text-sm font-medium text-secondary mb-2">Logo du commerce</p>

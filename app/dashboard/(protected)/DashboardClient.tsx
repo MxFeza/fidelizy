@@ -255,14 +255,40 @@ export default function DashboardClient({
 
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const qrCodeId = manualInput.trim()
-    if (!qrCodeId) return
+    const raw = manualInput.trim()
+    if (!raw) return
     setManualState({ status: 'processing' })
+
+    // Auto-detection : code de réclamation 6 chars charset sans ambiguïté
+    // (Story 4.4) vs QR code carte standard. Le claim code prime — si le format
+    // matche on appelle validate-claim et on tombe sur le scan classique sinon.
+    const claimInput = raw.replace(/[\s-]/g, '').toUpperCase()
+    const isClaimCode = /^[A-HJKMNPQRSTUVWXYZ23456789]{6}$/.test(claimInput)
+
     try {
+      if (isClaimCode) {
+        const res = await fetch('/api/scan/validate-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: claimInput }),
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          const who = data.customerName ? ` à ${data.customerName}` : ''
+          setManualState({
+            status: 'success',
+            message: `Récompense "${data.rewardName}"${who} validée. La carte du client a été mise à jour.`,
+          })
+        } else {
+          setManualState({ status: 'error', message: data.error ?? 'Code de réclamation invalide.' })
+        }
+        return
+      }
+
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qr_code_id: qrCodeId }),
+        body: JSON.stringify({ qr_code_id: raw }),
       })
       const data = await res.json()
       if (data.success) setManualState({ status: 'success', message: data.message })

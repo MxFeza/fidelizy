@@ -8,12 +8,19 @@
  *  - 'register' : creer un nouveau compte (first_name + phone + email)
  *  - 'needs_customer' : auth.users existe mais pas de customer en DB
  *                       (bascule en register pour combler)
+ *
+ * Refonte 4.2.f : suppression gradient legacy, Untitled UI Button/Input,
+ * tokens semantiques, cohérence visuelle avec /join.
  */
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import OTPInput from '@/app/components/OTPInput'
+import Image from 'next/image'
 import Link from 'next/link'
+import { QrCode02 } from '@untitledui/icons'
+import { Button } from '@/components/ui/base/buttons/button'
+import { Input } from '@/components/ui/base/input/input'
+import OTPInput from '@/app/components/OTPInput'
 
 interface MeLoginClientProps {
   mode?: 'login' | 'needs_customer'
@@ -128,128 +135,178 @@ export default function MeLoginClient({ mode = 'login', initialEmail }: MeLoginC
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col items-center justify-center p-5">
-      <div className="w-full max-w-sm">
-        {/* Logo + tagline */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-brand-solid rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-black text-gray-900">Izou</h1>
-          <p className="text-gray-500 mt-2 text-sm">
-            {step === 'register' ? 'Créez votre compte client' : step === 'otp' ? 'Vérification' : 'Accédez à toutes vos cartes fidélité'}
-          </p>
-        </div>
+    <div className="min-h-screen flex flex-col bg-primary">
+      <header className="px-5 py-4 border-b border-secondary">
+        <Image
+          src="/izou-logo.svg"
+          alt="Izou"
+          width={80}
+          height={24}
+          priority
+          className="h-6 w-auto"
+        />
+      </header>
 
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-7">
+      <main className="flex-1 flex flex-col px-5 py-8">
+        <div className="w-full max-w-sm mx-auto">
+          {/* Heading */}
+          <div className="text-center mb-8">
+            <h1 className="text-display-xs font-bold text-primary">
+              {step === 'register'
+                ? 'Créer mon compte'
+                : step === 'otp'
+                  ? 'Vérification'
+                  : 'Mes cartes fidélité'}
+            </h1>
+            <p className="text-md text-tertiary mt-1.5">
+              {step === 'register'
+                ? 'Pour gérer toutes vos cartes au même endroit.'
+                : step === 'otp'
+                  ? `Entrez le code reçu par email${maskedEmail ? ` (${maskedEmail})` : ''}`
+                  : 'Connectez-vous pour accéder à toutes vos cartes.'}
+            </p>
+          </div>
+
           {step === 'login' && (
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Numéro de téléphone</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setError('') }}
-                  placeholder="06 00 00 00 00"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-solid focus:border-transparent"
-                />
-                {error && <p className="text-red-500 text-xs mt-2 font-medium">{error}</p>}
+            <form onSubmit={handleLoginSubmit} noValidate className="space-y-6">
+              <Input
+                type="tel"
+                inputMode="tel"
+                placeholder="06 00 00 00 00"
+                value={phone}
+                onChange={(value) => { setPhone(value); setError('') }}
+                isInvalid={!!error}
+                hint={error || undefined}
+                autoFocus
+                size="md"
+              />
+
+              <div className="space-y-2">
+                <Button
+                  type="submit"
+                  color="primary"
+                  size="lg"
+                  isLoading={loading}
+                  isDisabled={phone.trim().length < 6}
+                  className="w-full"
+                >
+                  Recevoir le code
+                </Button>
+                <Button
+                  type="button"
+                  color="tertiary"
+                  size="lg"
+                  className="w-full"
+                  isDisabled={loading}
+                  onClick={() => { setStep('register'); setError('') }}
+                >
+                  Pas encore de compte ? Créer mon compte
+                </Button>
               </div>
-              <button
-                type="submit"
-                disabled={loading || phone.trim().length < 6}
-                className="w-full bg-brand-solid hover:bg-brand-solid_hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-2xl transition-colors text-sm"
-              >
-                {loading ? 'Recherche...' : 'Recevoir le code →'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setStep('register'); setError('') }}
-                className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors mt-2"
-              >
-                Pas encore de compte ? <span className="text-brand-secondary font-semibold">Créer mon compte</span>
-              </button>
+
+              {/* Entry point /scan — chemin 3 d'inscription */}
+              <div className="pt-4 border-t border-secondary">
+                <Link
+                  href="/scan"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold text-brand-secondary hover:bg-primary_hover transition-colors"
+                >
+                  <QrCode02 className="size-5" aria-hidden="true" />
+                  Scanner un QR code commerçant
+                </Link>
+              </div>
             </form>
           )}
 
           {step === 'register' && (
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Prénom</label>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => { setFirstName(e.target.value); setError('') }}
-                  placeholder="Votre prénom"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-solid focus:border-transparent"
-                />
+            <form onSubmit={handleRegisterSubmit} noValidate className="space-y-4">
+              <Input
+                placeholder="Votre prénom"
+                value={firstName}
+                onChange={(value) => { setFirstName(value); setError('') }}
+                autoFocus
+                size="md"
+              />
+
+              <Input
+                type="tel"
+                inputMode="tel"
+                placeholder="06 00 00 00 00"
+                value={phone}
+                onChange={(value) => { setPhone(value); setError('') }}
+                size="md"
+              />
+
+              <Input
+                type="email"
+                placeholder="vous@email.fr"
+                value={email}
+                onChange={(value) => { setEmail(value); setError('') }}
+                hint={error || 'Le code de vérification y sera envoyé.'}
+                isInvalid={!!error}
+                size="md"
+              />
+
+              <div className="space-y-2 pt-2">
+                <Button
+                  type="submit"
+                  color="primary"
+                  size="lg"
+                  isLoading={loading}
+                  className="w-full"
+                >
+                  Créer mon compte
+                </Button>
+                <Button
+                  type="button"
+                  color="tertiary"
+                  size="lg"
+                  className="w-full"
+                  isDisabled={loading}
+                  onClick={() => { setStep('login'); setError('') }}
+                >
+                  ← J&apos;ai déjà un compte
+                </Button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Téléphone</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setError('') }}
-                  placeholder="06 00 00 00 00"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-solid focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError('') }}
-                  placeholder="votre@email.com"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-solid focus:border-transparent"
-                />
-                <p className="text-xs text-gray-400 mt-1">Le code de vérification y sera envoyé.</p>
-              </div>
-              {error && <p className="text-red-500 text-xs font-medium">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-brand-solid hover:bg-brand-solid_hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-2xl transition-colors text-sm"
-              >
-                {loading ? 'Création...' : 'Créer mon compte'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setStep('login'); setError('') }}
-                className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors mt-2"
-              >
-                ← J&apos;ai déjà un compte
-              </button>
             </form>
           )}
 
           {step === 'otp' && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 text-center">
-                Entrez le code reçu par email{maskedEmail ? ` (${maskedEmail})` : ''}
-              </p>
+            <div className="space-y-6">
               <OTPInput onComplete={handleOTP} disabled={loading} />
-              {error && <p className="text-red-500 text-xs text-center font-medium">{error}</p>}
-              {loading && <p className="text-brand-secondary text-xs text-center font-medium">Vérification…</p>}
-              <button
+              {error && (
+                <p className="text-sm text-error-primary text-center font-medium">{error}</p>
+              )}
+              {loading && !error && (
+                <p className="text-sm text-tertiary text-center">Vérification…</p>
+              )}
+              <Button
                 type="button"
+                color="tertiary"
+                size="lg"
+                className="w-full"
+                isDisabled={loading}
                 onClick={() => { setStep('login'); setError('') }}
-                className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
               >
                 ← Retour
-              </button>
+              </Button>
             </div>
           )}
-        </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          <Link href="/dashboard/login" className="text-brand-secondary font-medium hover:underline">
-            Vous êtes commerçant ? →
-          </Link>
-        </p>
-      </div>
+          <p className="text-center text-xs text-quaternary mt-8">
+            <Link href="/dashboard/login" className="text-brand-secondary font-medium hover:underline">
+              Vous êtes commerçant ? →
+            </Link>
+          </p>
+        </div>
+      </main>
+
+      <footer className="py-6 text-center text-xs text-quaternary space-x-2">
+        <Link href="/privacy" className="hover:text-tertiary underline">Confidentialité</Link>
+        <span>·</span>
+        <Link href="/terms" className="hover:text-tertiary underline">CGU</Link>
+        <span>·</span>
+        <Link href="/legal" className="hover:text-tertiary underline">Mentions légales</Link>
+      </footer>
     </div>
   )
 }

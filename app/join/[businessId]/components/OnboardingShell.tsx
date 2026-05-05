@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import HeroBalloon from './HeroBalloon'
+import HeroBalloon from '@/components/client/HeroBalloon'
 
 interface OnboardingShellProps {
   children: ReactNode

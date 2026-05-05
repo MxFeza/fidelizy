@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import OnboardingShell from './components/OnboardingShell'
-import IzouBulletLogo from './components/IzouBulletLogo'
+import IzouBulletLogo from '@/components/client/IzouBulletLogo'
 import OTPCodeInput, { type OTPStatus } from './components/OTPCodeInput'
 
 interface Business {

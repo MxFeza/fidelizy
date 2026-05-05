@@ -21,7 +21,7 @@ jobs:
     name: Ensure PR develop → main exists
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create or update PR
         id: open-pr

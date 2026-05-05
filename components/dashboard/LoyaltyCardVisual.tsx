@@ -15,6 +15,11 @@
  *   - Logo fixe en aspect-ratio carre avec object-contain (evite l'etirement
  *     pour les logos non-carres uploades par les commercants)
  *
+ * Update 2026-05-05 (retour user — feedback "tampons visuels") :
+ *   - Mode stamps : grille de cercles (rappel des cartes de fidelite physique)
+ *     a la place du simple texte "X/Y". Layout adaptatif via flex-wrap pour
+ *     s'adapter aux differents stamps_required (5, 8, 10, 12...).
+ *
  * Personnalisation v2 (deferred) :
  *   - Banniere personnalisable (image au-dessus de la carte ou variante de design)
  */
@@ -62,14 +67,57 @@ export default function LoyaltyCardVisual({
       )}
       style={{ backgroundColor: '#0F172A' }}
     >
-      {/* Cote gauche — fond noir + nom + points */}
+      {/* Cote gauche — fond noir + nom + grille tampons (mode stamps) ou compteur points */}
       <div className="relative flex-[0.62] flex flex-col justify-between p-4 sm:p-5 lg:p-6">
         <p className="text-lg sm:text-2xl lg:text-[26px] font-semibold tracking-tight text-white truncate leading-tight">
           {customerName}
         </p>
+
+        {/* Grille tampons : visualisation type carte fidelite physique */}
+        {loyaltyType === 'stamps' && (
+          <div
+            className="flex flex-wrap gap-1 sm:gap-1.5 my-1 sm:my-2"
+            role="meter"
+            aria-valuenow={currentStamps}
+            aria-valuemin={0}
+            aria-valuemax={stampsRequired}
+            aria-label={`${currentStamps} tampons sur ${stampsRequired}`}
+          >
+            {Array.from({ length: stampsRequired }).map((_, i) => {
+              const filled = i < currentStamps
+              return (
+                <div
+                  key={i}
+                  className={cx(
+                    'size-4 sm:size-5 lg:size-6 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
+                    filled
+                      ? 'bg-white shadow-sm'
+                      : 'border border-white/25',
+                  )}
+                  aria-hidden="true"
+                >
+                  {filled && (
+                    <svg
+                      className="size-2.5 sm:size-3 lg:size-3.5 text-gray-900"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 5.29a1 1 0 010 1.42l-7.99 7.99a1 1 0 01-1.42 0l-3.99-3.99a1 1 0 011.42-1.42l3.28 3.28 7.28-7.28a1 1 0 011.42 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         <p className="text-xs sm:text-sm lg:text-base font-medium text-white/85 transition-all duration-300">
           {loyaltyType === 'stamps'
-            ? `Tampons : ${currentStamps}/${stampsRequired}`
+            ? `${currentStamps}/${stampsRequired} tampons`
             : `${currentPoints} pts cumulés`}
         </p>
       </div>

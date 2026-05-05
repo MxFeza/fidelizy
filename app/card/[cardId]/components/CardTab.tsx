@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { CreditCard02 } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
+import Toast from '@/components/client/Toast'
+import { PUBLIC_ASSETS } from '@/lib/assets'
 import TierProgressBar from './TierProgressBar'
 import RecentActivity from './RecentActivity'
 import type { Business, LoyaltyCard, Customer, LoyaltyTier, Transaction } from '@/lib/types'
@@ -40,6 +43,17 @@ export default function CardTab({
   onShowWheel,
 }: CardTabProps) {
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showCopyToast, setShowCopyToast] = useState(false)
+
+  async function handleCopyCode() {
+    try {
+      await navigator.clipboard.writeText(shortCode)
+      setShowCopyToast(true)
+      setTimeout(() => setShowCopyToast(false), 3000)
+    } catch {
+      /* ignore — clipboard refusé (Safari sans HTTPS, perms) */
+    }
+  }
 
   return (
     <>
@@ -137,35 +151,77 @@ export default function CardTab({
       {/* Activité récente (5 dernières transactions) */}
       <RecentActivity transactions={transactions} cardId={card.qr_code_id} />
 
-      {/* QR code fullscreen modal */}
+      {/* QR code fullscreen modal — Figma image 1 */}
       {showQrModal && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Votre code de fidélité"
           className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
           onClick={() => setShowQrModal(false)}
         >
           <div
-            className="bg-white rounded-3xl p-8 text-center max-w-sm w-full"
+            className="bg-white rounded-3xl max-w-sm w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-              Mon QR code
-            </p>
-            <div className="flex justify-center">
-              <div className="p-4 bg-gray-50 rounded-xl inline-block">
-                <QrCodeDisplay value={card.qr_code_id} size={220} />
+            <div className="relative aspect-[4/3] bg-gray-100">
+              <Image
+                src={business.card_image_url || PUBLIC_ASSETS.cards.loyaltyDefault}
+                alt=""
+                fill
+                sizes="(max-width: 640px) 100vw, 384px"
+                className="object-cover object-center"
+                unoptimized={!!business.card_image_url}
+              />
+            </div>
+
+            <div className="p-6 text-center">
+              <p className="text-base font-bold text-gray-900">Votre code de fidélité</p>
+              <p className="text-sm text-gray-500 mt-1">
+                {business.loyalty_type === 'stamps'
+                  ? 'Scannez au comptoir pour obtenir un tampon'
+                  : 'Scannez au comptoir pour cumuler des points'}
+              </p>
+
+              <div className="flex justify-center my-5">
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <QrCodeDisplay value={card.qr_code_id} size={180} />
+                </div>
+              </div>
+
+              <p className="text-sm font-mono font-semibold text-gray-700 tracking-wider mb-5">
+                {shortCode}
+              </p>
+
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="w-full bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3 px-4 rounded-2xl text-sm transition-colors"
+                >
+                  Copier le code
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowQrModal(false)}
+                  className="w-full bg-white ring-1 ring-gray-200 hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-2xl text-sm transition-colors"
+                >
+                  Fermer
+                </button>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              Présentez ce code au commerçant à chaque visite
-            </p>
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="mt-4 text-sm font-semibold px-6 py-2.5 rounded-xl text-white"
-              style={{ backgroundColor: color }}
-            >
-              Fermer
-            </button>
           </div>
+        </div>
+      )}
+
+      {/* Toast "Code copié" — confirme l'action clipboard */}
+      {showCopyToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[60] px-4 w-full max-w-md" style={{ top: '4.5rem' }}>
+          <Toast
+            variant="info"
+            title="Code copié"
+            message={`${shortCode} · dans le presse-papier`}
+          />
         </div>
       )}
     </>

@@ -3,24 +3,42 @@ import { AppError } from '@/lib/errors'
 import type { SendOtpInput, VerifyOtpInput, AddEmailInput } from './auth.schemas'
 
 /**
- * Send OTP to customer's email (looked up by phone).
+ * Lookup du customer par email (priorité) ou par phone. Le schéma garantit
+ * qu'au moins un des deux est fourni.
+ */
+async function lookupCustomer(
+  supabase: SupabaseClient,
+  params: { phone?: string; email?: string }
+): Promise<{ id: string; email: string | null } | null> {
+  if (params.email) {
+    const { data } = await supabase
+      .from('customers')
+      .select('id, email')
+      .eq('email', params.email.trim().toLowerCase())
+      .maybeSingle()
+    if (data) return data
+  }
+  if (params.phone) {
+    const { data } = await supabase
+      .from('customers')
+      .select('id, email')
+      .eq('phone', params.phone.trim())
+      .maybeSingle()
+    if (data) return data
+  }
+  return null
+}
+
+/**
+ * Send OTP to customer's email (looked up by phone OR email).
  * Returns status: 'otp_sent' | 'not_found' | 'needs_email'
- *
- * @param supabase - Service client for DB queries (bypass RLS)
- * @param supabaseAuth - Anon key client for Auth operations
  */
 export async function sendOtp(
   supabase: SupabaseClient,
   supabaseAuth: SupabaseClient,
   params: SendOtpInput
 ): Promise<{ status: string; email?: string; maskedEmail?: string }> {
-  const { phone } = params
-
-  const { data: customer } = await supabase
-    .from('customers')
-    .select('id, email')
-    .eq('phone', phone.trim())
-    .maybeSingle()
+  const customer = await lookupCustomer(supabase, params)
 
   if (!customer) {
     return { status: 'not_found' }
@@ -51,20 +69,16 @@ export async function sendOtp(
 }
 
 /**
- * Verify OTP by phone (lookup email server-side to avoid leak) and return customer cards.
+ * Verify OTP by phone OR email. Looks up customer + verifies token against
+ * their email (which is what Supabase Auth sent the OTP to). Returns the
+ * list of cards on success.
  */
 export async function verifyOtp(
   supabase: SupabaseClient,
   supabaseAuth: SupabaseClient,
   params: VerifyOtpInput
 ): Promise<{ status: string; cards?: Record<string, unknown>[] }> {
-  const { phone, token } = params
-
-  const { data: customer } = await supabase
-    .from('customers')
-    .select('id, email')
-    .eq('phone', phone.trim())
-    .maybeSingle()
+  const customer = await lookupCustomer(supabase, params)
 
   if (!customer || !customer.email) {
     return { status: 'invalid' }
@@ -72,7 +86,7 @@ export async function verifyOtp(
 
   const { error } = await supabaseAuth.auth.verifyOtp({
     email: customer.email,
-    token,
+    token: params.token,
     type: 'email',
   })
 

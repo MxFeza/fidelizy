@@ -131,10 +131,15 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
 
     setLoading(true)
     try {
+      // OTP envoye sur l'email saisi : permet a registerCustomer d'avoir
+      // attache la carte a un compte existant (lookup par email, 4.2.b'
+      // Netflix multi-cartes). Au verify-otp on utilise aussi l'email
+      // pour retomber sur le bon customer meme si phone tape != phone du
+      // customer existant.
       const otpRes = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       })
       const otpData = await otpRes.json().catch(() => ({}))
       if (otpData.status === 'otp_sent') {
@@ -165,7 +170,7 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
       await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       })
       setOtpSub('resent')
     } catch {
@@ -183,7 +188,7 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), token: otpValue }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), token: otpValue }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

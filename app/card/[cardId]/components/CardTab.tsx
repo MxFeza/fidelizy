@@ -10,6 +10,7 @@ import Toast from '@/components/client/Toast'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import TierProgressBar from './TierProgressBar'
 import RecentActivity from './RecentActivity'
+import ClaimRewardModal from './ClaimRewardModal'
 import type { Business, LoyaltyCard, Customer, LoyaltyTier, Transaction } from '@/lib/types'
 
 interface CardTabProps {
@@ -44,6 +45,15 @@ export default function CardTab({
 }: CardTabProps) {
   const [showQrModal, setShowQrModal] = useState(false)
   const [showCopyToast, setShowCopyToast] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [showClaimToast, setShowClaimToast] = useState(false)
+
+  function handleClaimConfirm() {
+    setShowClaimModal(false)
+    setShowClaimToast(true)
+    setTimeout(() => setShowClaimToast(false), 5000)
+    setShowQrModal(true)
+  }
 
   async function handleCopyCode() {
     try {
@@ -90,13 +100,22 @@ export default function CardTab({
 
       {/* Reward unlocked banner (stamps mode, single-tier) */}
       {business.loyalty_type === 'stamps' && stampsCount >= stampsRequired && business.stamps_reward && (
-        <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center">
-          <p className="text-sm font-semibold text-success-primary">
-            🎁 Récompense disponible : {business.stamps_reward}
-          </p>
-          <p className="text-xs text-success-primary/80 mt-0.5">
-            Présentez votre carte au commerçant pour en profiter
-          </p>
+        <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-success-primary">
+              🎁 Récompense disponible : {business.stamps_reward}
+            </p>
+            <p className="text-xs text-success-primary/80 mt-0.5">
+              Réclamez-la auprès de votre commerçant
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowClaimModal(true)}
+            className="w-full bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors"
+          >
+            Réclamer ma récompense
+          </button>
         </div>
       )}
 
@@ -224,6 +243,26 @@ export default function CardTab({
           />
         </div>
       )}
+
+      {/* Toast "Présentez votre QR" — confirme l'intention de réclamation */}
+      {showClaimToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[60] px-4 w-full max-w-md" style={{ top: '4.5rem' }}>
+          <Toast
+            variant="success"
+            title="Récompense réclamée"
+            message="Présentez votre code à votre commerçant"
+          />
+        </div>
+      )}
+
+      {/* Modal de confirmation Réclamer la récompense — Figma image 2 */}
+      <ClaimRewardModal
+        isOpen={showClaimModal}
+        loyaltyType={business.loyalty_type}
+        rewardName={business.stamps_reward}
+        onConfirm={handleClaimConfirm}
+        onCancel={() => setShowClaimModal(false)}
+      />
     </>
   )
 }

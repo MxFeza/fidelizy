@@ -1,20 +1,24 @@
 'use client'
 
 import { useState } from 'react'
+import { CreditCard02 } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
-import type { Business, LoyaltyCard, Customer, RewardTier } from '@/lib/types'
+import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
+import TierProgressBar from './TierProgressBar'
+import RecentActivity from './RecentActivity'
+import type { Business, LoyaltyCard, Customer, LoyaltyTier, Transaction } from '@/lib/types'
 
 interface CardTabProps {
   card: LoyaltyCard & { customers: Customer | null }
   business: Business
+  transactions: Transaction[]
   stampsCount: number
   pointsBalance: number
-  liveTiers: RewardTier[]
+  liveTiers: LoyaltyTier[]
   wheelStatus: { enabled: boolean; cost: number; eligible: boolean } | null
   color: string
   shortCode: string
-  stampCols: number
   stampsRequired: number
   walletAvailable: boolean
   onShowWheel: () => void
@@ -24,13 +28,13 @@ interface CardTabProps {
 export default function CardTab({
   card,
   business,
+  transactions,
   stampsCount,
   pointsBalance,
   liveTiers,
   wheelStatus,
   color,
   shortCode,
-  stampCols,
   stampsRequired,
   walletAvailable,
   onShowWheel,
@@ -59,190 +63,44 @@ export default function CardTab({
         </div>
       </div>
 
-      {/* Stamps card */}
-      {business.loyalty_type === 'stamps' && (
-        <div
-          className="bg-white rounded-2xl overflow-hidden"
-          style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)' }}
-        >
-          <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-          <div className="p-5 space-y-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                  Carte à tampons
-                </p>
-                {stampsCount >= stampsRequired ? (
-                  <p className="text-sm font-bold text-green-700">🎉 Récompense débloquée !</p>
-                ) : (
-                  <p className="text-sm text-gray-600">
-                    Encore{' '}
-                    <span className="font-bold" style={{ color }}>
-                      {stampsRequired - stampsCount} tampon
-                      {stampsRequired - stampsCount > 1 ? 's' : ''}
-                    </span>{' '}
-                    pour votre récompense
-                  </p>
-                )}
-              </div>
-              <div
-                className="w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shrink-0"
-                style={{ backgroundColor: stampsCount >= stampsRequired ? '#16a34a' : color }}
-              >
-                <span className="text-lg font-black leading-none">{stampsCount}</span>
-                <span className="text-[9px] font-semibold leading-none opacity-75">
-                  /{stampsRequired}
-                </span>
-              </div>
-            </div>
+      {/* Loyalty card visual (Figma B4 — carte v1 noire + image standard + logo transparent) */}
+      <LoyaltyCardVisual
+        customerName={card.customers?.first_name?.trim() || 'Client'}
+        loyaltyType={business.loyalty_type}
+        currentStamps={stampsCount}
+        stampsRequired={stampsRequired}
+        currentPoints={pointsBalance}
+        businessLogoUrl={business.logo_url}
+      />
 
-            <div
-              className="grid gap-2.5"
-              style={{ gridTemplateColumns: `repeat(${stampCols}, 1fr)` }}
-            >
-              {Array.from({ length: stampsRequired }).map((_, i) => {
-                const filled = i < stampsCount
-                return (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-full flex items-center justify-center transition-all duration-200"
-                    style={
-                      filled
-                        ? { backgroundColor: color, boxShadow: `0 2px 6px ${color}55` }
-                        : { backgroundColor: '#f9fafb', border: '2px dashed #e5e7eb' }
-                    }
-                  >
-                    {filled ? (
-                      <svg
-                        className="text-white"
-                        style={{ width: '52%', height: '52%' }}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <span className="text-xs text-gray-300 font-medium select-none">
-                        {i + 1}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {business.stamps_reward && (
-              <div
-                className="text-sm font-semibold text-center py-2.5 px-4 rounded-xl"
-                style={
-                  stampsCount >= stampsRequired
-                    ? {
-                        backgroundColor: '#f0fdf4',
-                        color: '#15803d',
-                        border: '1px solid #bbf7d0',
-                      }
-                    : {
-                        backgroundColor: `${color}12`,
-                        color,
-                        border: `1px solid ${color}28`,
-                      }
-                }
-              >
-                {stampsCount >= stampsRequired ? '🎁 Récompense disponible : ' : '🎯 '}
-                {business.stamps_reward}
-              </div>
-            )}
-
-            {stampsCount >= stampsRequired && (
-              <p className="text-center text-xs text-green-600 font-medium -mt-2">
-                Présentez cette carte au commerçant pour en profiter
-              </p>
-            )}
-          </div>
+      {/* Reward unlocked banner (stamps mode, single-tier) */}
+      {business.loyalty_type === 'stamps' && stampsCount >= stampsRequired && business.stamps_reward && (
+        <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center">
+          <p className="text-sm font-semibold text-success-primary">
+            🎁 Récompense disponible : {business.stamps_reward}
+          </p>
+          <p className="text-xs text-success-primary/80 mt-0.5">
+            Présentez votre carte au commerçant pour en profiter
+          </p>
         </div>
       )}
 
-      {/* Points card — Horizontal Tier Bar */}
-      {business.loyalty_type === 'points' && (
-        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-          <div className="text-center">
-            <p className="text-4xl font-bold" style={{ color }}>
-              {pointsBalance}
-            </p>
-            <p className="text-gray-400 text-sm mt-1">points cumulés</p>
-          </div>
+      {/* Tier progress bar (BK-style — paliers JSONB ou palier virtuel single-tier) */}
+      {liveTiers.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <TierProgressBar
+            tiers={liveTiers}
+            currentValue={business.loyalty_type === 'stamps' ? stampsCount : pointsBalance}
+            loyaltyType={business.loyalty_type}
+            color={color}
+          />
 
-          {liveTiers.length > 0 && (() => {
-            const maxPts = liveTiers[liveTiers.length - 1]?.points_required ?? 1
-            const progressPct = Math.min(100, (pointsBalance / maxPts) * 100)
-            const nextTier = liveTiers.find((t) => t.points_required > pointsBalance)
-            const remaining = nextTier ? nextTier.points_required - pointsBalance : 0
-
-            return (
-              <div className="space-y-3">
-                <div className="relative pt-2 pb-8">
-                  <div className="h-2 bg-gray-100 rounded-full relative">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${progressPct}%`, backgroundColor: color }}
-                    />
-                  </div>
-
-                  {liveTiers.map((tier) => {
-                    const pos = (tier.points_required / maxPts) * 100
-                    const reached = pointsBalance >= tier.points_required
-                    return (
-                      <div
-                        key={tier.id}
-                        className="absolute flex flex-col items-center"
-                        style={{ left: `${pos}%`, top: '-2px', transform: 'translateX(-50%)' }}
-                      >
-                        <div
-                          className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] bg-white z-10"
-                          style={{
-                            borderColor: reached ? '#16a34a' : '#d1d5db',
-                            backgroundColor: reached ? '#16a34a' : 'white',
-                            color: reached ? 'white' : '#9ca3af',
-                          }}
-                        >
-                          {reached ? '✓' : '🔒'}
-                        </div>
-                        <span className="text-[10px] font-semibold mt-1 whitespace-nowrap" style={{ color: reached ? '#16a34a' : '#9ca3af' }}>
-                          {tier.points_required}
-                        </span>
-                        <span className="text-[9px] text-gray-400 mt-0.5 max-w-[60px] truncate text-center" title={tier.reward_name}>
-                          {tier.reward_name}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {nextTier && (
-                  <p className="text-center text-xs text-gray-500">
-                    Plus que <span className="font-bold" style={{ color }}>{remaining} point{remaining > 1 ? 's' : ''}</span> pour{' '}
-                    <span className="font-semibold">{nextTier.reward_name}</span>
-                  </p>
-                )}
-                {!nextTier && liveTiers.length > 0 && (
-                  <p className="text-center text-xs text-green-600 font-medium">
-                    Tous les paliers atteints !
-                  </p>
-                )}
-              </div>
-            )
-          })()}
-
-          {/* Wheel button */}
-          {wheelStatus?.enabled && (
+          {/* Wheel button (points mode only) */}
+          {business.loyalty_type === 'points' && wheelStatus?.enabled && (
             <button
               onClick={onShowWheel}
               disabled={!wheelStatus.eligible}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full mt-4 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: wheelStatus.eligible ? color : `${color}15`,
                 color: wheelStatus.eligible ? 'white' : color,
@@ -257,31 +115,26 @@ export default function CardTab({
         </div>
       )}
 
-      {/* Add to Wallet */}
-      <div className="bg-white rounded-2xl shadow-sm p-4">
-        {walletAvailable ? (
-          <a
-            href={`/api/wallet/${card.qr_code_id}`}
-            className="w-full flex items-center justify-center gap-2.5 bg-black text-white font-semibold py-3 px-4 rounded-xl text-sm"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.273 5.625A4.483 4.483 0 015.25 4.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0018.75 3H5.25a3 3 0 00-2.977 2.625zM2.273 8.125A4.483 4.483 0 015.25 7.5h13.5c1.141 0 2.183.425 2.977 1.125A3 3 0 0018.75 6H5.25a3 3 0 00-2.977 2.125zM5.25 9a3 3 0 00-3 3v6a3 3 0 003 3h13.5a3 3 0 003-3v-6a3 3 0 00-3-3H5.25zm10.5 6.75a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" />
-            </svg>
-            Ajouter au Wallet Apple
-          </a>
-        ) : (
-          <button
-            disabled
-            title="Disponible sur iOS uniquement"
-            className="w-full flex items-center justify-center gap-2.5 bg-gray-50 text-gray-400 font-medium py-3 px-4 rounded-xl cursor-not-allowed text-sm border border-gray-100"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V9M3 9V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v3" />
-            </svg>
-            Wallet Apple — iOS uniquement
-          </button>
-        )}
-      </div>
+      {/* Add to Apple Wallet (iOS only — Google Wallet attendu en Epic 6).
+          target="_blank" force l'ouverture dans Safari standard meme en mode
+          PWA standalone — sinon le webview affiche le .pkpass en plain text
+          au lieu de le router vers PassKit (bug client signale 2026-05-04).
+          Epic 6 remplacera ce bouton par le badge officiel Apple "Add to Apple
+          Wallet" + variante Google Wallet detectee via userAgent. */}
+      {walletAvailable && (
+        <a
+          href={`/api/wallet/${card.qr_code_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3.5 px-4 rounded-2xl text-sm transition-colors shadow-sm"
+        >
+          <CreditCard02 className="size-5" aria-hidden="true" />
+          Ajouter à Apple Wallet
+        </a>
+      )}
+
+      {/* Activité récente (5 dernières transactions) */}
+      <RecentActivity transactions={transactions} cardId={card.qr_code_id} />
 
       {/* QR code fullscreen modal */}
       {showQrModal && (

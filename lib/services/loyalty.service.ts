@@ -444,16 +444,21 @@ async function earnPointsInternal(
 
   const message = `+${amount} point${amount > 1 ? 's' : ''} (total : ${newPoints})`
 
-  // Check if a reward tier threshold was just reached
-  const { data: reachedTiers } = await supabase
-    .from('reward_tiers')
-    .select('points_required')
-    .eq('business_id', business.id)
-    .gt('points_required', previousPoints)
-    .lte('points_required', newPoints)
-    .limit(1)
+  // Check if a reward tier threshold was just reached (lit le JSONB businesses.reward_tiers)
+  const { data: businessTiers } = await supabase
+    .from('businesses')
+    .select('reward_tiers')
+    .eq('id', business.id)
+    .single()
 
-  if (reachedTiers && reachedTiers.length > 0) {
+  const tiers: { threshold: number }[] = Array.isArray(businessTiers?.reward_tiers)
+    ? businessTiers.reward_tiers
+    : []
+  const reachedTier = tiers.find(
+    (t) => typeof t.threshold === 'number' && t.threshold > previousPoints && t.threshold <= newPoints
+  )
+
+  if (reachedTier) {
     notifyClient(card.id, card.qr_code_id, {
       title: business.business_name,
       body: 'Récompense débloquée ! Montre ta carte au comptoir.',

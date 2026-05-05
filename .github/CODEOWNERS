@@ -1,0 +1,14 @@
+# GitHub CODEOWNERS - https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# Chaque PR ouverte requiert automatiquement la review du owner.
+
+# Owner par defaut sur tout le repo
+* @ebellafrancis
+
+# Zones a haut risque - rappel explicite
+/supabase/migrations/   @ebellafrancis
+/middleware.ts          @ebellafrancis
+/next.config.ts         @ebellafrancis
+/.github/               @ebellafrancis
+/app/api/auth/          @ebellafrancis
+/lib/wallet/            @ebellafrancis
+/lib/auth/              @ebellafrancis

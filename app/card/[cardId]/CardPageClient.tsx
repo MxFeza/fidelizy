@@ -1,26 +1,35 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import type { Business, LoyaltyCard, Customer, Transaction, RewardTier } from '@/lib/types'
-import { type Tab, isIOS, isInStandaloneMode, CardTabIcon, MissionsTabIcon, HistoryTabIcon, ProfileTabIcon, type BeforeInstallPromptEvent } from './components/utils'
+import { Bell01, Grid01 } from '@untitledui/icons'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
+import { type Tab, isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
 import ConfettiEffect from './components/ConfettiEffect'
 import CardTab from './components/CardTab'
-import MissionsTab, { type MissionData } from './components/MissionsTab'
-import HistoryTab from './components/HistoryTab'
 import WheelModal from './components/WheelModal'
 import PushBanner from './components/PushBanner'
 import ProfileTab from './components/ProfileTab'
+import TopBarClient from '@/components/client/TopBarClient'
+import BottomTabBarClient from '@/components/client/BottomTabBarClient'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
   business: Business
   transactions: Transaction[]
-  rewardTiers: RewardTier[]
+  tiers: LoyaltyTier[]
   cardToken: string
 }
 
-export default function CardPageClient({ card, business, transactions, rewardTiers, cardToken }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('card')
+export default function CardPageClient({ card, business, transactions, tiers, cardToken }: Props) {
+  const searchParams = useSearchParams()
+  const initialTab = (() => {
+    const t = searchParams.get('tab')
+    if (t === 'profile') return t
+    return 'card' as const
+  })()
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [installEvent, setInstallEvent] = useState<Event | null>(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const [showIOSBanner, setShowIOSBanner] = useState(false)
@@ -28,22 +37,27 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   const [showConfetti, setShowConfetti] = useState(false)
   const [walletAvailable, setWalletAvailable] = useState(false)
   const [showPushBanner, setShowPushBanner] = useState(false)
-  const [liveTiers, setLiveTiers] = useState(rewardTiers)
+  const [liveTiers, setLiveTiers] = useState(tiers)
   const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
   const [showWheel, setShowWheel] = useState(false)
 
-  // Missions state
-  const [missions, setMissions] = useState<MissionData[]>([])
-  const [referralCode, setReferralCode] = useState('')
-  const [missionsLoading, setMissionsLoading] = useState(true)
-
-  const color = business.primary_color || '#4f46e5'
+  const color = business.primary_color || '#7F56D9'
   const stampsRequired = business.stamps_required ?? 10
   const [stampsCount, setStampsCount] = useState(Math.min(card.current_stamps ?? 0, stampsRequired))
   const [pointsBalance, setPointsBalance] = useState(card.current_points ?? 0)
   const stampsRef = useRef(stampsCount)
   const shortCode = `${card.qr_code_id.slice(0, 4).toUpperCase()}-${card.qr_code_id.slice(4, 8).toUpperCase()}`
-  const stampCols = stampsRequired <= 5 ? stampsRequired : stampsRequired % 4 === 0 ? 4 : 5
+
+  const firstName = card.customers?.first_name?.trim() || 'Client'
+  const statusLine = (() => {
+    if (business.loyalty_type === 'stamps') {
+      if (stampsCount >= stampsRequired) return 'Récompense débloquée — présentez votre code 🎉'
+      if (stampsCount === 0) return 'Scannez votre premier QR pour démarrer'
+      return `Encore ${stampsRequired - stampsCount} tampon${stampsRequired - stampsCount > 1 ? 's' : ''} pour débloquer votre récompense`
+    }
+    if (pointsBalance === 0) return 'Scannez votre premier QR pour démarrer'
+    return `${pointsBalance} pts cumulés chez ${business.business_name}`
+  })()
 
   // Android/Chrome install prompt
   useEffect(() => {
@@ -57,7 +71,11 @@ export default function CardPageClient({ card, business, transactions, rewardTie
   }, [])
 
   // iOS install suggestion + wallet availability
+  // En dev, on force walletAvailable=true pour pouvoir verifier le rendu desktop.
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      setWalletAvailable(true)
+    }
     if (isIOS()) {
       setWalletAvailable(true)
       if (!isInStandaloneMode() && !sessionStorage.getItem('ios_install_dismissed')) {
@@ -82,26 +100,14 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     fetch(`/api/pwa-visit/${card.qr_code_id}`, { method: 'POST' }).catch(() => {})
   }, [card.qr_code_id])
 
-  // Fetch missions
-  useEffect(() => {
-    fetch(`/api/missions/${card.qr_code_id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.missions) setMissions(data.missions)
-        if (data.referral_code) setReferralCode(data.referral_code)
-        setMissionsLoading(false)
-      })
-      .catch(() => setMissionsLoading(false))
-  }, [card.qr_code_id])
-
-  // Fetch live data immediately on mount (for wheel status) then poll every 8s
+  // Fetch live data immediately on mount then poll every 8s
   useEffect(() => {
     async function fetchLive() {
       try {
         const res = await fetch(`/api/card/${card.qr_code_id}/live`, { cache: 'no-store' })
         if (!res.ok) return
         const data = await res.json()
-        if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
+        if (Array.isArray(data.tiers)) setLiveTiers(data.tiers as LoyaltyTier[])
         if (data.wheel !== undefined) setWheelStatus(data.wheel)
         setPointsBalance(data.points)
       } catch { /* ignore */ }
@@ -118,7 +124,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         const data: {
           stamps: number
           points: number
-          rewards?: { id: string; reward_name: string; points_required: number }[]
+          tiers?: LoyaltyTier[]
           wheel?: { enabled: boolean; cost: number; eligible: boolean } | null
         } = await res.json()
 
@@ -146,7 +152,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         setStampsCount(capped)
         setPointsBalance(data.points)
 
-        if (data.rewards) setLiveTiers(data.rewards as RewardTier[])
+        if (Array.isArray(data.tiers)) setLiveTiers(data.tiers)
         if (data.wheel !== undefined) setWheelStatus(data.wheel)
       } catch {
         // ignore transient network errors
@@ -189,13 +195,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
     setInstallEvent(null)
   }
 
-  const tabs = [
-    { id: 'card' as Tab, label: 'Ma carte', icon: <CardTabIcon /> },
-    { id: 'missions' as Tab, label: 'Missions', icon: <MissionsTabIcon /> },
-    { id: 'history' as Tab, label: 'Historique', icon: <HistoryTabIcon /> },
-    { id: 'profile' as Tab, label: 'Profil', icon: <ProfileTabIcon /> },
-  ]
-
   return (
     <>
       <style>{`
@@ -214,7 +213,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         <div
           style={{
             position: 'fixed',
-            top: '1rem',
+            top: '4.5rem',
             left: '50%',
             zIndex: 60,
             animation: 'slideDownNotif 4s ease-in-out forwards',
@@ -288,45 +287,52 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         </div>
       )}
 
-      {/* Main content */}
       <div className="min-h-screen bg-gray-50 pb-24">
-        {/* Header */}
-        <div className="text-white px-5 pt-12 pb-8" style={{ backgroundColor: color }}>
-          <div className="max-w-sm mx-auto">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-white/70 text-xs font-medium">Carte de fidélité</p>
-                <p className="font-bold text-lg leading-tight">{business.business_name}</p>
-              </div>
+        <TopBarClient
+          rightSlot={
+            <div className="flex items-center gap-1">
+              <Link
+                href="/me"
+                aria-label="Mes cartes"
+                title="Mes cartes"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <Grid01 className="size-5" aria-hidden="true" />
+              </Link>
+              <Link
+                href={`/card/${card.qr_code_id}/notifications`}
+                aria-label="Notifications"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <Bell01 className="size-5" aria-hidden="true" />
+              </Link>
             </div>
-            <p className="text-white/80 text-sm">
-              Bonjour,{' '}
-              <span className="font-semibold text-white">
-                {card.customers?.first_name ?? 'Client'}
-              </span>{' '}
-              👋
-            </p>
+          }
+        />
+
+        {/* Greeting header (Figma B2) */}
+        <div className="bg-white border-b border-gray-100">
+          <div className="max-w-md mx-auto px-5 py-5">
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+              Bienvenue {firstName} 👋
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">{statusLine}</p>
           </div>
         </div>
 
         {/* Tab content */}
-        <div className="max-w-sm mx-auto px-5 space-y-5">
+        <div className="max-w-md mx-auto px-5 pt-5 space-y-5">
           {activeTab === 'card' && (
             <CardTab
               card={card}
               business={business}
+              transactions={transactions}
               stampsCount={stampsCount}
               pointsBalance={pointsBalance}
               liveTiers={liveTiers}
               wheelStatus={wheelStatus}
               color={color}
               shortCode={shortCode}
-              stampCols={stampCols}
               stampsRequired={stampsRequired}
               walletAvailable={walletAvailable}
               onShowWheel={() => setShowWheel(true)}
@@ -337,34 +343,6 @@ export default function CardPageClient({ card, business, transactions, rewardTie
             />
           )}
 
-          {activeTab === 'missions' && (
-            <>
-              {missionsLoading ? (
-                <div className="flex items-center justify-center py-12 -mt-4">
-                  <div className="w-7 h-7 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: color }} />
-                </div>
-              ) : (
-                <MissionsTab
-                  card={card}
-                  business={business}
-                  missions={missions}
-                  referralCode={referralCode}
-                  cardToken={cardToken}
-                  color={color}
-                  onPointsUpdate={(updater) => setPointsBalance(updater)}
-                  onMissionsUpdate={setMissions}
-                />
-              )}
-            </>
-          )}
-
-          {activeTab === 'history' && (
-            <HistoryTab
-              transactions={transactions}
-              business={business}
-              color={color}
-            />
-          )}
 
           {activeTab === 'profile' && (
             <ProfileTab
@@ -376,7 +354,7 @@ export default function CardPageClient({ card, business, transactions, rewardTie
           )}
         </div>
 
-        <footer className="max-w-sm mx-auto px-5 pt-8 pb-4 text-center text-[11px] text-gray-400 space-x-2">
+        <footer className="max-w-md mx-auto px-5 pt-8 pb-4 text-center text-[11px] text-gray-400 space-x-2">
           <a href="/privacy" target="_blank" className="hover:text-gray-600 underline">Confidentialité</a>
           <span>·</span>
           <a href="/terms" target="_blank" className="hover:text-gray-600 underline">CGU</a>
@@ -402,33 +380,11 @@ export default function CardPageClient({ card, business, transactions, rewardTie
         />
       )}
 
-      {/* Bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 z-30">
-        <div className="max-w-sm mx-auto flex">
-          {tabs.map(({ id, label, icon }) => {
-            const isActive = activeTab === id
-            return (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className="flex-1 flex flex-col items-center gap-1 py-3 transition-colors"
-                style={{ color: isActive ? color : '#9ca3af' }}
-              >
-                <span
-                  style={{
-                    display: 'block',
-                    transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                    transition: 'transform 0.15s ease',
-                  }}
-                >
-                  {icon}
-                </span>
-                <span className="text-[11px] font-medium">{label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </nav>
+      <BottomTabBarClient
+        cardId={card.qr_code_id}
+        activeLocal={activeTab}
+        onLocalChange={(tab) => setActiveTab(tab)}
+      />
     </>
   )
 }

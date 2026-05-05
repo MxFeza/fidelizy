@@ -69,11 +69,11 @@ describe('auth.service', () => {
   })
 
   describe('verifyOtp', () => {
-    it('should verify OTP and return cards', async () => {
+    it('should verify OTP by phone and return cards', async () => {
       const chainable = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'cust-1' } }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'cust-1', email: 'jean@gmail.com' } }),
       }
       const cardsChainable = {
         select: vi.fn().mockReturnThis(),
@@ -87,9 +87,22 @@ describe('auth.service', () => {
       }
       const supabaseAuth = createMockAuthClient()
 
-      const result = await verifyOtp(supabase as never, supabaseAuth as never, { email: 'jean@gmail.com', token: '123456' })
+      const result = await verifyOtp(supabase as never, supabaseAuth as never, { phone: '+33612345678', token: '123456' })
       expect(result.status).toBe('verified')
       expect(result.cards).toHaveLength(1)
+    })
+
+    it('should return invalid if phone has no customer', async () => {
+      const chainable = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+      }
+      const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabaseAuth = createMockAuthClient()
+
+      const result = await verifyOtp(supabase as never, supabaseAuth as never, { phone: '+33600000000', token: '123456' })
+      expect(result.status).toBe('invalid')
     })
   })
 

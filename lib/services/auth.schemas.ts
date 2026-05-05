@@ -6,7 +6,7 @@ export const sendOtpSchema = z.object({
 export type SendOtpInput = z.infer<typeof sendOtpSchema>
 
 export const verifyOtpSchema = z.object({
-  email: z.string().email(),
+  phone: z.string().trim().min(6).max(20),
   token: z.string().length(6),
 })
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>

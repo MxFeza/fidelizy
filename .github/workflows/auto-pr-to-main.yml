@@ -101,9 +101,5 @@ jobs:
               `, { prId: prNodeId });
               core.info('Auto-merge enabled on PR');
             } catch (err) {
-              // Auto-merge peut echouer si :
-              // - "Allow auto-merge" pas active sur le repo (Settings)
-              // - PR deja mergeable et pas en attente de checks
-              // - Pas de status checks requis configure
               core.warning(`Auto-merge could not be enabled: ${err.message}`);
             }

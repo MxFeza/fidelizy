@@ -31,7 +31,7 @@
 # - ~10 semaines estimated total
 
 generated: 2026-04-12
-last_updated: 2026-04-30
+last_updated: 2026-04-30  # Epic 4 demarree (Story 4.3 in-progress) + ajout Story 4.8 espace entreprise + Story 4.9 scanner camera client
 project: Izou
 project_key: NOKEY
 tracking_system: file-system
@@ -76,14 +76,16 @@ development_status:
   epic-3-retrospective: optional
 
   # ── Epic 4: Refactor UI Client ── S6-S8
-  epic-4: backlog
+  epic-4: in-progress
   4-1-composants-custom-react: backlog
   4-2-onboarding-client: backlog
-  4-3-carte-fidelite-client: backlog
+  4-3-carte-fidelite-client: in-progress  # Demarree 2026-04-30. Decoupe en 4.3.a foundation -> 4.3.e modals/toasts/notifs
   4-4-ecrans-recompense: backlog
-  4-5-parrainage-client: backlog
+  4-5-parrainage-client: backlog  # Decision user 2026-04-30 : "vraie experience qualite et gratifiante"
   4-6-recuperation-carte: backlog
   4-7-profil-client: backlog
+  4-8-espace-entreprise-client: backlog  # Ajoute 2026-04-30. Page client avec infos commerce (logo, ouvertures, Google, contact, etc.)
+  4-9-scanner-camera-client: backlog  # Ajoute 2026-04-30. Decision user : scanner QR commercant cote client (1 scan = register OR ajout point selon etat)
   epic-4-retrospective: optional
 
   # ── Epic 5: Marketing & Engagement ── S6 — DONE 2026-04-26

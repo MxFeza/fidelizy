@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const supabaseHost = (() => {
   try {
@@ -7,6 +8,23 @@ const supabaseHost = (() => {
     return "placeholder.supabase.co";
   }
 })();
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com https://vercel.live`,
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: https://${supabaseHost}`,
+  "font-src 'self' data:",
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://*.upstash.io https://api.notion.com https://vitals.vercel-insights.com https://*.ingest.de.sentry.io${isDev ? ' ws://localhost:* http://localhost:*' : ''}`,
+  "media-src 'self' blob:",
+  "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join('; ');
 
 const nextConfig: NextConfig = {
   images: {
@@ -29,10 +47,18 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
           { key: 'X-DNS-Prefetch-Control', value: 'on' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Content-Security-Policy-Report-Only', value: csp },
         ],
       },
     ]
   },
 };
 
-export default nextConfig;
+// Wrap with Sentry — source maps uploaded to Sentry on build (requires SENTRY_AUTH_TOKEN
+// in CI/Vercel env). Without the token, the build still succeeds but source maps are skipped.
+export default withSentryConfig(nextConfig, {
+  org: "ebella",
+  project: "fidelizy",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+});

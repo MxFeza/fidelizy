@@ -464,6 +464,41 @@ afin de suivre ma progression.
 **And** P1.5 Ma carte : color picker 5 couleurs + preview (decision PM)
 **And** 6 modals + 3 etats + 4 toasts
 
+### Story 4.8 : Espace entreprise (fiche commerce cote client)
+
+En tant que client,
+je veux voir les informations pratiques du commerce auquel j'adhere,
+afin de retrouver l'horaire, l'adresse, le logo et le contact sans quitter l'app.
+
+**CREER** | **M** | **FRs :** transversal (lie a FR3 cote commercant) | **Decision user 2026-04-30**
+
+**Given** le client est sur sa carte de fidelite
+**When** il accede a l'espace entreprise (point d'entree depuis carte ou profil)
+**Then** logo + nom + photo / banniere du commerce
+**And** description courte (`businesses.description`)
+**And** horaires d'ouverture (depuis Mon entreprise, Story 8.1)
+**And** adresse + apercu Google Maps (`businesses.address` + GMB embed)
+**And** contact : telephone, email
+**And** lien Google My Business (`businesses.gmb_url`) si visible
+**And** UX optimisee (pas une page admin sterile, vraie experience client)
+
+### Story 4.9 : Scanner QR commercant (camera client)
+
+En tant que client,
+je veux scanner le QR code affiche par mon commerce avec mon telephone,
+afin d'ajouter mes points/tampons en une seule action.
+
+**CREER** | **M** | **FRs :** FR17, FR18, FR20 | **Decision user 2026-04-30** (revise : scan = client scanne commercant, plus l'inverse)
+
+**Given** le client tape sur l'onglet Scanner
+**When** la camera s'ouvre
+**Then** detection automatique du QR code commerce
+**And** si client jamais inscrit chez ce commerce -> route vers onboarding A (Story 4.2) avec business_id pre-rempli
+**And** si client deja inscrit -> ajout automatique tampon/point (selon mode commerce) + toast confirmation + retour carte
+**And** si erreur (QR invalide / hors ligne / camera refusee) : message clair + retry
+**And** respect `scan_cooldown_hours` cote commercant (si recent scan, message anti-fraude)
+**And** fallback : saisie manuelle code commerce si camera indisponible
+
 ---
 
 ## Epic 5 : Marketing & Engagement

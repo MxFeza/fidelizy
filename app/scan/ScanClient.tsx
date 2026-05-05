@@ -74,7 +74,19 @@ export default function ScanClient() {
         scanner
           .start(
             { facingMode: 'environment' },
-            { fps: 10, qrbox: { width: 220, height: 220 } },
+            {
+              fps: 15,
+              // qrbox responsive : prend la majorité du viewport vidéo pour
+              // maximiser la chance de détection. La zone visuelle blanche
+              // (border) couvre tout le container, mais la zone de scan
+              // active utilise la taille effective de la vidéo.
+              qrbox: (viewW: number, viewH: number) => {
+                const minEdge = Math.min(viewW, viewH)
+                const size = Math.floor(minEdge * 0.85)
+                return { width: size, height: size }
+              },
+              aspectRatio: 1,
+            },
             handleScan,
             undefined
           )
@@ -123,11 +135,16 @@ export default function ScanClient() {
           <h1 className="text-2xl font-bold">Scannez le QR code du commerce</h1>
         </div>
 
-        {/* Scan area : video container + border overlay */}
-        <div className="relative size-[260px] sm:size-[280px]">
+        {/* Scan area : video container + border overlay.
+            html5-qrcode injecte un <video> element dans #qr-scan-area dont
+            l'aspect-ratio est celui de la caméra (souvent 4:3). Sans
+            object-cover, la vidéo apparaît letterboxée dans notre container
+            carré (zone noire en bas) et le QR sort de la zone visible.
+            On force la <video> à remplir le carré. */}
+        <div className="relative size-[280px] sm:size-[300px]">
           <div
             id="qr-scan-area"
-            className="absolute inset-0 size-full bg-black rounded-2xl overflow-hidden"
+            className="absolute inset-0 size-full bg-black rounded-2xl overflow-hidden [&_video]:!size-full [&_video]:!object-cover"
           />
           <div
             className="absolute inset-0 size-full rounded-2xl border-2 border-white pointer-events-none"

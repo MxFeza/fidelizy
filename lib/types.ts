@@ -36,6 +36,8 @@ export interface Business {
   phone: string | null
   gmb_url: string | null
   gmb_visible: boolean
+  website_url: string | null
+  booking_url: string | null
   description: string | null
   opening_hours: string | null
   created_at: string

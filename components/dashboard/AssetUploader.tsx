@@ -12,7 +12,7 @@
 import type { ReactNode } from 'react'
 import { useCallback, useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
-import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01, Crop01 } from '@untitledui/icons'
+import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { cx } from '@/utils/cx'
 
@@ -165,24 +165,6 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
     await uploadBlob(file, file.name)
   }
 
-  /** Recadre l'image actuellement uploadee : recharge l'URL et reouvre le modal de crop. */
-  async function handleRecrop() {
-    if (!currentUrl || !cropRatio) return
-    setError(null)
-    try {
-      const res = await fetch(currentUrl)
-      if (!res.ok) throw new Error(`Impossible de récupérer l'image (${res.status})`)
-      const blob = await res.blob()
-      const ext = (blob.type.split('/')[1] || 'jpg').replace('+xml', '')
-      const file = new File([blob], `recrop.${ext}`, { type: blob.type })
-      const dataUrl = await fileToDataUrl(file)
-      setPendingFile(file)
-      setPendingSrc(dataUrl)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Recadrage impossible.')
-    }
-  }
-
   async function handleConfirmCrop() {
     if (!pendingSrc || !croppedArea || !pendingFile) return
     try {
@@ -314,29 +296,17 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
           )}
 
           {currentUrl && (
-            <div className="flex flex-wrap gap-3 mt-2">
-              {cropRatio ? (
-                <Button
-                  size="sm"
-                  color="tertiary"
-                  iconLeading={Crop01}
-                  onClick={handleRecrop}
-                  isDisabled={uploading}
-                >
-                  Recadrer
-                </Button>
-              ) : null}
-              <Button
-                size="sm"
-                color="link-destructive"
-                iconLeading={Trash01}
-                onClick={handleDelete}
-                isDisabled={deleting}
-                isLoading={deleting}
-              >
-                Supprimer
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              color="link-destructive"
+              iconLeading={Trash01}
+              onClick={handleDelete}
+              isDisabled={deleting}
+              isLoading={deleting}
+              className="mt-2"
+            >
+              Supprimer
+            </Button>
           )}
         </div>
       </div>

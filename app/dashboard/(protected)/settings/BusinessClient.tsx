@@ -66,6 +66,8 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   // Details du commerce
   const [phone, setPhone] = useState(business.phone ?? '')
   const [gmbUrl, setGmbUrl] = useState(business.gmb_url ?? '')
+  const [websiteUrl, setWebsiteUrl] = useState(business.website_url ?? '')
+  const [bookingUrl, setBookingUrl] = useState(business.booking_url ?? '')
   const [description, setDescription] = useState(business.description ?? '')
   const [openingHours, setOpeningHours] = useState(business.opening_hours ?? '')
 
@@ -88,9 +90,11 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
     address !== (business.address ?? '') ||
     phone !== (business.phone ?? '') ||
     gmbUrl !== (business.gmb_url ?? '') ||
+    websiteUrl !== (business.website_url ?? '') ||
+    bookingUrl !== (business.booking_url ?? '') ||
     description !== (business.description ?? '') ||
     openingHours !== (business.opening_hours ?? '')
-  ), [firstName, lastName, businessName, address, phone, gmbUrl, description, openingHours, business])
+  ), [firstName, lastName, businessName, address, phone, gmbUrl, websiteUrl, bookingUrl, description, openingHours, business])
 
   async function handleSaveAll() {
     if (!isDirty || saving) return
@@ -106,6 +110,8 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           address: address.trim() || null,
           phone: phone.trim() || null,
           gmb_url: gmbUrl.trim() || null,
+          website_url: websiteUrl.trim() || null,
+          booking_url: bookingUrl.trim() || null,
           description: description.trim() || null,
           opening_hours: openingHours.trim() || null,
         })
@@ -313,6 +319,24 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
               onChange={setGmbUrl}
               placeholder="https://g.page/votre-commerce"
               hint="Permet à vos clients de laisser un avis Google."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Site internet"
+              icon={Globe01}
+              value={websiteUrl}
+              onChange={setWebsiteUrl}
+              placeholder="https://votre-commerce.fr"
+              hint="Optionnel — affiché sur la fiche de votre commerce."
+            />
+            <Input
+              label="Lien de réservation"
+              value={bookingUrl}
+              onChange={setBookingUrl}
+              placeholder="https://treatwell.fr/votre-commerce"
+              hint="Resamania, Treatwell, TheFork, Calendly… apparaît comme bouton « Réserver »."
             />
           </div>
 

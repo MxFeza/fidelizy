@@ -45,12 +45,14 @@ export default function BottomTabBarClient({
   const profileTab: LocalTab = { id: 'profile', href: `${base}?tab=profile`, label: 'Profil', icon: User01 }
 
   const businessTab: RouteTab = { id: 'business', href: `${base}/business`, label: 'Entreprise', icon: Building02 }
-  const scanTab: RouteTab = { id: 'scan', href: `${base}/scan`, label: 'Scanner', icon: Scan }
+  // Story 4.2.e (Agent #2) : la page /scan racine gère le scan QR pour
+  // ajouter une carte d'un autre commerce. Pas de page dédiée par carte.
+  const scanTab: RouteTab = { id: 'scan', href: '/scan', label: 'Scanner', icon: Scan }
   const referralTab: RouteTab = { id: 'referral', href: `${base}/referral`, label: 'Parrainage', icon: Gift01 }
 
   // Active states
   const onBusiness = pathname.startsWith(`${base}/business`)
-  const onScan = pathname.startsWith(`${base}/scan`)
+  const onScan = pathname.startsWith('/scan')
   const onReferral = pathname.startsWith(`${base}/referral`)
   const onHome = pathname === base
 

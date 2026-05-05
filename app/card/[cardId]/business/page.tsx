@@ -2,7 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowLeft, MarkerPin01, Phone, Mail01, Clock, ArrowUpRight, Building02 } from '@untitledui/icons'
+import { ArrowLeft, MarkerPin01, Phone, Mail01, Clock, ArrowUpRight, Building02, Globe01, Calendar } from '@untitledui/icons'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
 
@@ -36,7 +36,7 @@ export default async function BusinessPage({ params }: PageProps) {
 
   const { data: business } = await supabase
     .from('businesses')
-    .select('business_name, logo_url, banner_url, description, address, phone, email, opening_hours, gmb_url, gmb_visible, primary_color')
+    .select('business_name, logo_url, banner_url, description, address, phone, email, opening_hours, gmb_url, gmb_visible, primary_color, website_url, booking_url')
     .eq('id', card.business_id)
     .single()
 
@@ -179,25 +179,62 @@ export default async function BusinessPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Lien Google My Business */}
-        {business.gmb_visible && business.gmb_url && (
+        {/* Lien réservation — CTA primary visible (priorité haute pour les
+            prestataires service qui veulent générer du booking) */}
+        {business.booking_url && (
           <a
-            href={business.gmb_url}
+            href={business.booking_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between gap-3 px-5 py-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow"
+            className="flex items-center justify-center gap-2 px-5 py-3.5 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl shadow-sm font-semibold text-sm transition-colors"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="size-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-                <Building02 className="size-5 text-gray-600" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Voir sur Google</p>
-                <p className="text-xs text-gray-500 mt-0.5">Avis, photos et plus</p>
-              </div>
-            </div>
-            <ArrowUpRight className="size-5 text-gray-400 shrink-0" aria-hidden="true" />
+            <Calendar className="size-5" aria-hidden="true" />
+            Réserver en ligne
           </a>
+        )}
+
+        {/* Liens externes secondaires (site web, GMB) */}
+        {(business.website_url || (business.gmb_visible && business.gmb_url)) && (
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
+            {business.website_url && (
+              <a
+                href={business.website_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                    <Globe01 className="size-5 text-gray-600" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">Site internet</p>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{business.website_url.replace(/^https?:\/\//, '')}</p>
+                  </div>
+                </div>
+                <ArrowUpRight className="size-5 text-gray-400 shrink-0" aria-hidden="true" />
+              </a>
+            )}
+            {business.gmb_visible && business.gmb_url && (
+              <a
+                href={business.gmb_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                    <Building02 className="size-5 text-gray-600" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">Voir sur Google</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Avis, photos et plus</p>
+                  </div>
+                </div>
+                <ArrowUpRight className="size-5 text-gray-400 shrink-0" aria-hidden="true" />
+              </a>
+            )}
+          </div>
         )}
       </div>
 

@@ -3,12 +3,15 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import HeroBalloon from './HeroBalloon'
 
 interface OnboardingShellProps {
   children: ReactNode
+  /** Affiche le hero ballon entre le header et le content. Default true. */
+  withHero?: boolean
 }
 
-export default function OnboardingShell({ children }: OnboardingShellProps) {
+export default function OnboardingShell({ children, withHero = true }: OnboardingShellProps) {
   return (
     <div className="min-h-screen flex flex-col bg-primary">
       <header className="px-5 py-4 border-b border-secondary">
@@ -21,6 +24,8 @@ export default function OnboardingShell({ children }: OnboardingShellProps) {
           className="h-6 w-auto"
         />
       </header>
+
+      {withHero && <HeroBalloon />}
 
       <main className="flex-1 flex flex-col px-5 py-8">
         <div className="w-full max-w-sm mx-auto">{children}</div>

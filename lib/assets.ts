@@ -60,6 +60,8 @@ export const PUBLIC_ASSETS = {
   branding: {
     logoNoir: getPublicAsset('branding/izou-logo-noir.svg'),
     logoBlanc: getPublicAsset('branding/izou-logo-blanc.svg'),
+    /** Hero ballon onboarding (Figma A2/A3/A4/A5) — single balloon + sky background. */
+    onboardingBalloon: getPublicAsset('branding/loyalty-card-balloon.webp'),
   },
   cards: {
     /** Image par defaut pour le cote droit de la carte fidelite (montgolfiere + paysage).

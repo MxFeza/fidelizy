@@ -1,7 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import JoinFlow from './JoinFlow'
-import OnboardingShell from './components/OnboardingShell'
 
 interface PageProps {
   params: Promise<{ businessId: string }>
@@ -34,9 +33,5 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
 
   if (!business) notFound()
 
-  return (
-    <OnboardingShell>
-      <JoinFlow business={business} initialReferralCode={referralCode} />
-    </OnboardingShell>
-  )
+  return <JoinFlow business={business} initialReferralCode={referralCode} />
 }

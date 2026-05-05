@@ -11,6 +11,7 @@ export interface Business {
   business_name: string
   logo_url: string | null
   banner_url: string | null
+  card_image_url: string | null
   primary_color: string
   secondary_color: string | null
   loyalty_type: LoyaltyType

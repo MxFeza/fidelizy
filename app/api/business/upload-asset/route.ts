@@ -4,12 +4,21 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { AppError, withErrorHandler } from '@/lib/errors'
 import { getBusinessAssetUrl } from '@/lib/assets'
 
-const ALLOWED_KINDS = ['logo', 'banner'] as const
+const ALLOWED_KINDS = ['logo', 'banner', 'card'] as const
 type AssetKind = (typeof ALLOWED_KINDS)[number]
 
 const KIND_CONFIG: Record<AssetKind, { bucket: 'business-logos' | 'business-banners'; maxBytes: number }> = {
   logo: { bucket: 'business-logos', maxBytes: 5 * 1024 * 1024 }, // 5 MB
   banner: { bucket: 'business-banners', maxBytes: 8 * 1024 * 1024 }, // 8 MB
+  // 'card' réutilise le bucket business-banners avec un path différent
+  // ({user_id}/card.{ext}) — pas de collision avec banner.{ext}
+  card: { bucket: 'business-banners', maxBytes: 5 * 1024 * 1024 }, // 5 MB
+}
+
+const COLUMN_BY_KIND: Record<AssetKind, 'logo_url' | 'banner_url' | 'card_image_url'> = {
+  logo: 'logo_url',
+  banner: 'banner_url',
+  card: 'card_image_url',
 }
 
 const ALLOWED_MIME = new Set([
@@ -95,7 +104,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // Bust le cache CDN en append d'un timestamp (URL change a chaque upload)
   const publicUrl = `${getBusinessAssetUrl(bucket, path)}?v=${Date.now()}`
 
-  const column = kind === 'logo' ? 'logo_url' : 'banner_url'
+  const column = COLUMN_BY_KIND[kind]
   const { error: updateError } = await service
     .from('businesses')
     .update({ [column]: publicUrl })
@@ -138,7 +147,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
     }
   }
 
-  const column = kind === 'logo' ? 'logo_url' : 'banner_url'
+  const column = COLUMN_BY_KIND[kind]
   await service
     .from('businesses')
     .update({ [column]: null })

@@ -7,6 +7,7 @@ import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import Toast from '@/components/client/Toast'
+import { Button } from '@/components/ui/base/buttons/button'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import TierProgressBar from './TierProgressBar'
 import RecentActivity from './RecentActivity'
@@ -101,13 +102,14 @@ export default function CardTab({
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Mon QR code</p>
             <ShortCodeDisplay code={shortCode} />
-            <button
+            <Button
+              size="sm"
+              color="secondary"
+              className="mt-2"
               onClick={() => setShowQrModal(true)}
-              className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-              style={{ borderColor: color, color }}
             >
               Agrandir
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -134,14 +136,16 @@ export default function CardTab({
               Réclamez-la auprès de votre commerçant
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            color="primary"
+            size="md"
+            isLoading={claiming}
+            className="w-full"
             onClick={() => setShowClaimModal(true)}
-            disabled={claiming}
-            className="w-full bg-brand-solid hover:bg-brand-solid_hover disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors"
           >
-            {claiming ? 'Génération du code…' : 'Réclamer ma récompense'}
-          </button>
+            Réclamer ma récompense
+          </Button>
         </div>
       )}
 
@@ -155,22 +159,21 @@ export default function CardTab({
             color={color}
           />
 
-          {/* Wheel button (points mode only) */}
+          {/* Wheel button (points mode only). Eligible -> Button primary
+              violet, sinon Button secondary (gris) pour indiquer "pas encore". */}
           {business.loyalty_type === 'points' && wheelStatus?.enabled && (
-            <button
+            <Button
+              size="md"
+              color={wheelStatus.eligible ? 'primary' : 'secondary'}
+              isDisabled={!wheelStatus.eligible}
+              className="w-full mt-4"
+              iconLeading={<span className="text-lg" aria-hidden="true">🎡</span>}
               onClick={onShowWheel}
-              disabled={!wheelStatus.eligible}
-              className="w-full mt-4 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: wheelStatus.eligible ? color : `${color}15`,
-                color: wheelStatus.eligible ? 'white' : color,
-              }}
             >
-              <span className="text-lg">🎡</span>
               {wheelStatus.eligible
                 ? `Tourner la roue (${wheelStatus.cost} pts)`
                 : `Roue de la fortune (${wheelStatus.cost} pts requis)`}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -181,12 +184,16 @@ export default function CardTab({
           au lieu de le router vers PassKit (bug client signale 2026-05-04).
           Epic 6 remplacera ce bouton par le badge officiel Apple "Add to Apple
           Wallet" + variante Google Wallet detectee via userAgent. */}
+      {/* Bouton noir custom : matching branding officiel "Add to Apple Wallet"
+          (Apple impose ce style noir + texte blanc sur fond sombre).
+          Pas de Button Untitled UI ici — la couleur noire n'est pas dans les
+          variants standard, et c'est intentionnel (cf. Figma A6). */}
       {walletAvailable && (
         <a
           href={`/api/wallet/${card.qr_code_id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-2 bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3.5 px-4 rounded-2xl text-sm transition-colors shadow-sm"
+          className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3.5 px-4 rounded-xl text-sm transition-colors shadow-xs-skeumorphic"
         >
           <CreditCard02 className="size-5" aria-hidden="true" />
           Ajouter à Apple Wallet
@@ -239,20 +246,24 @@ export default function CardTab({
               </p>
 
               <div className="space-y-2.5">
-                <button
+                <Button
                   type="button"
+                  color="primary"
+                  size="md"
+                  className="w-full"
                   onClick={handleCopyCode}
-                  className="w-full bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3 px-4 rounded-2xl text-sm transition-colors"
                 >
                   Copier le code
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  color="secondary"
+                  size="md"
+                  className="w-full"
                   onClick={() => setShowQrModal(false)}
-                  className="w-full bg-white ring-1 ring-gray-200 hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-2xl text-sm transition-colors"
                 >
                   Fermer
-                </button>
+                </Button>
               </div>
             </div>
           </div>

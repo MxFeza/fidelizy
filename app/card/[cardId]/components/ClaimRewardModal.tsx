@@ -1,6 +1,7 @@
 'use client'
 
 import { AlertTriangle } from '@untitledui/icons'
+import { Button } from '@/components/ui/base/buttons/button'
 
 interface ClaimRewardModalProps {
   isOpen: boolean
@@ -53,20 +54,24 @@ export default function ClaimRewardModal({
         </p>
 
         <div className="space-y-2.5">
-          <button
+          <Button
             type="button"
+            color="primary"
+            size="md"
+            className="w-full"
             onClick={onConfirm}
-            className="w-full bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3 px-4 rounded-2xl text-sm transition-colors"
           >
             Réclamer maintenant
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            color="secondary"
+            size="md"
+            className="w-full"
             onClick={onCancel}
-            className="w-full bg-white ring-1 ring-gray-200 hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-2xl text-sm transition-colors"
           >
             Annuler
-          </button>
+          </Button>
         </div>
       </div>
     </div>

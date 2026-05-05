@@ -1,15 +1,17 @@
 'use client'
 
+import { Button } from '@/components/ui/base/buttons/button'
 import { urlBase64ToUint8Array } from './utils'
 
 interface PushBannerProps {
   cardId: string
   showPushBanner: boolean
   onDismiss: () => void
-  color: string
+  /** @deprecated couleur business, plus utilisée depuis l'audit CTA. */
+  color?: string
 }
 
-export default function PushBanner({ cardId, showPushBanner, onDismiss, color }: PushBannerProps) {
+export default function PushBanner({ cardId, showPushBanner, onDismiss }: PushBannerProps) {
   if (!showPushBanner) return null
 
   async function handleEnablePush() {
@@ -64,19 +66,12 @@ export default function PushBanner({ cardId, showPushBanner, onDismiss, color }:
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={handleDismissPush}
-          className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1.5"
-        >
+        <Button size="sm" color="link-gray" onClick={handleDismissPush}>
           Plus tard
-        </button>
-        <button
-          onClick={handleEnablePush}
-          className="text-xs text-white font-semibold px-3 py-1.5 rounded-lg"
-          style={{ backgroundColor: color }}
-        >
+        </Button>
+        <Button size="sm" color="primary" onClick={handleEnablePush}>
           Activer
-        </button>
+        </Button>
       </div>
     </div>
   )

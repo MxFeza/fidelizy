@@ -16,7 +16,7 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
   let business
   const { data: byId } = await supabase
     .from('businesses')
-    .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro')
+    .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro, logo_url, gamification')
     .eq('id', businessId)
     .single()
 
@@ -25,7 +25,7 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
   } else {
     const { data: byShortCode } = await supabase
       .from('businesses')
-      .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro')
+      .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro, logo_url, gamification')
       .eq('short_code', businessId)
       .single()
     business = byShortCode

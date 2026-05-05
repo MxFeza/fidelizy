@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
+import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import OnboardingShell from './components/OnboardingShell'
 import IzouBulletLogo from './components/IzouBulletLogo'
 import OTPCodeInput, { type OTPStatus } from './components/OTPCodeInput'
@@ -15,6 +16,8 @@ interface Business {
   stamps_required: number | null
   stamps_reward: string | null
   points_per_euro: number | null
+  logo_url: string | null
+  gamification: Record<string, unknown> | null
 }
 
 interface JoinFlowProps {
@@ -440,28 +443,71 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
         )
       })()}
 
-      {step === 'success' && (
-        <div className="space-y-6 text-center">
-          <div className="space-y-2">
-            <h1 className="text-display-xs font-bold text-primary">
-              Félicitations {firstName} !
-            </h1>
-            <p className="text-md text-tertiary">
-              Votre carte fidélité chez {business.business_name} a été créée.
-            </p>
-          </div>
+      {step === 'success' && (() => {
+        const initialStamps =
+          business.loyalty_type === 'stamps' &&
+          typeof business.gamification?.initial_stamps === 'number'
+            ? (business.gamification.initial_stamps as number)
+            : 0
+        const stampsRequired = business.stamps_required ?? 10
+        const isStamps = business.loyalty_type === 'stamps'
 
-          <Button
-            type="button"
-            color="primary"
-            size="lg"
-            className="w-full"
-            onClick={handleViewCard}
-          >
-            Voir ma carte
-          </Button>
-        </div>
-      )}
+        return (
+          <div className="space-y-6">
+            <div className="space-y-1.5">
+              <h1 className="text-display-xs font-bold text-primary">
+                Félicitations {firstName} !{' '}
+                <span aria-hidden="true">🎉</span>
+              </h1>
+              <p className="text-md text-tertiary">
+                Votre carte fidélité chez {business.business_name} a été créée !
+              </p>
+            </div>
+
+            <LoyaltyCardVisual
+              customerName={firstName}
+              loyaltyType={isStamps ? 'stamps' : 'points'}
+              currentStamps={initialStamps}
+              stampsRequired={stampsRequired}
+              currentPoints={0}
+              businessLogoUrl={business.logo_url}
+            />
+
+            {isStamps && initialStamps > 0 && (
+              <div className="rounded-xl bg-brand-primary px-4 py-3 text-center">
+                <p className="text-sm font-semibold text-brand-secondary">
+                  <span aria-hidden="true">🏆</span> {initialStamps} tampon
+                  {initialStamps > 1 ? 's' : ''} offert
+                  {initialStamps > 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {qrCodeId && (
+                <a
+                  href={`/api/wallet/${qrCodeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white font-semibold py-3.5 px-4 rounded-xl text-sm transition-colors hover:bg-gray-800 shadow-xs-skeumorphic"
+                >
+                   Ajouter à Apple Wallet
+                </a>
+              )}
+
+              <Button
+                type="button"
+                color="tertiary"
+                size="lg"
+                className="w-full"
+                onClick={handleViewCard}
+              >
+                Plus tard
+              </Button>
+            </div>
+          </div>
+        )
+      })()}
     </OnboardingShell>
   )
 }

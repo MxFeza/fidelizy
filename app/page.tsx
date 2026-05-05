@@ -1,43 +1,55 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { Building02, CreditCard02, ArrowRight } from '@untitledui/icons'
+import HeroBalloon from '@/components/client/HeroBalloon'
+import IzouBulletLogo from '@/components/client/IzouBulletLogo'
 
 export const metadata = {
   title: 'Izou — Cartes de fidélité digitales',
 }
 
 /**
- * Home / — Page d'accueil avec 2 espaces : client et commerçant.
+ * Home / — 2 espaces : client et commerçant.
  *
- * En production future, les espaces commerçant et client seront sur des
- * subdomains differents. Pendant les phases de dev/test, cette home sert
- * de point d'entree unique.
+ * Reprend le pattern visuel des écrans onboarding `/join/[shortCode]` :
+ * header logo + hero ballon + IzouBulletLogo central, pour rester
+ * cohérent avec l'univers client (Figma A2/A4) et donner du caractère
+ * à la page d'arrivée. Décision user 2026-05-05.
  *
- * Le scan QR n'est PAS un point d'entree landing : un commerçant qui
+ * Le scan QR n'est PAS un point d'entrée landing : un commerçant qui
  * affiche son QR redirige directement vers `/join/{shortCode}` (URL
- * encodee dans le QR), et la fonction `/scan` interne sert depuis l'espace
- * client `/me` (ajout de carte ou check-in en caisse).
- *
- * Decision user 2026-05-01 (2 espaces) + 2026-05-05 (retrait CTA scan home).
+ * encodée dans le QR), et la fonction `/scan` interne sert depuis
+ * l'espace client `/me`.
  */
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-primary">
-      <main className="flex-1 flex items-center justify-center px-5 py-12">
-        <div className="w-full max-w-md">
-          {/* Logo + tagline */}
-          <div className="text-center mb-10">
-            <Image
-              src="/izou-logo.svg"
-              alt="Izou"
-              width={120}
-              height={36}
-              priority
-              className="h-9 w-auto mx-auto mb-4"
-            />
-            <p className="text-md text-tertiary">
-              La fidélité digitale, simple et premium.
-            </p>
+      <header className="px-5 py-4 border-b border-secondary">
+        <Image
+          src="/izou-logo.svg"
+          alt="Izou"
+          width={80}
+          height={24}
+          priority
+          className="h-6 w-auto"
+        />
+      </header>
+
+      <HeroBalloon />
+
+      <main className="flex-1 flex flex-col px-5 py-8">
+        <div className="w-full max-w-sm mx-auto space-y-6">
+          {/* Bullets logo + heading */}
+          <div className="space-y-3 text-center">
+            <IzouBulletLogo />
+            <div className="space-y-1.5">
+              <h1 className="text-display-xs font-bold text-primary">
+                Bienvenue sur Izou
+              </h1>
+              <p className="text-md text-tertiary">
+                La fidélité digitale, simple et premium.
+              </p>
+            </div>
           </div>
 
           {/* 2 espaces : client + commerçant */}
@@ -49,7 +61,7 @@ export default function HomePage() {
               <div className="size-12 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
                 <CreditCard02 className="size-6 text-white" aria-hidden="true" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 text-left">
                 <p className="font-bold text-primary text-base">Je suis client</p>
                 <p className="text-sm text-tertiary mt-0.5">
                   Accéder à mes cartes fidélité
@@ -65,7 +77,7 @@ export default function HomePage() {
               <div className="size-12 rounded-xl bg-brand-solid flex items-center justify-center shrink-0">
                 <Building02 className="size-6 text-white" aria-hidden="true" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 text-left">
                 <p className="font-bold text-primary text-base">Je suis commerçant</p>
                 <p className="text-sm text-tertiary mt-0.5">
                   Gérer mon programme et mes clients

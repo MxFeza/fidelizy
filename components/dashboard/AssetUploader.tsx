@@ -1,28 +1,26 @@
 'use client'
 
 /**
- * AssetUploader — upload de logo ou banniere commercant.
+ * AssetUploader — upload de logo, bannière ou image carte commerçant.
  *
- * Logo : preview cercle, object-contain (preserve le ratio uploade — carre,
- * rectangle, ovale, etc.). Le ratio uploade est conserve PARTOUT dans l'app
- * (sidebar, cartes loyalty, Apple Wallet) pour eviter toute deformation.
- *
- * Banniere : preview ratio 3:1 paysage, object-cover (cadree au centre).
+ * Logo : preview cercle, object-contain (préserve le ratio uploadé). Pas de crop.
+ * Banniere : preview ratio 3:1, crop forcé 3:1 via react-easy-crop.
+ * Card : preview carrée, crop forcé 1:1 (sera affichée côté droit de la carte
+ *        loyalty client via object-cover, ratio adapté automatiquement).
  */
 
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import Cropper, { type Area } from 'react-easy-crop'
 import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { cx } from '@/utils/cx'
 
-type Kind = 'logo' | 'banner'
+type Kind = 'logo' | 'banner' | 'card'
 
 interface AssetUploaderProps {
   kind: Kind
   currentUrl?: string | null
-  /** Callback apres upload reussi avec l'URL publique. */
   onUploaded?: (url: string) => void
-  /** Callback apres suppression reussie. */
   onDeleted?: () => void
   className?: string
 }
@@ -35,19 +33,68 @@ const HINT: Record<Kind, { title: string; specs: string[]; help: string }> = {
     specs: [
       'PNG ou SVG avec fond transparent (recommandé)',
       'Taille minimum : 512×512 pixels',
-      'Forme libre — carrée, ovale, asymétrique : votre logo s\'inscrira partout sans déformation',
+      'Forme libre — votre logo s\'inscrira partout sans déformation',
     ],
-    help: 'Sera affiché sur les cartes de fidélité, dans le menu de navigation et sur les pass Apple/Google Wallet.',
+    help: 'Affiché sur les cartes de fidélité, le menu de navigation et les pass Wallet.',
   },
   banner: {
     title: 'Bannière de profil',
     specs: [
       'JPG, PNG ou WebP',
-      'Taille recommandée : 1500×500 pixels (ratio 3:1)',
-      'Image cadrée au centre',
+      'Recadrage 3:1 — recommandé : 1500×500 pixels',
+      'Recadrez votre image après l\'avoir importée',
     ],
-    help: 'Visible en haut de votre page entreprise.',
+    help: 'Visible en haut de votre fiche entreprise côté client.',
   },
+  card: {
+    title: 'Image de carte',
+    specs: [
+      'JPG, PNG ou WebP',
+      'Recadrage carré 1:1 — recommandé : 800×800 pixels',
+      'Une photo de votre commerce ou produit phare fonctionne bien',
+    ],
+    help: 'Remplace l\'illustration par défaut sur le côté droit de la carte fidélité de vos clients.',
+  },
+}
+
+const CROP_RATIO: Partial<Record<Kind, number>> = {
+  banner: 3 / 1,
+  card: 1,
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Impossible de lire l\'image'))
+    img.src = src
+  })
+}
+
+async function cropImageToBlob(src: string, area: Area): Promise<Blob> {
+  const image = await loadImage(src)
+  const canvas = document.createElement('canvas')
+  canvas.width = area.width
+  canvas.height = area.height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas indisponible')
+  ctx.drawImage(image, area.x, area.y, area.width, area.height, 0, 0, area.width, area.height)
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Encodage de l\'image échoué'))),
+      'image/jpeg',
+      0.92,
+    )
+  })
 }
 
 export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, className }: AssetUploaderProps) {
@@ -57,23 +104,71 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
 
-  const hint = HINT[kind]
+  // Crop state
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingSrc, setPendingSrc] = useState<string | null>(null)
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedArea, setCroppedArea] = useState<Area | null>(null)
 
-  async function handleFile(file: File) {
+  const hint = HINT[kind]
+  const cropRatio = CROP_RATIO[kind]
+
+  const onCropComplete = useCallback((_: Area, areaPixels: Area) => {
+    setCroppedArea(areaPixels)
+  }, [])
+
+  function resetCrop() {
+    setPendingFile(null)
+    setPendingSrc(null)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedArea(null)
+  }
+
+  async function uploadBlob(blob: Blob, originalName: string) {
     setError(null)
     setUploading(true)
     try {
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', new File([blob], originalName, { type: blob.type || 'image/jpeg' }))
       fd.append('kind', kind)
       const res = await fetch('/api/business/upload-asset', { method: 'POST', body: fd })
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.error ?? `Upload échoué (${res.status})`)
       onUploaded?.(body.url)
+      resetCrop()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de l\'upload.')
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function handleFile(file: File) {
+    setError(null)
+    if (cropRatio) {
+      // Open crop modal — actual upload happens after user confirms
+      try {
+        const dataUrl = await fileToDataUrl(file)
+        setPendingFile(file)
+        setPendingSrc(dataUrl)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Lecture du fichier impossible.')
+      }
+      return
+    }
+    // No crop required (logo) — upload direct
+    await uploadBlob(file, file.name)
+  }
+
+  async function handleConfirmCrop() {
+    if (!pendingSrc || !croppedArea || !pendingFile) return
+    try {
+      const blob = await cropImageToBlob(pendingSrc, croppedArea)
+      await uploadBlob(blob, pendingFile.name.replace(/\.[^.]+$/, '.jpg'))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Recadrage échoué.')
     }
   }
 
@@ -112,7 +207,9 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
   const previewBox =
     kind === 'logo'
       ? 'aspect-square w-32 sm:w-40 rounded-full bg-secondary flex items-center justify-center overflow-hidden ring-1 ring-secondary'
-      : 'aspect-[3/1] w-full rounded-lg bg-secondary flex items-center justify-center overflow-hidden ring-1 ring-secondary'
+      : kind === 'banner'
+      ? 'aspect-[3/1] w-full rounded-lg bg-secondary flex items-center justify-center overflow-hidden ring-1 ring-secondary'
+      : 'aspect-square w-32 sm:w-40 rounded-lg bg-secondary flex items-center justify-center overflow-hidden ring-1 ring-secondary'
 
   const objectFit = kind === 'logo' ? 'object-contain p-3' : 'object-cover'
 
@@ -127,19 +224,15 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
         aria-label={hint.title}
       />
 
-      <div className={kind === 'logo' ? 'flex items-start gap-4 sm:gap-6' : 'flex flex-col gap-3'}>
+      <div className={kind === 'banner' ? 'flex flex-col gap-3' : 'flex items-start gap-4 sm:gap-6'}>
         <div className={previewBox}>
           {currentUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={currentUrl}
-              alt={hint.title}
-              className={cx('w-full h-full', objectFit)}
-            />
+            <img src={currentUrl} alt={hint.title} className={cx('w-full h-full', objectFit)} />
           ) : (
             <div className="flex flex-col items-center gap-1 text-tertiary">
               <Image01 className="size-6" />
-              <span className="text-xs">Aucun {kind === 'logo' ? 'logo' : 'aperçu'}</span>
+              <span className="text-xs">Aucun aperçu</span>
             </div>
           )}
         </div>
@@ -148,10 +241,7 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
           onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
           onDragLeave={() => setDragActive(false)}
           onDrop={onDrop}
-          className={cx(
-            'flex-1 min-w-0',
-            kind === 'banner' && 'min-w-full',
-          )}
+          className={cx('flex-1 min-w-0', kind === 'banner' && 'min-w-full')}
         >
           <div
             className={cx(
@@ -215,6 +305,58 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
         </ul>
         <p className="text-xs text-tertiary mt-2 italic">{hint.help}</p>
       </div>
+
+      {pendingSrc && cropRatio && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Recadrer l'image"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+        >
+          <div className="bg-white rounded-2xl p-5 w-full max-w-lg">
+            <p className="text-sm font-semibold text-primary mb-1">Recadrez votre image</p>
+            <p className="text-xs text-tertiary mb-3">Glissez pour repositionner, utilisez le slider pour zoomer.</p>
+
+            <div className="relative w-full aspect-[3/1] bg-gray-900 rounded-lg overflow-hidden"
+                 style={{ aspectRatio: kind === 'card' ? '1 / 1' : '3 / 1' }}>
+              <Cropper
+                image={pendingSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={cropRatio}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+                cropShape="rect"
+                showGrid
+              />
+            </div>
+
+            <label className="block mt-4">
+              <span className="text-xs font-semibold text-secondary">Zoom</span>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full mt-1 accent-brand"
+                aria-label="Zoom"
+              />
+            </label>
+
+            <div className="flex gap-2 mt-4">
+              <Button color="secondary" onClick={resetCrop} isDisabled={uploading} className="flex-1">
+                Annuler
+              </Button>
+              <Button color="primary" onClick={handleConfirmCrop} isLoading={uploading} className="flex-1">
+                Recadrer et importer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -49,8 +49,9 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   const router = useRouter()
   const supabase = createClient()
 
-  // Logo
+  // Logo + bannière
   const [logoUrl, setLogoUrl] = useState<string | null>(business.logo_url)
+  const [bannerUrl, setBannerUrl] = useState<string | null>(business.banner_url)
 
   // Infos personnelles
   const [firstName, setFirstName] = useState(business.first_name ?? '')
@@ -252,6 +253,16 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
               currentUrl={logoUrl}
               onUploaded={(url) => { setLogoUrl(url); router.refresh() }}
               onDeleted={() => { setLogoUrl(null); router.refresh() }}
+            />
+          </div>
+
+          <div className="pt-2">
+            <p className="text-sm font-medium text-secondary mb-2">Bannière de votre fiche entreprise</p>
+            <AssetUploader
+              kind="banner"
+              currentUrl={bannerUrl}
+              onUploaded={(url) => { setBannerUrl(url); router.refresh() }}
+              onDeleted={() => { setBannerUrl(null); router.refresh() }}
             />
           </div>
 

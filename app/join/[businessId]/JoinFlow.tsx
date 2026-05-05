@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
-import OTPInput from '@/app/components/OTPInput'
 import OnboardingShell from './components/OnboardingShell'
 import IzouBulletLogo from './components/IzouBulletLogo'
+import OTPCodeInput, { type OTPStatus } from './components/OTPCodeInput'
 
 interface Business {
   id: string
@@ -23,6 +23,9 @@ interface JoinFlowProps {
 }
 
 type Step = 'name' | 'phone' | 'email' | 'otp' | 'success'
+
+/** Sous-états de l'écran OTP, conforme Figma A5.0→A5.5. */
+type OTPSub = 'idle' | 'wrong' | 'expired' | 'resent' | 'success'
 
 interface ErrorState {
   title?: string
@@ -43,6 +46,8 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
   const [qrCodeId, setQrCodeId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<ErrorState | null>(null)
+  const [otpValue, setOtpValue] = useState('')
+  const [otpSub, setOtpSub] = useState<OTPSub>('idle')
 
   function clearError() {
     if (error) setError(null)
@@ -152,41 +157,53 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
   async function handleResendOTP() {
     setError(null)
     setLoading(true)
+    setOtpValue('')
     try {
       await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone.trim() }),
       })
+      setOtpSub('resent')
+    } catch {
+      // ignore — user peut re-cliquer
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleOTP(token: string) {
+  async function handleSubmitOTP() {
+    if (otpValue.length !== 6) return
     setLoading(true)
     setError(null)
     try {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), token }),
+        body: JSON.stringify({ phone: phone.trim(), token: otpValue }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError({ message: data?.error || 'Code invalide. Veuillez réessayer.' })
+        const msg = String(data?.error || '').toLowerCase()
+        if (msg.includes('expir') || msg.includes('expire')) {
+          setOtpSub('expired')
+        } else {
+          setOtpSub('wrong')
+        }
         return
       }
       if (data.status === 'verified') {
         if (!qrCodeId && Array.isArray(data.cards) && data.cards.length > 0) {
           setQrCodeId(data.cards[0].qr_code_id)
         }
-        setStep('success')
+        setOtpSub('success')
+        // Laisse le temps de voir l'état "Code vérifié" avant de basculer
+        setTimeout(() => setStep('success'), 1000)
         return
       }
-      setError({ message: 'Code invalide. Veuillez réessayer.' })
+      setOtpSub('wrong')
     } catch {
-      setError({ message: 'Erreur de connexion. Veuillez réessayer.' })
+      setOtpSub('wrong')
     } finally {
       setLoading(false)
     }
@@ -347,41 +364,81 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
         </form>
       )}
 
-      {step === 'otp' && (
-        <div className="space-y-6">
-          <div className="space-y-3 text-center">
-            <IzouBulletLogo />
-            <div className="space-y-1.5">
-              <h1 className="text-display-xs font-bold text-primary">
-                Entrez le code reçu
-              </h1>
-              <p className="text-md text-tertiary">
-                Code envoyé à {email.toLowerCase()}
-              </p>
+      {step === 'otp' && (() => {
+        const titleByState: Record<OTPSub, string> = {
+          idle: 'Entrez le code reçu',
+          resent: 'Entrez le code reçu',
+          wrong: 'Code incorrect',
+          expired: 'Code expiré',
+          success: 'Code vérifié ✓',
+        }
+        const subtitleByState: Record<OTPSub, string> = {
+          idle: `Code envoyé à ${email.toLowerCase()}`,
+          resent: `Nouveau code envoyé à ${email.toLowerCase()}`,
+          wrong: 'Vérifiez les 6 chiffres et réessayez',
+          expired: 'Votre code est expiré. Demandez-en un nouveau.',
+          success: 'Redirection en cours...',
+        }
+        const subtitleColor =
+          otpSub === 'success'
+            ? 'text-success-primary'
+            : otpSub === 'wrong' || otpSub === 'expired'
+              ? 'text-error-primary'
+              : 'text-tertiary'
+        const inputStatus: OTPStatus =
+          otpSub === 'success' ? 'success' : otpSub === 'wrong' ? 'invalid' : 'idle'
+        const isSuccess = otpSub === 'success'
+
+        return (
+          <div className="space-y-6">
+            <div className="space-y-3 text-center">
+              <IzouBulletLogo />
+              <div className="space-y-1.5">
+                <h1 className="text-display-xs font-bold text-primary">
+                  {titleByState[otpSub]}
+                </h1>
+                <p className={`text-md ${subtitleColor}`}>
+                  {subtitleByState[otpSub]}
+                </p>
+              </div>
+            </div>
+
+            <OTPCodeInput
+              value={otpValue}
+              onChange={(v) => {
+                setOtpValue(v)
+                if (otpSub !== 'idle' && otpSub !== 'success') setOtpSub('idle')
+              }}
+              disabled={loading || isSuccess}
+              status={inputStatus}
+            />
+
+            <div className="space-y-2">
+              <Button
+                type="button"
+                color="primary"
+                size="lg"
+                isLoading={loading}
+                isDisabled={otpValue.length !== 6 || isSuccess}
+                className="w-full"
+                onClick={handleSubmitOTP}
+              >
+                Valider
+              </Button>
+              <Button
+                type="button"
+                color="tertiary"
+                size="lg"
+                className="w-full"
+                isDisabled={loading || isSuccess}
+                onClick={handleResendOTP}
+              >
+                Renvoyer le code
+              </Button>
             </div>
           </div>
-
-          <div className="space-y-3">
-            <OTPInput onComplete={handleOTP} disabled={loading} />
-            {error && (
-              <p className="text-sm font-medium text-error-primary text-center">
-                {error.message}
-              </p>
-            )}
-          </div>
-
-          <Button
-            type="button"
-            color="tertiary"
-            size="lg"
-            className="w-full"
-            isDisabled={loading}
-            onClick={handleResendOTP}
-          >
-            Renvoyer le code
-          </Button>
-        </div>
-      )}
+        )
+      })()}
 
       {step === 'success' && (
         <div className="space-y-6 text-center">

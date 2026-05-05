@@ -13,6 +13,7 @@ import PushBanner from './components/PushBanner'
 import ProfileTab from './components/ProfileTab'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
+import Toast from '@/components/client/Toast'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -70,10 +71,10 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  // iOS install suggestion + wallet availability
-  // En dev, on force walletAvailable=true pour pouvoir verifier le rendu desktop.
+  // iOS install suggestion + wallet availability — SSR-safe init via effect
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWalletAvailable(true)
     }
     if (isIOS()) {
@@ -84,7 +85,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     }
   }, [])
 
-  // Push notification permission
+  // Push notification permission — SSR-safe init via effect
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!('PushManager' in window)) return
@@ -92,6 +93,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     if (Notification.permission === 'granted') return
     if (Notification.permission === 'denied') return
     if (localStorage.getItem('fidelizy_push_dismissed')) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowPushBanner(true)
   }, [])
 
@@ -169,6 +171,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
 
     if (lastStamps !== null && stampsCount > lastStamps) {
       const diff = stampsCount - lastStamps
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
       setTimeout(() => setNotification(null), 4000)
     }
@@ -217,11 +220,9 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
             left: '50%',
             zIndex: 60,
             animation: 'slideDownNotif 4s ease-in-out forwards',
-            whiteSpace: 'nowrap',
           }}
-          className="bg-green-600 text-white px-5 py-3 rounded-2xl shadow-lg text-sm font-semibold"
         >
-          {notification}
+          <Toast variant="success" title={notification} />
         </div>
       )}
 

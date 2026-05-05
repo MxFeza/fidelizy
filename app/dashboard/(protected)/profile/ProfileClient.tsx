@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Mail, Lock, LogOut, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/base/buttons/button'
 
 interface ProfileClientProps {
   email: string
@@ -261,14 +262,15 @@ export default function ProfileClient({ email, businessName }: ProfileClientProp
       <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-5 md:p-6">
         <p className="text-sm font-semibold text-gray-900 mb-1">Déconnexion</p>
         <p className="text-xs text-gray-400 mb-4">Vous serez redirigé vers la page de connexion.</p>
-        <button
+        <Button
+          size="md"
+          color="secondary-destructive"
+          isLoading={logoutLoading}
+          iconLeading={LogOut}
           onClick={handleLogout}
-          disabled={logoutLoading}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
         >
-          <LogOut className="w-4 h-4" />
-          {logoutLoading ? 'Déconnexion...' : 'Se déconnecter'}
-        </button>
+          Se déconnecter
+        </Button>
 
         <div className="border-t border-red-100 mt-5 pt-5">
           <p className="text-sm font-semibold text-red-700 mb-1">Supprimer mon compte</p>
@@ -278,13 +280,14 @@ export default function ProfileClient({ email, businessName }: ProfileClientProp
           </p>
 
           {!showDeleteConfirm ? (
-            <button
+            <Button
+              size="md"
+              color="primary-destructive"
+              iconLeading={Trash2}
               onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors"
             >
-              <Trash2 className="w-4 h-4" />
               Supprimer mon compte
-            </button>
+            </Button>
           ) : (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
               <p className="text-sm text-red-800 font-medium">

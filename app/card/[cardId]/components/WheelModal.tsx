@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/base/buttons/button'
 
 interface WheelSegment {
   id: string
@@ -172,24 +173,26 @@ export default function WheelModal({ cardId, qrCodeId, businessId, color, cardTo
             )}
 
             {!result && (
-              <button
+              <Button
+                size="md"
+                color="primary"
+                isLoading={spinning}
+                className="w-full"
                 onClick={handleSpin}
-                disabled={spinning}
-                className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-60"
-                style={{ backgroundColor: color }}
               >
                 {spinning ? 'La roue tourne...' : 'Tourner !'}
-              </button>
+              </Button>
             )}
 
             {result && (
-              <button
+              <Button
+                size="md"
+                color="secondary"
+                className="w-full"
                 onClick={onClose}
-                className="w-full py-3 rounded-xl text-sm font-semibold border-2 transition-all"
-                style={{ borderColor: color, color }}
               >
                 Fermer
-              </button>
+              </Button>
             )}
           </div>
         )}

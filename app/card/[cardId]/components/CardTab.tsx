@@ -11,6 +11,7 @@ import { PUBLIC_ASSETS } from '@/lib/assets'
 import TierProgressBar from './TierProgressBar'
 import RecentActivity from './RecentActivity'
 import ClaimRewardModal from './ClaimRewardModal'
+import ClaimCodeModal from './ClaimCodeModal'
 import type { Business, LoyaltyCard, Customer, LoyaltyTier, Transaction } from '@/lib/types'
 
 interface CardTabProps {
@@ -46,13 +47,37 @@ export default function CardTab({
   const [showQrModal, setShowQrModal] = useState(false)
   const [showCopyToast, setShowCopyToast] = useState(false)
   const [showClaimModal, setShowClaimModal] = useState(false)
-  const [showClaimToast, setShowClaimToast] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [claimError, setClaimError] = useState<string | null>(null)
+  const [claimResult, setClaimResult] = useState<{
+    code: string
+    rewardName: string
+    expiresAt: string
+  } | null>(null)
 
-  function handleClaimConfirm() {
-    setShowClaimModal(false)
-    setShowClaimToast(true)
-    setTimeout(() => setShowClaimToast(false), 5000)
-    setShowQrModal(true)
+  async function handleClaimConfirm() {
+    setClaiming(true)
+    setClaimError(null)
+    try {
+      const res = await fetch(`/api/card/${card.qr_code_id}/claim-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tierId: null }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error ?? `Erreur (${res.status})`)
+      setClaimResult({
+        code: data.code,
+        rewardName: data.rewardName,
+        expiresAt: data.expiresAt,
+      })
+      setShowClaimModal(false)
+    } catch (e) {
+      setClaimError(e instanceof Error ? e.message : 'Erreur lors de la réclamation.')
+      setTimeout(() => setClaimError(null), 5000)
+    } finally {
+      setClaiming(false)
+    }
   }
 
   async function handleCopyCode() {
@@ -112,9 +137,10 @@ export default function CardTab({
           <button
             type="button"
             onClick={() => setShowClaimModal(true)}
-            className="w-full bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors"
+            disabled={claiming}
+            className="w-full bg-brand-solid hover:bg-brand-solid_hover disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors"
           >
-            Réclamer ma récompense
+            {claiming ? 'Génération du code…' : 'Réclamer ma récompense'}
           </button>
         </div>
       )}
@@ -244,14 +270,10 @@ export default function CardTab({
         </div>
       )}
 
-      {/* Toast "Présentez votre QR" — confirme l'intention de réclamation */}
-      {showClaimToast && (
+      {/* Toast erreur réclamation (rate-limit / expired card / etc.) */}
+      {claimError && (
         <div className="fixed left-1/2 -translate-x-1/2 z-[60] px-4 w-full max-w-md" style={{ top: '4.5rem' }}>
-          <Toast
-            variant="success"
-            title="Récompense réclamée"
-            message="Présentez votre code à votre commerçant"
-          />
+          <Toast variant="error" title="Réclamation impossible" message={claimError} />
         </div>
       )}
 
@@ -262,6 +284,15 @@ export default function CardTab({
         rewardName={business.stamps_reward}
         onConfirm={handleClaimConfirm}
         onCancel={() => setShowClaimModal(false)}
+      />
+
+      {/* Modal "Demande envoyée" avec le code à présenter au merchant — C3 */}
+      <ClaimCodeModal
+        isOpen={!!claimResult}
+        code={claimResult?.code ?? ''}
+        rewardName={claimResult?.rewardName ?? ''}
+        expiresAt={claimResult?.expiresAt ?? new Date().toISOString()}
+        onClose={() => setClaimResult(null)}
       />
     </>
   )

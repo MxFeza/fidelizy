@@ -221,7 +221,7 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
   return (
     <OnboardingShell withHero={withHero}>
       {step === 'name' && (
-        <form onSubmit={handleNameSubmit} className="space-y-6">
+        <form onSubmit={handleNameSubmit} noValidate className="space-y-6">
           <div className="space-y-3 text-center">
             <IzouBulletLogo />
             <div className="space-y-1.5">
@@ -258,7 +258,7 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
       )}
 
       {step === 'phone' && (
-        <form onSubmit={handlePhoneSubmit} className="space-y-6">
+        <form onSubmit={handlePhoneSubmit} noValidate className="space-y-6">
           <div className="space-y-3 text-center">
             <IzouBulletLogo />
             <div className="space-y-1.5">
@@ -309,7 +309,7 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
       )}
 
       {step === 'email' && (
-        <form onSubmit={handleEmailSubmit} className="space-y-6">
+        <form onSubmit={handleEmailSubmit} noValidate className="space-y-6">
           <div className="space-y-3 text-center">
             <IzouBulletLogo />
             <div className="space-y-1.5">

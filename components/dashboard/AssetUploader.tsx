@@ -374,6 +374,9 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
                 onCropComplete={onCropComplete}
                 cropShape="rect"
                 showGrid
+                // Remplit la zone de crop sans bandes noires + permet de
+                // pan/zoom pour explorer toute l'image source.
+                objectFit="cover"
               />
             </div>
 

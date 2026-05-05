@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { MessageChatCircle, X as XIcon, CheckDone01 } from '@untitledui/icons'
+import { Button } from '@/components/ui/base/buttons/button'
 
 export default function FeedbackBubble() {
   const pathname = usePathname()
@@ -107,22 +108,27 @@ export default function FeedbackBubble() {
                   className="w-full px-3.5 py-2.5 rounded-lg ring-1 ring-secondary bg-primary text-md text-primary placeholder:text-placeholder shadow-xs focus:outline-2 focus:outline-brand resize-none"
                 />
                 <div className="flex gap-2 mt-3">
-                  <button
+                  <Button
                     type="button"
+                    size="md"
+                    color="secondary"
+                    isDisabled={sending}
+                    className="flex-1"
                     onClick={() => { setText(''); setOpen(false) }}
-                    disabled={sending}
-                    className="flex-1 rounded-lg ring-1 ring-secondary bg-primary px-4 py-2.5 text-sm font-semibold text-secondary hover:bg-secondary transition-colors disabled:opacity-50"
                   >
                     Annuler
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    size="md"
+                    color="primary"
+                    isLoading={sending}
+                    isDisabled={!text.trim()}
+                    className="flex-1"
                     onClick={handleSubmit}
-                    disabled={sending || !text.trim()}
-                    className="flex-1 rounded-lg bg-brand-solid hover:bg-brand-solid_hover px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {sending ? 'Envoi…' : 'Envoyer'}
-                  </button>
+                    Envoyer
+                  </Button>
                 </div>
               </>
             )}

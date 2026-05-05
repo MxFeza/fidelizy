@@ -13,6 +13,7 @@ import {
 import { NavList } from '@/components/ui/application/app-navigation/nav-list'
 import type { NavItemType } from '@/components/ui/application/app-navigation/config'
 import { Avatar } from '@/components/ui/base/avatar/avatar'
+import { Button } from '@/components/ui/base/buttons/button'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 
 interface SidebarProps {
@@ -143,19 +144,23 @@ export default function Sidebar({ businessName, businessEmail, businessLogoUrl }
               className="w-full rounded-md border border-primary bg-primary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none focus:border-brand focus:ring-1 focus:ring-brand resize-none"
             />
             <div className="flex gap-2">
-              <button
+              <Button
+                size="sm"
+                color="primary"
+                isLoading={feedbackSending}
+                isDisabled={!feedbackText.trim()}
+                className="flex-1"
                 onClick={handleFeedbackSubmit}
-                disabled={feedbackSending || !feedbackText.trim()}
-                className="flex-1 rounded-md bg-brand-solid px-3 py-2 text-sm font-semibold text-white hover:bg-brand-solid_hover transition duration-100 ease-linear disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {feedbackSent ? 'Merci !' : feedbackSending ? 'Envoi...' : 'Envoyer'}
-              </button>
-              <button
+                {feedbackSent ? 'Merci !' : 'Envoyer'}
+              </Button>
+              <Button
+                size="sm"
+                color="tertiary"
                 onClick={() => { setFeedbackOpen(false); setFeedbackText('') }}
-                className="rounded-md px-3 py-2 text-sm font-semibold text-secondary hover:text-secondary_hover hover:bg-primary_hover transition duration-100 ease-linear"
               >
                 Annuler
-              </button>
+              </Button>
             </div>
           </div>
         )}

@@ -9,7 +9,7 @@ const joinInputSchema = z.object({
   businessId: z.string().min(1).max(100),
   firstName: z.string().trim().min(1).max(100),
   phone: z.string().trim().min(6).max(20),
-  email: z.string().trim().email(),
+  email: z.string().trim().email().optional(),
   referral_code: z.string().optional(),
 })
 
@@ -27,7 +27,7 @@ export const POST = withErrorHandler(async (request) => {
     businessId,
     firstName,
     phone,
-    email: email.toLowerCase(),
+    email: email?.toLowerCase(),
     referralCode: referral_code,
   })
 

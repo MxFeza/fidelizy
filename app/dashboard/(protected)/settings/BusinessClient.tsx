@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import { AssetUploader } from '@/components/dashboard/AssetUploader'
+import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import {
   SettingsPage, SettingsHeader, SettingsBody, SettingsSection,
 } from '@/components/dashboard/SettingsLayout'
@@ -248,16 +249,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           />
 
           <div className="pt-2">
-            <p className="text-sm font-medium text-secondary mb-2">Logo du commerce</p>
-            <AssetUploader
-              kind="logo"
-              currentUrl={logoUrl}
-              onUploaded={(url) => { setLogoUrl(url); router.refresh() }}
-              onDeleted={() => { setLogoUrl(null); router.refresh() }}
-            />
-          </div>
-
-          <div className="pt-2">
             <p className="text-sm font-medium text-secondary mb-2">Bannière de votre fiche entreprise</p>
             <AssetUploader
               kind="banner"
@@ -268,12 +259,34 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           </div>
 
           <div className="pt-2">
+            <p className="text-sm font-medium text-secondary mb-2">Logo du commerce</p>
+            <AssetUploader
+              kind="logo"
+              currentUrl={logoUrl}
+              onUploaded={(url) => { setLogoUrl(url); router.refresh() }}
+              onDeleted={() => { setLogoUrl(null); router.refresh() }}
+            />
+          </div>
+
+          <div className="pt-2">
             <p className="text-sm font-medium text-secondary mb-2">Image de votre carte de fidélité</p>
             <AssetUploader
               kind="card"
               currentUrl={cardImageUrl}
               onUploaded={(url) => { setCardImageUrl(url); router.refresh() }}
               onDeleted={() => { setCardImageUrl(null); router.refresh() }}
+              cardPreview={
+                <LoyaltyCardVisual
+                  customerName={firstName?.trim() || 'Aperçu'}
+                  loyaltyType={business.loyalty_type}
+                  currentStamps={Math.min(3, business.stamps_required ?? 10)}
+                  stampsRequired={business.stamps_required ?? 10}
+                  currentPoints={50}
+                  businessLogoUrl={logoUrl}
+                  cardImageUrl={cardImageUrl}
+                  withGradientBackground={false}
+                />
+              }
             />
           </div>
 

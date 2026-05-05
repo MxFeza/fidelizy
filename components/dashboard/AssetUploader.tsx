@@ -9,9 +9,10 @@
  *        loyalty client via object-cover, ratio adapté automatiquement).
  */
 
+import type { ReactNode } from 'react'
 import { useCallback, useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
-import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01 } from '@untitledui/icons'
+import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01, Crop01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { cx } from '@/utils/cx'
 
@@ -22,6 +23,8 @@ interface AssetUploaderProps {
   currentUrl?: string | null
   onUploaded?: (url: string) => void
   onDeleted?: () => void
+  /** Override le preview par defaut (utilise pour montrer une vraie carte loyalty pour kind='card'). */
+  cardPreview?: ReactNode
   className?: string
 }
 
@@ -97,7 +100,7 @@ async function cropImageToBlob(src: string, area: Area): Promise<Blob> {
   })
 }
 
-export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, className }: AssetUploaderProps) {
+export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPreview, className }: AssetUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -162,6 +165,24 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
     await uploadBlob(file, file.name)
   }
 
+  /** Recadre l'image actuellement uploadee : recharge l'URL et reouvre le modal de crop. */
+  async function handleRecrop() {
+    if (!currentUrl || !cropRatio) return
+    setError(null)
+    try {
+      const res = await fetch(currentUrl)
+      if (!res.ok) throw new Error(`Impossible de récupérer l'image (${res.status})`)
+      const blob = await res.blob()
+      const ext = (blob.type.split('/')[1] || 'jpg').replace('+xml', '')
+      const file = new File([blob], `recrop.${ext}`, { type: blob.type })
+      const dataUrl = await fileToDataUrl(file)
+      setPendingFile(file)
+      setPendingSrc(dataUrl)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Recadrage impossible.')
+    }
+  }
+
   async function handleConfirmCrop() {
     if (!pendingSrc || !croppedArea || !pendingFile) return
     try {
@@ -224,18 +245,30 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
         aria-label={hint.title}
       />
 
-      <div className={kind === 'banner' ? 'flex flex-col gap-3' : 'flex items-start gap-4 sm:gap-6'}>
-        <div className={previewBox}>
-          {currentUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={currentUrl} alt={hint.title} className={cx('w-full h-full', objectFit)} />
-          ) : (
-            <div className="flex flex-col items-center gap-1 text-tertiary">
-              <Image01 className="size-6" />
-              <span className="text-xs">Aucun aperçu</span>
-            </div>
-          )}
-        </div>
+      <div
+        className={
+          cardPreview
+            ? 'flex flex-col gap-3'
+            : kind === 'banner'
+            ? 'flex flex-col gap-3'
+            : 'flex items-start gap-4 sm:gap-6'
+        }
+      >
+        {cardPreview ? (
+          <div className="w-full">{cardPreview}</div>
+        ) : (
+          <div className={previewBox}>
+            {currentUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={currentUrl} alt={hint.title} className={cx('w-full h-full', objectFit)} />
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-tertiary">
+                <Image01 className="size-6" />
+                <span className="text-xs">Aucun aperçu</span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div
           onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
@@ -281,17 +314,29 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, classNa
           )}
 
           {currentUrl && (
-            <Button
-              size="sm"
-              color="link-destructive"
-              iconLeading={Trash01}
-              onClick={handleDelete}
-              isDisabled={deleting}
-              isLoading={deleting}
-              className="mt-2"
-            >
-              Supprimer
-            </Button>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {cropRatio ? (
+                <Button
+                  size="sm"
+                  color="tertiary"
+                  iconLeading={Crop01}
+                  onClick={handleRecrop}
+                  isDisabled={uploading}
+                >
+                  Recadrer
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                color="link-destructive"
+                iconLeading={Trash01}
+                onClick={handleDelete}
+                isDisabled={deleting}
+                isLoading={deleting}
+              >
+                Supprimer
+              </Button>
+            </div>
           )}
         </div>
       </div>

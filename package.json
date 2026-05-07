@@ -13,7 +13,8 @@
     "test:e2e": "npx playwright test",
     "test:unit": "vitest",
     "test:unit:run": "vitest run",
-    "prepare": "husky"
+    "prepare": "husky",
+    "export-for-llm": "repomix --output .tmp/repomix-bundle.md --style markdown --ignore \"**/*.lock,.next,public/**/*.{png,jpg,jpeg,webp,gif,ico,svg},supabase/migrations/.archive,docs/sessions,docs/figma,coverage,playwright-report,.tmp\""
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",
@@ -66,6 +67,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "postcss": "^8.5.8",
+    "repomix": "^1.14.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.4"

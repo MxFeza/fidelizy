@@ -50,3 +50,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# LLM bundle output (repomix via npm run export-for-llm) — ne jamais committer
+.tmp/
+repomix-output.*

@@ -20,7 +20,7 @@ export const GET = withErrorHandler(async () => {
   const service = createServiceClient()
   const { data: customer } = await service
     .from('customers')
-    .select('id, first_name, phone, email, created_at')
+    .select('id, first_name, last_name, phone, email, avatar_url, notification_prefs, card_color, created_at')
     .eq('email', user.email)
     .maybeSingle()
 
@@ -30,7 +30,10 @@ export const GET = withErrorHandler(async () => {
 })
 
 const updateProfileSchema = z.object({
-  first_name: z.string().trim().min(1).max(100),
+  first_name: z.string().trim().min(1).max(100).optional(),
+  last_name: z.string().trim().max(100).nullable().optional(),
+}).refine((d) => d.first_name !== undefined || d.last_name !== undefined, {
+  message: 'Au moins un champ à mettre à jour',
 })
 
 export const PATCH = withErrorHandler(async (request) => {
@@ -41,10 +44,14 @@ export const PATCH = withErrorHandler(async (request) => {
   const parsed = updateProfileSchema.safeParse(await request.json())
   if (!parsed.success) throw AppError.validation('Paramètres invalides')
 
+  const update: Record<string, string | null> = {}
+  if (parsed.data.first_name !== undefined) update.first_name = parsed.data.first_name
+  if (parsed.data.last_name !== undefined) update.last_name = parsed.data.last_name === '' ? null : parsed.data.last_name
+
   const service = createServiceClient()
   const { error } = await service
     .from('customers')
-    .update({ first_name: parsed.data.first_name })
+    .update(update)
     .eq('email', user.email)
 
   if (error) throw new AppError('Erreur lors de la mise à jour', 500)

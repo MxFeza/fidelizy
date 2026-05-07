@@ -2,24 +2,30 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import ProfileClient from './ProfileClient'
+import type { CardColor, NotificationPrefs } from '@/lib/types'
 
 export const metadata = {
   title: 'Mon profil — Izou',
 }
 
-interface CustomerRecord {
+export interface ProfileCustomer {
   id: string
   first_name: string
+  last_name: string | null
   email: string | null
   phone: string | null
+  avatar_url: string | null
+  notification_prefs: NotificationPrefs
+  card_color: CardColor | null
   created_at: string | null
 }
 
 /**
- * /me/profile — page profil client (Story 4.7 P1).
+ * /me/profile — page profil client (Story 4.7 v2).
  *
- * Affiche les infos compte + actions RGPD (modifier prénom, exporter
- * les données, supprimer le compte).
+ * Refonte 2026-05-07 : form Prénom+Nom+Email + avatar + menu Réglages
+ * (notifications, privacy, help, feedback, security, card-customization)
+ * + logout + delete (2-step strict).
  */
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -30,11 +36,21 @@ export default async function ProfilePage() {
   const service = createServiceClient()
   const { data: customer } = await service
     .from('customers')
-    .select('id, first_name, email, phone, created_at')
+    .select('id, first_name, last_name, email, phone, avatar_url, notification_prefs, card_color, created_at')
     .eq('email', user.email)
-    .maybeSingle<CustomerRecord>()
+    .maybeSingle<ProfileCustomer>()
 
   if (!customer) redirect('/me')
 
-  return <ProfileClient customer={customer} />
+  // BottomTabBarClient nécessite un cardId — on prend la 1ère carte active du client.
+  const { data: card } = await service
+    .from('loyalty_cards')
+    .select('id')
+    .eq('customer_id', customer.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  return <ProfileClient customer={customer} cardId={card?.id ?? null} />
 }

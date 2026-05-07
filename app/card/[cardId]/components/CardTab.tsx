@@ -8,6 +8,7 @@ import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import Toast from '@/components/client/Toast'
 import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji } from '@/lib/emojis'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import TierProgressBar from './TierProgressBar'
 import RecentActivity from './RecentActivity'
@@ -129,8 +130,9 @@ export default function CardTab({
       {business.loyalty_type === 'stamps' && stampsCount >= stampsRequired && business.stamps_reward && (
         <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center space-y-3">
           <div>
-            <p className="text-sm font-semibold text-success-primary">
-              🎁 Récompense disponible : {business.stamps_reward}
+            <p className="text-sm font-semibold text-success-primary inline-flex items-center gap-1.5">
+              <Emoji name="gift" size={18} />
+              <span>Récompense disponible : {business.stamps_reward}</span>
             </p>
             <p className="text-xs text-success-primary/80 mt-0.5">
               Réclamez-la auprès de votre commerçant
@@ -167,7 +169,7 @@ export default function CardTab({
               color={wheelStatus.eligible ? 'primary' : 'secondary'}
               isDisabled={!wheelStatus.eligible}
               className="w-full mt-4"
-              iconLeading={<span className="text-lg" aria-hidden="true">🎡</span>}
+              iconLeading={<Emoji name="wheel" size={18} />}
               onClick={onShowWheel}
             >
               {wheelStatus.eligible

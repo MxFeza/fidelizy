@@ -8,6 +8,7 @@ import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import OnboardingShell from './components/OnboardingShell'
 import IzouBulletLogo from '@/components/client/IzouBulletLogo'
 import OTPCodeInput, { type OTPStatus } from './components/OTPCodeInput'
+import { Emoji } from '@/lib/emojis'
 
 interface Business {
   id: string
@@ -460,9 +461,9 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
         return (
           <div className="space-y-6">
             <div className="space-y-1.5">
-              <h1 className="text-display-xs font-bold text-primary">
-                Félicitations {firstName} !{' '}
-                <span aria-hidden="true">🎉</span>
+              <h1 className="text-display-xs font-bold text-primary inline-flex items-center gap-2">
+                <span>Félicitations {firstName} !</span>
+                <Emoji name="confetti" size={28} />
               </h1>
               <p className="text-md text-tertiary">
                 Votre carte fidélité chez {business.business_name} a été créée !
@@ -480,10 +481,13 @@ export default function JoinFlow({ business, initialReferralCode }: JoinFlowProp
 
             {isStamps && initialStamps > 0 && (
               <div className="rounded-xl bg-brand-primary px-4 py-3 text-center">
-                <p className="text-sm font-semibold text-brand-secondary">
-                  <span aria-hidden="true">🏆</span> {initialStamps} tampon
-                  {initialStamps > 1 ? 's' : ''} offert
-                  {initialStamps > 1 ? 's' : ''}
+                <p className="text-sm font-semibold text-brand-secondary inline-flex items-center justify-center gap-1.5 w-full">
+                  <Emoji name="trophy" size={16} />
+                  <span>
+                    {initialStamps} tampon
+                    {initialStamps > 1 ? 's' : ''} offert
+                    {initialStamps > 1 ? 's' : ''}
+                  </span>
                 </p>
               </div>
             )}

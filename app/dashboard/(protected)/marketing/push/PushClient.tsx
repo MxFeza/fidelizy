@@ -34,6 +34,7 @@ import {
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import { Toggle } from '@/components/ui/base/toggle/toggle'
+import { Emoji, type EmojiName } from '@/lib/emojis'
 import { createClient } from '@/lib/supabase/client'
 import type { Business } from '@/lib/types'
 import { cx } from '@/utils/cx'
@@ -42,11 +43,18 @@ import type { PushBroadcast } from './page'
 const TITLE_MAX = 50
 const BODY_MAX = 100
 
-const TEMPLATES = [
-  { label: '🎁 Promotion', title: 'Promotion du jour', body: '−20 % sur toute la carte aujourd\'hui. À ce soir !' },
-  { label: '☕ Café offert', title: 'Une boisson vous attend', body: 'Votre carte de fidélité est complète. Venez chercher votre récompense !' },
-  { label: '⏰ On vous a manqué', title: 'Ça fait longtemps...', body: 'On serait ravis de vous revoir. Une boisson offerte si vous passez avant samedi.' },
-  { label: '🎉 Nouveauté', title: 'Nouveauté à découvrir', body: 'On vient d\'ajouter quelque chose de spécial à la carte. Venez goûter !' },
+interface PushTemplate {
+  iconName: EmojiName
+  label: string
+  title: string
+  body: string
+}
+
+const TEMPLATES: PushTemplate[] = [
+  { iconName: 'gift', label: 'Promotion', title: 'Promotion du jour', body: '−20 % sur toute la carte aujourd\'hui. À ce soir !' },
+  { iconName: 'coffee', label: 'Café offert', title: 'Une boisson vous attend', body: 'Votre carte de fidélité est complète. Venez chercher votre récompense !' },
+  { iconName: 'clock', label: 'On vous a manqué', title: 'Ça fait longtemps...', body: 'On serait ravis de vous revoir. Une boisson offerte si vous passez avant samedi.' },
+  { iconName: 'confetti', label: 'Nouveauté', title: 'Nouveauté à découvrir', body: 'On vient d\'ajouter quelque chose de spécial à la carte. Venez goûter !' },
 ]
 
 interface PushClientProps {
@@ -571,12 +579,14 @@ function ComposeView({
   onSend: () => void
 }) {
   // Min datetime = now + 5 min, format YYYY-MM-DDTHH:MM
+  /* eslint-disable react-hooks/purity */
   const minDateTime = useMemo(() => {
     const d = new Date(Date.now() + 5 * 60 * 1000)
     const tzOffset = d.getTimezoneOffset() * 60000
     return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16)
   }, [])
   const scheduledOk = !scheduleEnabled || (scheduledAt && new Date(scheduledAt).getTime() > Date.now())
+  /* eslint-enable react-hooks/purity */
   return (
     <div className="space-y-4">
       <button
@@ -598,9 +608,10 @@ function ComposeView({
                 key={t.label}
                 type="button"
                 onClick={() => applyTemplate(t)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium border border-secondary bg-primary text-secondary hover:bg-primary_hover transition-colors"
+                className="px-3 py-1.5 rounded-full text-xs font-medium border border-secondary bg-primary text-secondary hover:bg-primary_hover transition-colors inline-flex items-center gap-1.5"
               >
-                {t.label}
+                <Emoji name={t.iconName} size={14} />
+                <span>{t.label}</span>
               </button>
             ))}
           </div>

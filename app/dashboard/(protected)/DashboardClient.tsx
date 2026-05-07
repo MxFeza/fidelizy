@@ -38,8 +38,11 @@ import {
 import type { Business } from '@/lib/types'
 import { joinUrl } from '@/lib/config'
 import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji, type EmojiName } from '@/lib/emojis'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
+
+const TOP_RANK_EMOJIS: EmojiName[] = ['medal-gold', 'medal-silver', 'medal-bronze']
 
 const QrScanner = dynamic(() => import('@/app/components/QrScanner'), { ssr: false })
 const WelcomeModal = dynamic(() => import('@/components/dashboard/WelcomeModal'), { ssr: false })
@@ -457,14 +460,16 @@ export default function DashboardClient({
             ) : (
               <ul className="space-y-2">
                 {topClients.slice(0, 3).map((c, i) => {
-                  const ranks = ['🥇', '🥈', '🥉']
+                  const rankEmoji = TOP_RANK_EMOJIS[i]
                   return (
                     <li
                       key={c.id}
                       onClick={() => router.push(`/dashboard/clients/${c.id}`)}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-primary_hover cursor-pointer transition-colors"
                     >
-                      <span className="text-lg w-6 text-center">{ranks[i]}</span>
+                      <span className="w-6 flex justify-center">
+                        {rankEmoji && <Emoji name={rankEmoji} size={20} />}
+                      </span>
                       <div className="size-8 bg-brand-secondary rounded-full flex items-center justify-center shrink-0">
                         <span className="text-xs font-semibold text-fg-brand-primary">
                           {c.customers?.first_name?.[0]?.toUpperCase() ?? '?'}

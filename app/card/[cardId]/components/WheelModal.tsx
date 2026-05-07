@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji } from '@/lib/emojis'
 
 interface WheelSegment {
   id: string
@@ -100,7 +101,10 @@ export default function WheelModal({ cardId, qrCodeId, businessId, color, cardTo
         >
           ×
         </button>
-        <h2 className="text-lg font-bold text-center mb-4">🎡 Roue de la fortune</h2>
+        <h2 className="text-lg font-bold text-center mb-4 inline-flex items-center justify-center gap-2 w-full">
+          <Emoji name="wheel" size={20} />
+          <span>Roue de la fortune</span>
+        </h2>
 
         {loading && <p className="text-center text-gray-400 py-8">Chargement...</p>}
 

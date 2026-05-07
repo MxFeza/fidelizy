@@ -14,6 +14,7 @@ import ProfileTab from './components/ProfileTab'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
 import Toast from '@/components/client/Toast'
+import { Emoji } from '@/lib/emojis'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 interface Props {
@@ -253,7 +254,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
       {/* iOS install banner */}
       {showIOSBanner && (
         <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-start gap-3">
-          <span className="text-2xl shrink-0">📱</span>
+          <Emoji name="mobile" size={28} className="shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold mb-0.5">Installer l&apos;application</p>
             <p className="text-xs text-gray-300 leading-relaxed">
@@ -283,7 +284,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
       {/* Android install banner */}
       {showInstallBanner && (
         <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-center gap-3">
-          <span className="text-2xl shrink-0">📲</span>
+          <Emoji name="mobile-arrow" size={28} className="shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Installer Izou</p>
             <p className="text-xs text-gray-400">Accédez à votre carte en un tap</p>
@@ -330,8 +331,9 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
         {/* Greeting header (Figma B2) */}
         <div className="bg-white border-b border-gray-100">
           <div className="max-w-md mx-auto px-5 py-5">
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-              Bienvenue {firstName} 👋
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight inline-flex items-center gap-2">
+              <span>Bienvenue {firstName}</span>
+              <Emoji name="wave" size={26} />
             </h1>
             <p className="text-sm text-gray-500 mt-1">{statusLine}</p>
           </div>

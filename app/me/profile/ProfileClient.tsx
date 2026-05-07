@@ -1,352 +1,392 @@
 'use client'
 
 /**
- * /me/profile/ProfileClient — page profil + actions RGPD.
+ * /me/profile — ProfileClient refondu (Story 4.7 v2, Figma 2026-05-07).
  *
- * Story 4.7 P1. Permet au client de :
- *  - Voir et modifier son prénom
- *  - Voir (lecture seule) son téléphone et email
- *  - Exporter ses données (RGPD art. 20)
- *  - Supprimer son compte (RGPD art. 17)
- *  - Se déconnecter
+ * Form Prénom + Nom + Email (avec validation email)
+ * + avatar uploadable (modal AvatarUploadModal)
+ * + menu Réglages (6 items)
+ * + logout (modal warning) + delete compte (2-step strict avec input "SUPPRIMER")
+ * + toasts unifiés (success/info/error) via useToast.
+ *
+ * BottomTabBarClient nécessite un cardId — passé null si le client n'a pas
+ * encore de carte active (cas edge : compte créé mais pas encore de scan).
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Download01, Trash01, LogOut01 } from '@untitledui/icons'
+import {
+  Mail01,
+  Bell01,
+  Shield01,
+  HelpCircle,
+  MessageCircle01,
+  Lock01,
+  CreditCard02,
+  ChevronRight,
+  Camera01,
+  User01,
+} from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
+import TopBarClient from '@/components/client/TopBarClient'
+import BottomTabBarClient from '@/components/client/BottomTabBarClient'
+import { useToast } from '@/components/client/ToastContainer'
 import { createClient } from '@/lib/supabase/client'
+import AvatarUploadModal from '@/components/client/profile/AvatarUploadModal'
+import FeedbackModal from '@/components/client/profile/FeedbackModal'
+import LogoutModal from '@/components/client/profile/LogoutModal'
+import DeleteAccountStep1Modal from '@/components/client/profile/DeleteAccountStep1Modal'
+import DeleteAccountStep2Modal from '@/components/client/profile/DeleteAccountStep2Modal'
+import { cx } from '@/utils/cx'
+import type { ProfileCustomer } from './page'
 
-interface CustomerRecord {
-  id: string
-  first_name: string
-  email: string | null
-  phone: string | null
-  created_at: string | null
-}
+const APP_VERSION = '1.0.0'
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+type DeleteStep = 0 | 1 | 2
 
 interface ProfileClientProps {
-  customer: CustomerRecord
+  customer: ProfileCustomer
+  cardId: string | null
 }
 
-export default function ProfileClient({ customer }: ProfileClientProps) {
+export default function ProfileClient({ customer, cardId }: ProfileClientProps) {
   const router = useRouter()
+  const { toast, showToast } = useToast()
+
   const [firstName, setFirstName] = useState(customer.first_name)
-  const [editingName, setEditingName] = useState(false)
-  const [savingName, setSavingName] = useState(false)
-  const [nameError, setNameError] = useState('')
-  const [nameSuccess, setNameSuccess] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState('')
+  const [lastName, setLastName] = useState(customer.last_name ?? '')
+  const [email, setEmail] = useState(customer.email ?? '')
+  const [avatarUrl, setAvatarUrl] = useState(customer.avatar_url)
+  const [saving, setSaving] = useState(false)
 
-  async function handleSaveName(e: React.FormEvent) {
-    e.preventDefault()
-    setNameError('')
-    setNameSuccess(false)
+  const [avatarModal, setAvatarModal] = useState(false)
+  const [feedbackModal, setFeedbackModal] = useState(false)
+  const [logoutModal, setLogoutModal] = useState(false)
+  const [deleteStep, setDeleteStep] = useState<DeleteStep>(0)
+
+  const dirty = useMemo(() => {
+    return (
+      firstName.trim() !== customer.first_name ||
+      (lastName.trim() || null) !== (customer.last_name ?? null) ||
+      (email.trim() || null) !== (customer.email ?? null)
+    )
+  }, [firstName, lastName, email, customer])
+
+  const emailInvalid = email.trim().length > 0 && !EMAIL_REGEX.test(email.trim())
+
+  function handleReset() {
+    setFirstName(customer.first_name)
+    setLastName(customer.last_name ?? '')
+    setEmail(customer.email ?? '')
+  }
+
+  async function handleSave() {
     if (!firstName.trim()) {
-      setNameError('Prénom requis.')
+      showToast({ variant: 'error', title: 'Prénom requis', message: 'Veuillez renseigner votre prénom.' })
       return
     }
-    if (firstName.trim() === customer.first_name) {
-      setEditingName(false)
+    if (emailInvalid) {
+      showToast({ variant: 'error', title: 'Email invalide', message: 'Veuillez vérifier le format.' })
       return
     }
-    setSavingName(true)
+
+    setSaving(true)
     try {
-      const res = await fetch('/api/me/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ first_name: firstName.trim() }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setNameError(data?.error || 'Erreur lors de la mise à jour.')
-        return
+      // 1. Update profile (first_name + last_name)
+      const profileChanged =
+        firstName.trim() !== customer.first_name ||
+        (lastName.trim() || null) !== (customer.last_name ?? null)
+      if (profileChanged) {
+        const res = await fetch('/api/me/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            first_name: firstName.trim(),
+            last_name: lastName.trim() || null,
+          }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          showToast({ variant: 'error', title: 'Erreur', message: body?.error || 'Mise à jour impossible.' })
+          return
+        }
       }
-      setNameSuccess(true)
-      setEditingName(false)
+
+      // 2. Update email (déclenche email confirmation Supabase)
+      const emailChanged = (email.trim() || null) !== (customer.email ?? null)
+      if (emailChanged && email.trim()) {
+        const res = await fetch('/api/me/email-change', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ new_email: email.trim() }),
+        })
+        const body = await res.json().catch(() => null)
+        if (!res.ok) {
+          showToast({ variant: 'error', title: 'Erreur', message: body?.error || 'Changement d\'email impossible.' })
+          return
+        }
+        showToast({
+          variant: 'info',
+          title: 'Vérifiez votre boîte mail',
+          message: 'Un lien de confirmation a été envoyé à la nouvelle adresse.',
+          duration: 5000,
+        })
+      } else {
+        showToast({
+          variant: 'success',
+          title: 'Profil enregistré',
+          message: 'Vos informations ont été mises à jour.',
+        })
+      }
+
       router.refresh()
     } catch {
-      setNameError('Erreur de connexion. Veuillez réessayer.')
+      showToast({ variant: 'error', title: 'Une erreur est survenue', message: 'Veuillez réessayer.' })
     } finally {
-      setSavingName(false)
-    }
-  }
-
-  async function handleExport() {
-    setExporting(true)
-    try {
-      const res = await fetch('/api/me/export')
-      if (!res.ok) {
-        alert('Erreur lors de la génération de l\'export.')
-        return
-      }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const date = new Date().toISOString().slice(0, 10)
-      const slug = customer.first_name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      a.download = `izou-${slug}-${date}.zip`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  async function handleDelete() {
-    setDeleteError('')
-    setDeleting(true)
-    try {
-      const res = await fetch('/api/me/delete', { method: 'DELETE' })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setDeleteError(data?.error || 'Erreur lors de la suppression.')
-        return
-      }
-      // Compte supprimé : signOut + redirect home
-      const supabase = createClient()
-      await supabase.auth.signOut()
-      router.push('/')
-      router.refresh()
-    } catch {
-      setDeleteError('Erreur de connexion. Veuillez réessayer.')
-    } finally {
-      setDeleting(false)
+      setSaving(false)
     }
   }
 
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/me')
+    showToast({ variant: 'info', title: 'Déconnecté', message: 'À bientôt sur Izou.' })
+    router.push('/')
     router.refresh()
   }
 
+  async function handleDelete() {
+    try {
+      const res = await fetch('/api/me/delete', { method: 'DELETE' })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        showToast({ variant: 'error', title: 'Erreur', message: body?.error || 'Suppression impossible.' })
+        return
+      }
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/')
+      router.refresh()
+    } catch {
+      showToast({ variant: 'error', title: 'Une erreur est survenue', message: 'Veuillez réessayer.' })
+    }
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-secondary">
-      <header className="sticky top-0 z-30 bg-primary border-b border-secondary">
-        <div className="max-w-md mx-auto h-14 px-4 flex items-center gap-2">
-          <Link
-            href="/me"
-            aria-label="Retour"
-            className="size-10 -ml-2 rounded-full flex items-center justify-center text-secondary hover:bg-primary_hover transition-colors"
-          >
-            <ArrowLeft className="size-5" />
-          </Link>
-          <Image
-            src="/izou-logo.svg"
-            alt="Izou"
-            width={64}
-            height={20}
-            priority
-            className="h-5 w-auto"
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {toast}
+      <TopBarClient />
+
+      <main className={cx('flex-1 max-w-md w-full mx-auto px-5 py-6 space-y-6', cardId && 'pb-24')}>
+        {/* Header */}
+        <header>
+          <h1 className="text-2xl font-bold text-gray-900">Mon profil</h1>
+          <p className="mt-1 text-sm text-gray-500">Gérez vos informations personnelles.</p>
+        </header>
+
+        {/* Form card */}
+        <section className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+          <Input
+            label="Prénom"
+            value={firstName}
+            onChange={setFirstName}
+            placeholder="Votre prénom"
+            size="md"
+            isDisabled={saving}
           />
-          <h1 className="ml-2 text-md font-semibold text-primary">Mon profil</h1>
-        </div>
-      </header>
+          <Input
+            label="Nom"
+            value={lastName}
+            onChange={setLastName}
+            placeholder="Votre nom (optionnel)"
+            size="md"
+            isDisabled={saving}
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            placeholder="vous@email.com"
+            icon={Mail01}
+            size="md"
+            isDisabled={saving}
+            isInvalid={emailInvalid}
+            hint={emailInvalid ? 'Format d\'email invalide' : undefined}
+          />
 
-      <main className="flex-1 max-w-md w-full mx-auto px-5 py-6 space-y-6">
-        {/* Section infos */}
-        <section className="bg-primary rounded-2xl border border-secondary p-5 space-y-4">
-          <h2 className="text-md font-semibold text-primary">Mes informations</h2>
-
-          {/* Prénom (éditable) */}
-          {editingName ? (
-            <form onSubmit={handleSaveName} noValidate className="space-y-3">
-              <Input
-                label="Prénom"
-                placeholder="Votre prénom"
-                value={firstName}
-                onChange={(value) => { setFirstName(value); setNameError('') }}
-                isInvalid={!!nameError}
-                hint={nameError || undefined}
-                autoFocus
-                size="md"
-              />
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  color="tertiary"
-                  size="md"
-                  className="flex-1"
-                  isDisabled={savingName}
-                  onClick={() => {
-                    setFirstName(customer.first_name)
-                    setNameError('')
-                    setEditingName(false)
-                  }}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  color="primary"
-                  size="md"
-                  className="flex-1"
-                  isLoading={savingName}
-                >
-                  Enregistrer
-                </Button>
+          {/* Avatar */}
+          <div className="flex items-end gap-3 pt-2">
+            <div className="relative">
+              <div className="size-16 rounded-full overflow-hidden bg-gray-100 ring-1 ring-gray-200 flex items-center justify-center">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="Photo de profil" className="w-full h-full object-cover" />
+                ) : (
+                  <User01 className="size-7 text-gray-400" aria-hidden="true" />
+                )}
               </div>
-            </form>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-tertiary">Prénom</p>
-                <p className="text-md font-medium text-primary">{customer.first_name}</p>
-              </div>
-              <Button
+              <button
                 type="button"
-                color="tertiary"
-                size="sm"
-                onClick={() => { setEditingName(true); setNameSuccess(false) }}
+                onClick={() => setAvatarModal(true)}
+                aria-label="Changer ma photo"
+                disabled={saving}
+                className="absolute -bottom-1 -left-1 size-7 rounded-full bg-brand text-white flex items-center justify-center shadow-md hover:bg-brand_hover transition-colors disabled:opacity-50"
               >
-                Modifier
-              </Button>
+                <Camera01 className="size-3.5" aria-hidden="true" />
+              </button>
             </div>
-          )}
-
-          {nameSuccess && (
-            <p className="text-sm text-success-primary">Prénom mis à jour.</p>
-          )}
-
-          {/* Téléphone (lecture seule) */}
-          <div>
-            <p className="text-sm text-tertiary">Téléphone</p>
-            <p className="text-md font-medium text-primary">{customer.phone || '—'}</p>
           </div>
 
-          {/* Email (lecture seule) */}
-          <div>
-            <p className="text-sm text-tertiary">Email</p>
-            <p className="text-md font-medium text-primary break-all">
-              {customer.email || '—'}
-            </p>
-          </div>
-        </section>
-
-        {/* Section confidentialité (RGPD) */}
-        <section className="bg-primary rounded-2xl border border-secondary p-5 space-y-3">
-          <h2 className="text-md font-semibold text-primary">Confidentialité</h2>
-          <p className="text-sm text-tertiary">
-            Vous pouvez exporter ou supprimer vos données à tout moment, conformément
-            au RGPD.
-          </p>
-
-          <div className="space-y-2 pt-2">
+          {/* Form footer */}
+          <div className="flex gap-2 justify-end pt-2">
             <Button
               type="button"
               color="secondary"
               size="md"
-              iconLeading={Download01}
-              isLoading={exporting}
-              className="w-full"
-              onClick={handleExport}
+              onClick={handleReset}
+              isDisabled={saving || !dirty}
             >
-              Exporter mes données
+              Annuler
             </Button>
             <Button
               type="button"
-              color="primary-destructive"
+              color="primary"
               size="md"
-              iconLeading={Trash01}
-              className="w-full"
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleSave}
+              isLoading={saving}
+              isDisabled={saving || !dirty || emailInvalid}
             >
-              Supprimer mon compte
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
             </Button>
           </div>
-
-          <p className="text-xs text-quaternary pt-2">
-            <Link href="/privacy" className="underline hover:text-tertiary">
-              Politique de confidentialité
-            </Link>
-          </p>
         </section>
 
-        {/* Section session */}
-        <section className="bg-primary rounded-2xl border border-secondary p-5">
-          <Button
+        {/* Section RÉGLAGES */}
+        <section>
+          <h2 className="text-xs font-semibold text-gray-400 tracking-wider uppercase px-1 mb-2">
+            Réglages
+          </h2>
+          <ul className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+            <MenuItemLink href="/me/profile/notifications" icon={Bell01} label="Notifications" />
+            <MenuItemLink href="/me/profile/privacy" icon={Shield01} label="Confidentialité & données" />
+            <MenuItemLink href="/me/profile/help" icon={HelpCircle} label="Aide & support" />
+            <MenuItemButton onClick={() => setFeedbackModal(true)} icon={MessageCircle01} label="Envoyer un feedback" />
+            <MenuItemLink href="/me/profile/security" icon={Lock01} label="Sécurité" />
+            <MenuItemLink href="/me/profile/card-customization" icon={CreditCard02} label="Ma carte (personnaliser)" />
+          </ul>
+        </section>
+
+        {/* Logout + Delete + Version */}
+        <div className="space-y-4 pt-2 text-center">
+          <button
             type="button"
-            color="tertiary"
-            size="md"
-            iconLeading={LogOut01}
-            className="w-full"
-            onClick={handleLogout}
+            onClick={() => setLogoutModal(true)}
+            className="w-full text-md font-semibold text-gray-900 hover:text-gray-600 transition-colors py-1"
           >
             Se déconnecter
-          </Button>
-        </section>
-      </main>
-
-      <footer className="py-6 text-center text-xs text-quaternary space-x-2">
-        <Link href="/privacy" className="hover:text-tertiary underline">Confidentialité</Link>
-        <span>·</span>
-        <Link href="/terms" className="hover:text-tertiary underline">CGU</Link>
-        <span>·</span>
-        <Link href="/legal" className="hover:text-tertiary underline">Mentions légales</Link>
-      </footer>
-
-      {/* Modal confirmation suppression */}
-      {showDeleteConfirm && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-end md:items-center justify-center p-0 md:p-4"
-          onClick={() => !deleting && setShowDeleteConfirm(false)}
-        >
-          <div
-            className="w-full md:max-w-md bg-primary rounded-t-2xl md:rounded-2xl p-6 shadow-2xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
-            style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteStep(1)}
+            className="w-full text-md font-semibold text-red-600 hover:text-red-700 transition-colors py-1"
           >
-            <div>
-              <h3 className="text-lg font-bold text-primary">
-                Supprimer définitivement votre compte ?
-              </h3>
-              <p className="text-sm text-tertiary mt-2">
-                Cette action est <strong>irréversible</strong>. Toutes vos cartes de
-                fidélité, votre historique et vos données personnelles seront supprimés.
-                Les commerces que vous avez visités ne pourront plus vous identifier.
-              </p>
-            </div>
-
-            {deleteError && (
-              <p className="text-sm font-medium text-error-primary">{deleteError}</p>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                type="button"
-                color="tertiary"
-                size="md"
-                className="flex-1"
-                isDisabled={deleting}
-                onClick={() => setShowDeleteConfirm(false)}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="button"
-                color="primary-destructive"
-                size="md"
-                className="flex-1"
-                isLoading={deleting}
-                onClick={handleDelete}
-              >
-                Supprimer définitivement
-              </Button>
-            </div>
+            Supprimer mon compte
+          </button>
+          <p className="text-xs text-gray-400 pt-2">Version {APP_VERSION} — Pilote</p>
+          <div className="text-[11px] text-gray-400 space-x-2">
+            <Link href="/privacy" className="hover:text-gray-500 underline">Confidentialité</Link>
+            <span>·</span>
+            <Link href="/terms" className="hover:text-gray-500 underline">CGU</Link>
+            <span>·</span>
+            <Link href="/legal" className="hover:text-gray-500 underline">Mentions légales</Link>
           </div>
         </div>
-      )}
+      </main>
+
+      {cardId ? <BottomTabBarClient cardId={cardId} /> : null}
+
+      {/* Modals */}
+      <AvatarUploadModal
+        isOpen={avatarModal}
+        onClose={() => setAvatarModal(false)}
+        onUploaded={(url) => {
+          setAvatarUrl(url)
+          showToast({ variant: 'success', title: 'Photo mise à jour' })
+          router.refresh()
+        }}
+        onError={(message) => showToast({ variant: 'error', title: 'Erreur', message })}
+      />
+      <FeedbackModal
+        isOpen={feedbackModal}
+        onClose={() => setFeedbackModal(false)}
+        onSent={() =>
+          showToast({
+            variant: 'success',
+            title: 'Merci pour votre feedback !',
+            message: 'Nous l\'avons bien reçu.',
+          })
+        }
+        onError={(message) => showToast({ variant: 'error', title: 'Erreur', message })}
+      />
+      <LogoutModal
+        isOpen={logoutModal}
+        onClose={() => setLogoutModal(false)}
+        onConfirm={handleLogout}
+      />
+      <DeleteAccountStep1Modal
+        isOpen={deleteStep === 1}
+        onClose={() => setDeleteStep(0)}
+        onConfirm={() => setDeleteStep(2)}
+      />
+      <DeleteAccountStep2Modal
+        isOpen={deleteStep === 2}
+        onClose={() => setDeleteStep(0)}
+        onConfirm={handleDelete}
+      />
     </div>
+  )
+}
+
+interface MenuItemBaseProps {
+  icon: React.ComponentType<React.HTMLAttributes<HTMLOrSVGElement>>
+  label: string
+}
+
+function MenuItemContent({ icon: Icon, label }: MenuItemBaseProps) {
+  return (
+    <>
+      <Icon className="size-5 text-gray-500 shrink-0" aria-hidden="true" />
+      <span className="flex-1 text-md font-medium text-gray-900 text-left">{label}</span>
+      <ChevronRight className="size-4 text-gray-400 shrink-0" aria-hidden="true" />
+    </>
+  )
+}
+
+function MenuItemLink({ href, icon, label }: MenuItemBaseProps & { href: string }) {
+  return (
+    <li>
+      <Link href={href} className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors">
+        <MenuItemContent icon={icon} label={label} />
+      </Link>
+    </li>
+  )
+}
+
+function MenuItemButton({ onClick, icon, label }: MenuItemBaseProps & { onClick: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors"
+      >
+        <MenuItemContent icon={icon} label={label} />
+      </button>
+    </li>
   )
 }

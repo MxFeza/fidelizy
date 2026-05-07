@@ -12,6 +12,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01, QrCode02, User01 } from '@untitledui/icons'
+import { Emoji } from '@/lib/emojis'
 import { createClient } from '@/lib/supabase/client'
 
 interface Customer {
@@ -135,7 +136,10 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
       <main className="max-w-md mx-auto px-5 py-6">
         {/* Greeting */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Bonjour {customer.first_name} 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900 inline-flex items-center gap-2">
+            <span>Bonjour {customer.first_name}</span>
+            <Emoji name="wave" size={26} />
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
             {cards.length === 0
               ? 'Aucune carte pour l\'instant. Ajoutez votre première carte fidélité.'

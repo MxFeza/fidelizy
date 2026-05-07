@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji } from '@/lib/emojis'
 import { urlBase64ToUint8Array } from './utils'
 
 interface PushBannerProps {
@@ -58,7 +59,7 @@ export default function PushBanner({ cardId, showPushBanner, onDismiss }: PushBa
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 bg-white rounded-2xl p-4 shadow-2xl border border-gray-100 flex items-start gap-3">
-      <span className="text-2xl shrink-0">🔔</span>
+      <Emoji name="bell" size={28} className="shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-900 mb-0.5">Notifications</p>
         <p className="text-xs text-gray-500 leading-relaxed">

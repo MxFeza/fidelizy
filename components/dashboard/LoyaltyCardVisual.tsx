@@ -27,6 +27,25 @@
 import Image from 'next/image'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
+import type { CardColor } from '@/lib/types'
+
+/**
+ * Mapping cardColor -> hex (Story 4.7 v2). Override le noir default #0F172A
+ * uniquement sur le côté gauche, en respectant le format prod (gauche coloré
+ * uni / droite image standard ou business.card_image_url).
+ */
+const CARD_COLOR_MAP: Record<CardColor, string> = {
+  violet: '#7F56D9',
+  orange: '#F79009',
+  jaune: '#FAC515',
+  corail: '#F97066',
+  vert: '#17B26A',
+}
+
+const DEFAULT_COLOR = '#0F172A'
+
+/** Yellow #FAC515 demande un texte sombre pour le contraste (les autres -> blanc). */
+const DARK_TEXT_COLORS = new Set<CardColor>(['jaune'])
 
 interface LoyaltyCardVisualProps {
   customerName: string
@@ -38,6 +57,12 @@ interface LoyaltyCardVisualProps {
   businessLogoUrl?: string | null
   /** Image custom cote droit (depuis business.card_image_url). Remplace la montgolfiere standard si fournie. */
   cardImageUrl?: string | null
+  /**
+   * Couleur du fond gauche (Story 4.7 v2 — depuis customer.card_color).
+   * undefined / null = noir default #0F172A. Format prod préservé (image
+   * standard à droite, logo commerce bottom-right).
+   */
+  cardColor?: CardColor | null
   /** Affiche un fond gradient (purple→orange→rose) autour de la carte, comme dans Figma F2/F3. Default: true. */
   withGradientBackground?: boolean
   className?: string
@@ -51,12 +76,18 @@ export default function LoyaltyCardVisual({
   currentPoints = 0,
   businessLogoUrl,
   cardImageUrl,
+  cardColor,
   withGradientBackground = true,
   className,
 }: LoyaltyCardVisualProps) {
   const pointsLabel = loyaltyType === 'points'
     ? `${currentPoints} pts`
     : `${currentStamps}/${stampsRequired}`
+
+  const bgColor = cardColor ? CARD_COLOR_MAP[cardColor] : DEFAULT_COLOR
+  const useDarkText = cardColor && DARK_TEXT_COLORS.has(cardColor)
+  const textColor = useDarkText ? 'text-gray-900' : 'text-white'
+  const textColorMuted = useDarkText ? 'text-gray-900/85' : 'text-white/85'
 
   const card = (
     <div
@@ -65,11 +96,11 @@ export default function LoyaltyCardVisual({
         'aspect-[1.585/1]',
         !withGradientBackground && className,
       )}
-      style={{ backgroundColor: '#0F172A' }}
+      style={{ backgroundColor: bgColor }}
     >
-      {/* Cote gauche — fond noir + nom + grille tampons (mode stamps) ou compteur points */}
+      {/* Cote gauche — fond coloré + nom + grille tampons (mode stamps) ou compteur points */}
       <div className="relative flex-[0.62] flex flex-col justify-between p-4 sm:p-5 lg:p-6">
-        <p className="text-lg sm:text-2xl lg:text-[26px] font-semibold tracking-tight text-white truncate leading-tight">
+        <p className={cx('text-lg sm:text-2xl lg:text-[26px] font-semibold tracking-tight truncate leading-tight', textColor)}>
           {customerName}
         </p>
 
@@ -91,14 +122,21 @@ export default function LoyaltyCardVisual({
                   className={cx(
                     'size-4 sm:size-5 lg:size-6 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
                     filled
-                      ? 'bg-white shadow-sm'
+                      ? useDarkText
+                        ? 'bg-gray-900 shadow-sm'
+                        : 'bg-white shadow-sm'
+                      : useDarkText
+                      ? 'border border-gray-900/25'
                       : 'border border-white/25',
                   )}
                   aria-hidden="true"
                 >
                   {filled && (
                     <svg
-                      className="size-2.5 sm:size-3 lg:size-3.5 text-gray-900"
+                      className={cx(
+                        'size-2.5 sm:size-3 lg:size-3.5',
+                        useDarkText ? 'text-yellow-400' : 'text-gray-900',
+                      )}
                       viewBox="0 0 20 20"
                       fill="currentColor"
                     >
@@ -115,7 +153,7 @@ export default function LoyaltyCardVisual({
           </div>
         )}
 
-        <p className="text-xs sm:text-sm lg:text-base font-medium text-white/85 transition-all duration-300">
+        <p className={cx('text-xs sm:text-sm lg:text-base font-medium transition-all duration-300', textColorMuted)}>
           {loyaltyType === 'stamps'
             ? `${currentStamps}/${stampsRequired} tampons`
             : `${currentPoints} pts cumulés`}

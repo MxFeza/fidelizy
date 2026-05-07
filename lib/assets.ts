@@ -42,6 +42,12 @@ export function getBusinessAssetUrl(bucket: 'business-logos' | 'business-banners
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${clean}`;
 }
 
+/** URL publique d'un avatar customer (bucket customer-avatars, public-read, Story 4.7 v2). */
+export function getCustomerAvatarUrl(path: string): string {
+  const clean = path.startsWith('/') ? path.slice(1) : path;
+  return `${SUPABASE_URL}/storage/v1/object/public/customer-avatars/${clean}`;
+}
+
 /** Path Storage pour un QR code cache. */
 export function getQRCodePath(businessId: string): string {
   return `${businessId}/qr.png`;

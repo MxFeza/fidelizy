@@ -18,10 +18,9 @@ import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import { createClient } from '@/lib/supabase/client'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
+import { EmojiPicker } from '@/lib/emojis'
 import type { Business, LoyaltyTier } from '@/lib/types'
 import { cx } from '@/utils/cx'
-
-const TIER_EMOJI_PRESETS = ['☕', '🥐', '🍰', '🍪', '🍩', '🥪', '🍕', '🍔', '🍟', '🥗', '🍷', '🍺', '🎁', '⭐', '💎', '🏆', '✂️', '💅']
 
 function newTier(): LoyaltyTier {
   return {
@@ -251,6 +250,7 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                 onChange={setTiers}
                 unit={loyaltyType === 'points' ? 'pts' : 'tampons'}
                 suggestions={suggestions}
+                businessType={business.business_type}
               />
             </div>
 
@@ -401,11 +401,13 @@ function TiersInline({
   onChange,
   unit,
   suggestions,
+  businessType,
 }: {
   tiers: LoyaltyTier[]
   onChange: (tiers: LoyaltyTier[]) => void
   unit: 'pts' | 'tampons'
   suggestions: string[]
+  businessType: Business['business_type']
 }) {
   function update(id: string, patch: Partial<LoyaltyTier>) {
     onChange(tiers.map((t) => (t.id === id ? { ...t, ...patch } : t)))
@@ -430,6 +432,7 @@ function TiersInline({
               unit={unit}
               suggestions={suggestions}
               isFirst={idx === 0}
+              businessType={businessType}
               onUpdate={(patch) => update(tier.id, patch)}
               onRemove={() => remove(tier.id)}
             />
@@ -454,6 +457,7 @@ function TierRow({
   unit,
   suggestions,
   isFirst,
+  businessType,
   onUpdate,
   onRemove,
 }: {
@@ -461,47 +465,20 @@ function TierRow({
   unit: 'pts' | 'tampons'
   suggestions: string[]
   isFirst: boolean
+  businessType: Business['business_type']
   onUpdate: (patch: Partial<LoyaltyTier>) => void
   onRemove: () => void
 }) {
-  const [emojiOpen, setEmojiOpen] = useState(false)
-
   return (
     <div className="rounded-lg border border-secondary bg-primary p-4 hover:bg-secondary/10 transition-colors">
       <div className="flex items-start gap-3 sm:gap-4">
-        {/* Emoji — gros a gauche */}
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setEmojiOpen((o) => !o)}
-            aria-label="Choisir un emoji"
-            className="size-12 sm:size-14 rounded-lg bg-secondary/40 text-3xl sm:text-4xl leading-none flex items-center justify-center hover:bg-secondary transition-colors"
-          >
-            {tier.emoji || '🎁'}
-          </button>
-          {emojiOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="Fermer"
-                onClick={() => setEmojiOpen(false)}
-                className="fixed inset-0 z-10 cursor-default"
-              />
-              <div className="absolute z-20 mt-1 left-0 w-56 rounded-lg border border-secondary bg-primary shadow-lg p-2 grid grid-cols-6 gap-1">
-                {TIER_EMOJI_PRESETS.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => { onUpdate({ emoji: e }); setEmojiOpen(false) }}
-                    className="size-8 rounded-md text-lg hover:bg-secondary transition-colors flex items-center justify-center"
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        {/* Emoji — picker catalogue Izou (Microsoft Fluent Emoji) */}
+        <EmojiPicker
+          value={tier.emoji}
+          onChange={(unicode) => onUpdate({ emoji: unicode })}
+          businessType={businessType}
+          triggerSize="lg"
+        />
 
         {/* Champs : nom au-dessus, seuil en dessous */}
         <div className="flex-1 min-w-0 space-y-2">

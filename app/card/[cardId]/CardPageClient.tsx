@@ -3,14 +3,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
-import { type Tab, isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
+import { isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
 import ConfettiEffect from './components/ConfettiEffect'
 import CardTab from './components/CardTab'
 import WheelModal from './components/WheelModal'
 import PushBanner from './components/PushBanner'
-import ProfileTab from './components/ProfileTab'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
 import Toast from '@/components/client/Toast'
@@ -26,13 +24,6 @@ interface Props {
 }
 
 export default function CardPageClient({ card, business, transactions, tiers, cardToken }: Props) {
-  const searchParams = useSearchParams()
-  const initialTab = (() => {
-    const t = searchParams.get('tab')
-    if (t === 'profile') return t
-    return 'card' as const
-  })()
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [installEvent, setInstallEvent] = useState<Event | null>(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const [showIOSBanner, setShowIOSBanner] = useState(false)
@@ -341,36 +332,24 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
 
         {/* Tab content */}
         <div className="max-w-md mx-auto px-5 pt-5 space-y-5">
-          {activeTab === 'card' && (
-            <CardTab
-              card={card}
-              business={business}
-              transactions={transactions}
-              stampsCount={stampsCount}
-              pointsBalance={pointsBalance}
-              liveTiers={liveTiers}
-              wheelStatus={wheelStatus}
-              color={color}
-              shortCode={shortCode}
-              stampsRequired={stampsRequired}
-              walletAvailable={walletAvailable}
-              onShowWheel={() => setShowWheel(true)}
-              onShowConfetti={() => {
-                setShowConfetti(true)
-                setTimeout(() => setShowConfetti(false), 3500)
-              }}
-            />
-          )}
-
-
-          {activeTab === 'profile' && (
-            <ProfileTab
-              card={card}
-              business={business}
-              cardToken={cardToken}
-              color={color}
-            />
-          )}
+          <CardTab
+            card={card}
+            business={business}
+            transactions={transactions}
+            stampsCount={stampsCount}
+            pointsBalance={pointsBalance}
+            liveTiers={liveTiers}
+            wheelStatus={wheelStatus}
+            color={color}
+            shortCode={shortCode}
+            stampsRequired={stampsRequired}
+            walletAvailable={walletAvailable}
+            onShowWheel={() => setShowWheel(true)}
+            onShowConfetti={() => {
+              setShowConfetti(true)
+              setTimeout(() => setShowConfetti(false), 3500)
+            }}
+          />
         </div>
 
         <footer className="max-w-md mx-auto px-5 pt-8 pb-4 text-center text-[11px] text-gray-400 space-x-2">
@@ -399,11 +378,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
         />
       )}
 
-      <BottomTabBarClient
-        cardId={card.qr_code_id}
-        activeLocal={activeTab}
-        onLocalChange={(tab) => setActiveTab(tab)}
-      />
+      <BottomTabBarClient cardId={card.qr_code_id} />
     </>
   )
 }

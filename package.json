@@ -14,7 +14,12 @@
     "test:unit": "vitest",
     "test:unit:run": "vitest run",
     "prepare": "husky",
-    "export-for-llm": "repomix --output .tmp/repomix-bundle.md --style markdown --ignore \"**/*.lock,.next,public/**/*.{png,jpg,jpeg,webp,gif,ico,svg},supabase/migrations/.archive,docs/sessions,docs/figma,coverage,playwright-report,.tmp\""
+    "export-for-llm": "repomix --output .tmp/repomix-bundle.md --style markdown --ignore \"**/*.lock,.next,public/**/*.{png,jpg,jpeg,webp,gif,ico,svg},supabase/migrations/.archive,docs/sessions,docs/figma,coverage,playwright-report,.tmp\"",
+    "audit:auth-rls": "repomix --output .tmp/audit-auth-rls.md --style markdown --include \"app/api/auth/**,middleware.ts,lib/supabase/**,lib/auth/**,supabase/migrations/**,.env.example,next.config.ts\" --ignore \"**/*.lock,.next,supabase/migrations/.archive/**\"",
+    "audit:api": "repomix --output .tmp/audit-api-validation.md --style markdown --include \"app/api/**/route.ts,lib/services/**/*.schemas.ts,lib/ratelimit.ts,lib/error/**\" --ignore \"**/*.lock,.next\"",
+    "audit:services": "repomix --output .tmp/audit-services.md --style markdown --include \"lib/services/**/*.ts\" --ignore \"**/*.lock,**/__tests__/**\"",
+    "audit:wallet": "repomix --output .tmp/audit-wallet-observability.md --style markdown --include \"lib/wallet/**,sentry.*.config.ts,instrumentation.ts,app/api/wallet/**\" --ignore \"**/*.lock\"",
+    "audit:all": "npm run audit:auth-rls && npm run audit:api && npm run audit:services && npm run audit:wallet"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",

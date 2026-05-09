@@ -1,17 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import Sidebar from './Sidebar'
 import BottomNav from '@/components/dashboard/BottomNav'
 import MobileHeader from '@/components/dashboard/MobileHeader'
 import FeedbackBubble from '@/components/dashboard/FeedbackBubble'
-
-// Story 9.1 — OnboardingCoach (modal welcome + checklist + tour driver.js).
-// Chargé en client-only (driver.js manipule le DOM).
-const OnboardingCoach = dynamic(
-  () => import('@/components/dashboard/onboarding/OnboardingCoach'),
-  { ssr: false },
-)
+// Story 9.1 — OnboardingCoach est un client component ('use client'). On l'importe
+// directement (pas via next/dynamic) — Next 16 ne permet plus ssr:false dans
+// un Server Component, et l'isomorphisme est géré par le composant lui-même.
+import OnboardingCoach from '@/components/dashboard/onboarding/OnboardingCoach'
 
 export default async function ProtectedLayout({
   children,

@@ -196,24 +196,38 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
 
   return (
     <SettingsPage>
-      {/* Bannière en hero — pattern Twitter/Insta : cover photo full-width
-          au-dessus du logo. Cliquable pour upload, modale crop 3:1 ouvre
-          au choix de l'image. */}
+      {/* Hero pattern LinkedIn : bannière full-width + logo qui chevauche en
+          bas-gauche. Bannière éditable via l'icône crayon flottante (variant
+          overlay). Le logo reste éditable dans la section "Mon entreprise"
+          plus bas pour ne pas dupliquer l'uploader. */}
       <div className="relative w-full">
         <div className="max-w-[1080px] mx-auto px-4 md:px-8 pt-4 md:pt-6">
           <AssetUploader
             kind="banner"
+            variant="overlay"
             currentUrl={bannerUrl}
             onUploaded={(url) => { setBannerUrl(url); router.refresh() }}
             onDeleted={() => { setBannerUrl(null); router.refresh() }}
           />
+          {/* Logo qui chevauche le bas de la bannière (style LinkedIn). */}
+          <div className="relative h-12 md:h-14">
+            <div className="absolute -top-12 md:-top-14 left-2 md:left-6 size-24 md:size-28 rounded-full bg-primary ring-4 ring-primary overflow-hidden flex items-center justify-center shrink-0 shadow-md">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={businessName} className="w-full h-full object-contain p-1.5" />
+              ) : (
+                <span className="text-2xl md:text-3xl font-bold text-fg-quaternary">
+                  {businessName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       <SettingsHeader
         title={businessName}
         subtitle={address || 'Ajoutez votre adresse pour qu’elle apparaisse ici'}
-        leading={headerLeading}
         actions={headerActions}
       />
 

@@ -12,11 +12,18 @@
 import type { ReactNode } from 'react'
 import { useCallback, useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
-import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01, Crop01 } from '@untitledui/icons'
+import { UploadCloud01, Trash01, AlertCircle, Image01, Loading01, Crop01, Edit05, Camera01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { cx } from '@/utils/cx'
 
 type Kind = 'logo' | 'banner' | 'card'
+/**
+ * Variant 'block' (defaut) : preview + zone d'upload textuelle + bloc HINT.
+ * Variant 'overlay' (pattern LinkedIn) : preview seule, icône crayon flottante
+ *   sur la preview pour éditer. Le bloc HINT est supprimé — les specs
+ *   restent dans l'attribut `title` du bouton.
+ */
+type Variant = 'block' | 'overlay'
 
 interface AssetUploaderProps {
   kind: Kind
@@ -26,6 +33,8 @@ interface AssetUploaderProps {
   /** Override le preview par defaut (utilise pour montrer une vraie carte loyalty pour kind='card'). */
   cardPreview?: ReactNode
   className?: string
+  /** Default 'block'. Use 'overlay' for LinkedIn-style hero (banner + logo). */
+  variant?: Variant
 }
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml'
@@ -100,7 +109,7 @@ async function cropImageToBlob(src: string, area: Area): Promise<Blob> {
   })
 }
 
-export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPreview, className }: AssetUploaderProps) {
+export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPreview, className, variant = 'block' }: AssetUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -236,6 +245,132 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
 
   const objectFit = kind === 'logo' ? 'object-contain p-3' : 'object-cover'
 
+  // Crop modal partagé entre les 2 variants — extrait dans une variable pour éviter la duplication.
+  const cropModal = pendingSrc && cropRatio && (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Recadrer l'image"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div className="bg-white rounded-2xl p-5 w-full max-w-lg">
+        <p className="text-sm font-semibold text-primary mb-1">Recadrez votre image</p>
+        <p className="text-xs text-tertiary mb-3">Glissez pour repositionner, utilisez le slider pour zoomer.</p>
+        <div className="relative w-full aspect-[3/1] bg-gray-900 rounded-lg overflow-hidden"
+             style={{ aspectRatio: kind === 'card' ? '1 / 1' : '3 / 1' }}>
+          <Cropper
+            image={pendingSrc}
+            crop={crop}
+            zoom={zoom}
+            aspect={cropRatio}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
+            cropShape="rect"
+            showGrid
+            objectFit="cover"
+          />
+        </div>
+        <label className="block mt-4">
+          <span className="text-xs font-semibold text-secondary">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.01}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="w-full mt-1 accent-brand"
+            aria-label="Zoom"
+          />
+        </label>
+        <div className="flex gap-2 mt-4">
+          <Button color="secondary" onClick={resetCrop} isDisabled={uploading} className="flex-1">
+            Annuler
+          </Button>
+          <Button color="primary" onClick={handleConfirmCrop} isLoading={uploading} className="flex-1">
+            Recadrer et importer
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Variant 'overlay' — pattern LinkedIn (bannière + logo en hero) ──
+  if (variant === 'overlay') {
+    const isLogo = kind === 'logo'
+    return (
+      <div className={cx('relative', isLogo ? 'inline-block' : 'w-full', className)}>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT}
+          onChange={onInputChange}
+          className="sr-only"
+          aria-label={hint.title}
+        />
+
+        <div className={previewBox}>
+          {currentUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={currentUrl} alt={hint.title} className={cx('w-full h-full', objectFit)} />
+          ) : (
+            <div className="flex flex-col items-center gap-1 text-tertiary">
+              {isLogo ? <Camera01 className="size-6" /> : <Image01 className="size-6" />}
+              {!isLogo && <span className="text-xs">Aucune bannière</span>}
+            </div>
+          )}
+        </div>
+
+        {/* Boutons flottants en haut-droite — taille adaptée au logo (plus petit) */}
+        <div className={cx(
+          'absolute flex gap-1.5',
+          isLogo ? 'bottom-1 right-1' : 'top-3 right-3',
+        )}>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            title={`${hint.title} — ${hint.specs.join(' · ')}`}
+            aria-label={`Modifier ${hint.title.toLowerCase()}`}
+            disabled={uploading || deleting}
+            className={cx(
+              'rounded-full bg-white shadow-md ring-1 ring-secondary flex items-center justify-center hover:bg-secondary transition-colors disabled:opacity-50',
+              isLogo ? 'size-7' : 'size-9',
+            )}
+          >
+            {uploading ? (
+              <Loading01 className={cx('animate-spin text-fg-quaternary', isLogo ? 'size-3.5' : 'size-4')} />
+            ) : (
+              <Edit05 className={cx('text-fg-quaternary', isLogo ? 'size-3.5' : 'size-4')} />
+            )}
+          </button>
+          {currentUrl && !isLogo && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              title="Supprimer la bannière"
+              aria-label="Supprimer"
+              disabled={uploading || deleting}
+              className="size-9 rounded-full bg-white shadow-md ring-1 ring-secondary flex items-center justify-center hover:bg-error-primary hover:text-white text-error-primary transition-colors disabled:opacity-50"
+            >
+              {deleting ? <Loading01 className="size-4 animate-spin" /> : <Trash01 className="size-4" />}
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <p className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 text-xs font-medium text-white bg-error-primary/90 backdrop-blur rounded-md px-2 py-1.5">
+            <AlertCircle className="size-3.5 shrink-0" />
+            <span className="truncate">{error}</span>
+          </p>
+        )}
+
+        {cropModal}
+      </div>
+    )
+  }
+
+  // ── Variant 'block' (default) — comportement historique ──
   return (
     <div className={cx('flex flex-col gap-3', className)}>
       <input
@@ -353,60 +488,7 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
         <p className="text-xs text-tertiary mt-2 italic">{hint.help}</p>
       </div>
 
-      {pendingSrc && cropRatio && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Recadrer l'image"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-        >
-          <div className="bg-white rounded-2xl p-5 w-full max-w-lg">
-            <p className="text-sm font-semibold text-primary mb-1">Recadrez votre image</p>
-            <p className="text-xs text-tertiary mb-3">Glissez pour repositionner, utilisez le slider pour zoomer.</p>
-
-            <div className="relative w-full aspect-[3/1] bg-gray-900 rounded-lg overflow-hidden"
-                 style={{ aspectRatio: kind === 'card' ? '1 / 1' : '3 / 1' }}>
-              <Cropper
-                image={pendingSrc}
-                crop={crop}
-                zoom={zoom}
-                aspect={cropRatio}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-                cropShape="rect"
-                showGrid
-                // Remplit la zone de crop sans bandes noires + permet de
-                // pan/zoom pour explorer toute l'image source.
-                objectFit="cover"
-              />
-            </div>
-
-            <label className="block mt-4">
-              <span className="text-xs font-semibold text-secondary">Zoom</span>
-              <input
-                type="range"
-                min={1}
-                max={3}
-                step={0.01}
-                value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full mt-1 accent-brand"
-                aria-label="Zoom"
-              />
-            </label>
-
-            <div className="flex gap-2 mt-4">
-              <Button color="secondary" onClick={resetCrop} isDisabled={uploading} className="flex-1">
-                Annuler
-              </Button>
-              <Button color="primary" onClick={handleConfirmCrop} isLoading={uploading} className="flex-1">
-                Recadrer et importer
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {cropModal}
     </div>
   )
 }

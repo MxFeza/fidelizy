@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 import { resetCard } from '@/lib/services/loyalty.service'
@@ -23,7 +24,9 @@ export const POST = withErrorHandler(async (request) => {
 
   if (!business) throw AppError.notFound('Commerce introuvable')
 
-  await resetCard(supabase, { cardId: card_id, businessId: business.id })
+  // RPCs loyalty en service_role (TD-001 Option C 2026-05-08).
+  const service = createServiceClient()
+  await resetCard(service, { cardId: card_id, businessId: business.id })
 
   return NextResponse.json({ success: true })
 })

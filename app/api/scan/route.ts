@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { scanLimiter, getIP } from '@/lib/ratelimit'
 import { scanCard } from '@/lib/services/loyalty.service'
@@ -29,7 +30,11 @@ export const POST = withErrorHandler(async (request) => {
 
   if (!business) throw AppError.notFound('Commerce introuvable')
 
-  const result = await scanCard(supabase, { qrCodeId: parsed.data.qr_code_id, business })
+  // RPCs loyalty appelées en service_role (TD-001 Option C 2026-05-08) :
+  // les fonctions increment_stamps/points sont REVOKE FROM authenticated.
+  // L'auth merchant est déjà vérifiée ci-dessus via supabase.auth.getUser.
+  const service = createServiceClient()
+  const result = await scanCard(service, { qrCodeId: parsed.data.qr_code_id, business })
 
   return NextResponse.json({
     success: true,

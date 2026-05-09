@@ -104,6 +104,12 @@ export async function verifyOtp(
 
 /**
  * Add email to customer (by phone) and send OTP.
+ *
+ * Sécurité (audit local 2026-05-08, finding T1-2) : refuse d'écraser un
+ * email existant. Sans ce garde-fou, un attaquant qui connaît le phone
+ * d'une victime peut overwrite son email avec le sien et recevoir l'OTP
+ * → takeover du compte. Si l'utilisateur a perdu accès à son email, il
+ * doit passer par le support (pas par cette route auto-service).
  */
 export async function addEmailAndSendOtp(
   supabase: SupabaseClient,
@@ -111,18 +117,40 @@ export async function addEmailAndSendOtp(
   params: AddEmailInput
 ): Promise<{ status: string }> {
   const { phone, email } = params
+  const phoneTrim = phone.trim()
+  const emailLower = email.trim().toLowerCase()
 
-  const { error: updateError } = await supabase
+  // Vérifie qu'aucun email n'est déjà associé à ce phone
+  const { data: existing } = await supabase
     .from('customers')
-    .update({ email })
-    .eq('phone', phone.trim())
+    .select('email')
+    .eq('phone', phoneTrim)
+    .maybeSingle()
 
-  if (updateError) {
-    throw new AppError('Erreur lors de la mise à jour.', 500)
+  if (!existing) {
+    throw new AppError('Compte introuvable.', 404)
+  }
+  if (existing.email && existing.email.toLowerCase() !== emailLower) {
+    throw new AppError(
+      'Un email est déjà associé à ce compte. Connectez-vous avec votre email habituel ou contactez le support.',
+      409,
+    )
+  }
+
+  // Idempotent : si même email, on ne fait que renvoyer l'OTP
+  if (!existing.email) {
+    const { error: updateError } = await supabase
+      .from('customers')
+      .update({ email: emailLower })
+      .eq('phone', phoneTrim)
+
+    if (updateError) {
+      throw new AppError('Erreur lors de la mise à jour.', 500)
+    }
   }
 
   const { error: otpError } = await supabaseAuth.auth.signInWithOtp({
-    email,
+    email: emailLower,
     options: { shouldCreateUser: true },
   })
 

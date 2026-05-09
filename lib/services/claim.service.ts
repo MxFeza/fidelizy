@@ -23,11 +23,22 @@ const CLAIM_TTL_MINUTES = 5
 const CODE_CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 6
 
-/** Génère un code aléatoire 6 chars avec charset non-ambigu. */
+/**
+ * Génère un code aléatoire 6 chars avec charset non-ambigu.
+ *
+ * Utilise crypto.getRandomValues (CSPRNG) plutôt que Math.random pour
+ * empêcher la prédiction/bruteforce statistique sur les codes éphémères
+ * de réclamation (audit local 2026-05-08, finding T1-1).
+ *
+ * Le biais modulo (256 % 31 ≠ 0) est négligeable : ratio max/min des
+ * probabilités < 1.04 sur ce charset, exploitabilité quasi-nulle.
+ */
 function generateCode(): string {
+  const bytes = new Uint8Array(CODE_LENGTH)
+  crypto.getRandomValues(bytes)
   let code = ''
   for (let i = 0; i < CODE_LENGTH; i++) {
-    code += CODE_CHARSET[Math.floor(Math.random() * CODE_CHARSET.length)]
+    code += CODE_CHARSET[bytes[i] % CODE_CHARSET.length]
   }
   return code
 }

@@ -1,9 +1,11 @@
 import { Suspense } from 'react'
 import { createServiceClient } from '@/lib/supabase/service'
+import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { generateCardToken } from '@/lib/auth/cardToken'
 import { resolveClientTiers } from '@/lib/services/loyalty.tiers'
+import { getCustomerTaskStatus, type OnboardingStatus } from '@/lib/onboarding/getCustomerTaskStatus'
 import CardPageClient from './CardPageClient'
 
 interface PageProps {
@@ -79,6 +81,20 @@ export default async function CardPage({ params }: PageProps) {
 
   const tiers = resolveClientTiers(business)
 
+  // SSR fetch onboarding status pour éviter le flash banner client-side.
+  // L'auth client est faite via cookie SSR (createClient) — null si pas connecté
+  // ou si la carte ne correspond pas (parcours QR direct sans login).
+  let onboardingStatus: OnboardingStatus | null = null
+  try {
+    const userClient = await createClient()
+    const { data: { user } } = await userClient.auth.getUser()
+    if (user?.email && card.customers?.email === user.email && card.customer_id) {
+      onboardingStatus = await getCustomerTaskStatus(card.customer_id)
+    }
+  } catch {
+    // pas de session = pas d'onboarding banner — silencieux.
+  }
+
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
       <CardPageClient
@@ -87,6 +103,7 @@ export default async function CardPage({ params }: PageProps) {
         transactions={transactions ?? []}
         tiers={tiers}
         cardToken={cardToken}
+        initialOnboardingStatus={onboardingStatus}
       />
     </Suspense>
   )

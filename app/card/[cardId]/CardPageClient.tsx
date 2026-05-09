@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Bell01, Grid01, Download01 } from '@untitledui/icons'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
 import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
-import { isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
+import { isIOS } from './components/utils'
 import ConfettiEffect from './components/ConfettiEffect'
 import CardTab from './components/CardTab'
 import WheelModal from './components/WheelModal'
@@ -14,6 +14,10 @@ import BottomTabBarClient from '@/components/client/BottomTabBarClient'
 import Toast from '@/components/client/Toast'
 import { Emoji } from '@/lib/emojis'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import OnboardingWelcomeSheet from '@/components/client/onboarding/OnboardingWelcomeSheet'
+import OnboardingProgressBanner from '@/components/client/onboarding/OnboardingProgressBanner'
+import PwaInstallPrompt from '@/components/client/onboarding/PwaInstallPrompt'
+import type { OnboardingStatus } from '@/lib/onboarding/getCustomerTaskStatus'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -21,12 +25,21 @@ interface Props {
   transactions: Transaction[]
   tiers: LoyaltyTier[]
   cardToken: string
+  /**
+   * Status d'onboarding fourni en SSR pour eviter le flash auth client-side.
+   * null = utilisateur non-connecte ou carte != customer connecte (mode preview).
+   */
+  initialOnboardingStatus: OnboardingStatus | null
 }
 
-export default function CardPageClient({ card, business, transactions, tiers, cardToken }: Props) {
-  const [installEvent, setInstallEvent] = useState<Event | null>(null)
-  const [showInstallBanner, setShowInstallBanner] = useState(false)
-  const [showIOSBanner, setShowIOSBanner] = useState(false)
+export default function CardPageClient({
+  card,
+  business,
+  transactions,
+  tiers,
+  cardToken,
+  initialOnboardingStatus,
+}: Props) {
   const [notification, setNotification] = useState<string | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [walletAvailable, setWalletAvailable] = useState(false)
@@ -35,6 +48,14 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
   const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
   const [showWheel, setShowWheel] = useState(false)
   const isOnline = useOnlineStatus()
+
+  // Onboarding state — initialise depuis SSR, refresh via /status au mount.
+  const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus | null>(initialOnboardingStatus)
+  const [showWelcomeSheet, setShowWelcomeSheet] = useState(
+    initialOnboardingStatus ? !initialOnboardingStatus.started : false,
+  )
+  const [showInstallModal, setShowInstallModal] = useState(false)
+  const completeSentRef = useRef(false)
 
   const color = business.primary_color || '#7F56D9'
   const stampsRequired = business.stamps_required ?? 10
@@ -54,28 +75,16 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     return `${pointsBalance} pts cumulés chez ${business.business_name}`
   })()
 
-  // Android/Chrome install prompt
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setInstallEvent(e)
-      if (!isInStandaloneMode()) setShowInstallBanner(true)
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  // iOS install suggestion + wallet availability — SSR-safe init via effect
+  // Wallet availability — iOS uniquement (Android = Epic 6 a venir)
+  // SSR-safe init via effect.
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setWalletAvailable(true)
     }
     if (isIOS()) {
+       
       setWalletAvailable(true)
-      if (!isInStandaloneMode() && !sessionStorage.getItem('ios_install_dismissed')) {
-        setShowIOSBanner(true)
-      }
     }
   }, [])
 
@@ -184,13 +193,83 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     localStorage.setItem(storageKey, String(stampsCount))
   }, [card.id, stampsCount, stampsRequired, business.loyalty_type])
 
-  async function handleInstall() {
-    if (!installEvent) return
-    ;(installEvent as BeforeInstallPromptEvent).prompt()
-    const { outcome } = await (installEvent as BeforeInstallPromptEvent).userChoice
-    if (outcome === 'accepted') setShowInstallBanner(false)
-    setInstallEvent(null)
-  }
+  // Refresh onboarding status au mount client (pour capter changements depuis SSR).
+  useEffect(() => {
+    if (!initialOnboardingStatus) return
+    let cancelled = false
+    fetch('/api/me/onboarding/status', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (cancelled || !s) return
+        setOnboardingStatus(s as OnboardingStatus)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [initialOnboardingStatus])
+
+  // Refresh onboarding status (utilise apres une action qui change l'etat — ex: wallet ajoute).
+  const refreshOnboarding = useCallback(async () => {
+    try {
+      const res = await fetch('/api/me/onboarding/status', { cache: 'no-store' })
+      if (!res.ok) return
+      const s = (await res.json()) as OnboardingStatus
+      setOnboardingStatus(s)
+    } catch {
+      // silent
+    }
+  }, [])
+
+  // Si 3/3 atteint, marque completed_at (idempotent) + toast + masquage banner.
+  useEffect(() => {
+    if (!onboardingStatus) return
+    const allDone = onboardingStatus.tasks.every((t) => t.done)
+    if (!allDone) return
+    if (onboardingStatus.completed) return
+    if (completeSentRef.current) return
+    completeSentRef.current = true
+    fetch('/api/me/onboarding/complete', { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(() => {
+         
+        setOnboardingStatus((prev) => (prev ? { ...prev, completed: true } : prev))
+         
+        setNotification('Bravo, vous êtes prêt à fidéliser ! 🎉')
+        setTimeout(() => setNotification(null), 4000)
+      })
+      .catch(() => {})
+  }, [onboardingStatus])
+
+  // Mark wallet ajoute (idempotent) + refresh status.
+  const handleWalletClick = useCallback(() => {
+    // Le download du .pkpass se fait via le href du <CardTab> bouton existant.
+    // Ici on declenche aussi le download programmatique (depuis le sheet welcome
+    // ou le banner progress) + tracking.
+    if (typeof window !== 'undefined') {
+      window.open(`/api/wallet/${card.qr_code_id}`, '_blank', 'noopener,noreferrer')
+    }
+    fetch('/api/me/onboarding/wallet-added', { method: 'POST' })
+      .then(() => refreshOnboarding())
+      .catch(() => {})
+  }, [card.qr_code_id, refreshOnboarding])
+
+  // PWA install — declenche depuis sheet ou banner progress.
+  const handleInstallClick = useCallback(() => {
+    setShowInstallModal(true)
+  }, [])
+
+  // Quand l'install PWA est confirme (display-mode standalone ou Android prompt accepted),
+  // refresh le banner progress.
+  const handlePwaInstalled = useCallback(() => {
+    refreshOnboarding()
+  }, [refreshOnboarding])
+
+  // Quand le sheet welcome se ferme, on refresh status (started_at vient d'etre marque).
+  const handleWelcomeClose = useCallback(() => {
+    setShowWelcomeSheet(false)
+    refreshOnboarding()
+  }, [refreshOnboarding])
 
   return (
     <>
@@ -242,58 +321,28 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
         color={color}
       />
 
-      {/* iOS install banner */}
-      {showIOSBanner && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-start gap-3">
-          <Download01 className="size-7 shrink-0 text-white" aria-hidden="true" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold mb-0.5">Installer l&apos;application</p>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Appuyez sur{' '}
-              <span className="inline-flex items-center align-middle mx-0.5">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3v12M8 7l4-4 4 4" />
-                  <path d="M20 16v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3" />
-                </svg>
-              </span>{' '}
-              en bas, puis{' '}
-              <span className="font-bold">Ajouter à l&apos;écran d&apos;accueil</span>
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              sessionStorage.setItem('ios_install_dismissed', '1')
-              setShowIOSBanner(false)
-            }}
-            className="text-gray-400 hover:text-white text-xl leading-none shrink-0 mt-0.5"
-          >
-            ×
-          </button>
-        </div>
-      )}
+      {/* PWA install prompt (banner sticky-bottom auto-display + modal IOS tutorial)
+          Story 9.2 §10 — remplace les anciens banners iOS/Android (cf. critere §11.8). */}
+      <PwaInstallPrompt color={color} onInstalled={handlePwaInstalled} />
 
-      {/* Android install banner */}
-      {showInstallBanner && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-center gap-3">
-          <Download01 className="size-7 shrink-0 text-white" aria-hidden="true" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">Installer Izou</p>
-            <p className="text-xs text-gray-400">Accédez à votre carte en un tap</p>
-          </div>
-          <button
-            onClick={handleInstall}
-            className="shrink-0 text-white text-sm font-semibold px-3 py-1.5 rounded-xl"
-            style={{ backgroundColor: color }}
-          >
-            Installer
-          </button>
-          <button
-            onClick={() => setShowInstallBanner(false)}
-            className="text-gray-400 hover:text-white text-xl leading-none shrink-0"
-          >
-            ×
-          </button>
-        </div>
+      {/* Modal install declenche depuis le sheet welcome ou le banner progress */}
+      <PwaInstallPrompt
+        mode="modal"
+        open={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+        color={color}
+        onInstalled={handlePwaInstalled}
+      />
+
+      {/* Onboarding welcome sheet (1er acces uniquement) — Story 9.2 §4 */}
+      {showWelcomeSheet && (
+        <OnboardingWelcomeSheet
+          firstName={firstName}
+          businessName={business.business_name}
+          onInstallClick={handleInstallClick}
+          onWalletClick={handleWalletClick}
+          onClose={handleWelcomeClose}
+        />
       )}
 
       <div className="min-h-screen bg-gray-50 pb-24">
@@ -329,6 +378,18 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
             <p className="text-sm text-gray-500 mt-1">{statusLine}</p>
           </div>
         </div>
+
+        {/* Onboarding progress banner — mobile only, masque a 3/3 (cf. spec §5 + §11.7) */}
+        {onboardingStatus && !onboardingStatus.completed && (
+          <div className="max-w-md mx-auto">
+            <OnboardingProgressBanner
+              status={onboardingStatus}
+              color={color}
+              onInstallClick={handleInstallClick}
+              onWalletClick={handleWalletClick}
+            />
+          </div>
+        )}
 
         {/* Tab content */}
         <div className="max-w-md mx-auto px-5 pt-5 space-y-5">

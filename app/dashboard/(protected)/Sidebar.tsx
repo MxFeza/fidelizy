@@ -125,6 +125,11 @@ export default function Sidebar({ businessName, businessEmail, businessLogoUrl }
 
       {/* Footer */}
       <div className="mt-auto flex flex-col gap-3 px-4 py-4 lg:py-5">
+        {/* Slot Story 9.1 — OnboardingChecklist (portal cible). Le widget se monte
+            depuis OnboardingCoach via createPortal. Reste vide tant que le coach
+            n'est pas actif (welcome modal pas validé OU 100 % atteint). */}
+        <div data-onboarding-slot />
+
         {/* Feedback CTA — simple lien violet. Version complete dans le profil utilisateur (v2). */}
         {!feedbackOpen ? (
           <button

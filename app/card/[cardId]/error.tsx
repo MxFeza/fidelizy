@@ -1,6 +1,6 @@
 'use client'
 
-import { Emoji } from '@/lib/emojis'
+import { AlertCircle } from '@untitledui/icons'
 
 export default function CardError({
   reset,
@@ -11,7 +11,7 @@ export default function CardError({
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="bg-white rounded-2xl shadow-sm p-8 max-w-sm w-full text-center">
-        <div className="mb-4 flex justify-center"><Emoji name="error-face" size={48} /></div>
+        <div className="mb-4 flex justify-center"><AlertCircle className="size-12 text-error-primary" aria-hidden="true" /></div>
         <h2 className="text-lg font-bold text-gray-900 mb-2">
           Carte introuvable
         </h2>

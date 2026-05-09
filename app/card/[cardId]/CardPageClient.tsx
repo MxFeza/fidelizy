@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Bell01, Grid01 } from '@untitledui/icons'
+import { Bell01, Grid01, Download01 } from '@untitledui/icons'
 import Link from 'next/link'
 import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
 import { isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
@@ -245,7 +245,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
       {/* iOS install banner */}
       {showIOSBanner && (
         <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-start gap-3">
-          <Emoji name="mobile" size={28} className="shrink-0" />
+          <Download01 className="size-7 shrink-0 text-white" aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold mb-0.5">Installer l&apos;application</p>
             <p className="text-xs text-gray-300 leading-relaxed">
@@ -275,7 +275,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
       {/* Android install banner */}
       {showInstallBanner && (
         <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-center gap-3">
-          <Emoji name="mobile-arrow" size={28} className="shrink-0" />
+          <Download01 className="size-7 shrink-0 text-white" aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Installer Izou</p>
             <p className="text-xs text-gray-400">Accédez à votre carte en un tap</p>

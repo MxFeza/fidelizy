@@ -1,6 +1,10 @@
-# Story 8.1 — Onboarding commerçant : checklist ludique + walkthrough enthousiaste
+# Story 9.1 — Activation coach commerçant : checklist ludique + walkthrough enthousiaste
 
-**Epic :** 8 (Onboarding & Activation)
+**Epic :** 9 (Activation & Coaching) — **NOUVEAU**, à distinguer de :
+- Epic 8 « Mon Espace & RGPD » (déjà dans roadmap, scope FR3/FR8/FR46/FR48)
+- Story 7.2 « Onboarding choix métier » (Epic 7 inscription merchant, J3)
+- Story 4.2 « Onboarding client A1→A6 » (Epic 4 inscription client)
+
 **Taille :** L (~12-15 h)
 **Statut :** ready-for-dev
 **Date :** 2026-05-08

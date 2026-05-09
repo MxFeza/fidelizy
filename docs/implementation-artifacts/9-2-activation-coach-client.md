@@ -1,6 +1,10 @@
-# Story 8.2 — Onboarding client : install PWA + Wallet en priorité
+# Story 9.2 — Activation coach client : install PWA + Wallet en priorité
 
-**Epic :** 8 (Onboarding & Activation)
+**Epic :** 9 (Activation & Coaching) — **NOUVEAU**, à distinguer de :
+- Epic 8 « Mon Espace & RGPD » (déjà dans roadmap)
+- Story 4.2 « Onboarding client A1→A6 » (Epic 4 inscription, 5 écrans signup)
+- Story 7.2 « Onboarding choix métier » (Epic 7 inscription merchant)
+
 **Taille :** M (~8-10 h)
 **Statut :** ready-for-dev
 **Date :** 2026-05-08

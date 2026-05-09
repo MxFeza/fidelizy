@@ -136,10 +136,20 @@ export async function addToCard(
     points_per_euro: params.pointsPerEuro,
   }
 
+  // Anti-abuse (audit local 2026-05-08, finding T1-3) : clamp business-aware
+  // pour empêcher un employé malveillant de créditer 1000 tampons d'un coup.
+  // - stamps : max = 1 carte complète (= stamps_required) par opération
+  // - points : max = 500 (couvre les gros tickets, bloque les abus extrêmes)
+  // Le schéma Zod côté API limite déjà à 1000, ce clamp est une 2e barrière.
+  const stampsCap = business.stamps_required ?? 10
+  const cappedAmount = type === 'stamps'
+    ? Math.min(amount, stampsCap)
+    : Math.min(amount, 500)
+
   if (type === 'stamps') {
-    return earnStampsInternal(supabase, { card, business, amount, incrementVisits: true })
+    return earnStampsInternal(supabase, { card, business, amount: cappedAmount, incrementVisits: true })
   } else {
-    return earnPointsInternal(supabase, { card, business, amount, incrementVisits: true })
+    return earnPointsInternal(supabase, { card, business, amount: cappedAmount, incrementVisits: true })
   }
 }
 

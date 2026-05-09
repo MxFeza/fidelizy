@@ -2,6 +2,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { joinLimiter, getIP } from '@/lib/ratelimit'
 
 /**
  * Inscription client directe (sans avoir scanne un QR commercant).
@@ -17,6 +18,11 @@ import { AppError, withErrorHandler } from '@/lib/errors'
  *    OTP par email (Supabase Auth signInWithOtp).
  */
 export const POST = withErrorHandler(async (request) => {
+  const rl = await joinLimiter.limit(getIP(request))
+  if (!rl.success) {
+    throw new AppError('Trop de tentatives. Réessayez dans une minute.', 429)
+  }
+
   const body = await request.json().catch(() => ({}))
   const first_name = typeof body.first_name === 'string' ? body.first_name.trim() : ''
   const phone = typeof body.phone === 'string' ? body.phone.trim() : ''
@@ -66,8 +72,8 @@ export const POST = withErrorHandler(async (request) => {
       status: 'already_exists',
       message: 'Un compte existe déjà avec ces informations. Connectez-vous avec le code reçu.',
       maskedEmail: masked,
-      // For client-side step transition
-      phone: existing.phone ?? phone,
+      // PII : on ne renvoie PAS le phone du compte existant (audit Gemini T1.2 :
+      // énumération possible si l'attaquant essaie un email connu).
     })
   }
 

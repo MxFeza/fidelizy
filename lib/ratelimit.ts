@@ -61,6 +61,15 @@ export const otpLimiter = gracefulLimit(new Ratelimit({
   prefix: 'rl:otp',
 }))
 
+// Brute-force OTP verify : 5 tentatives par IP / 10 min.
+// Plus permissif que otpLimiter (envoi) pour absorber les fautes de frappe,
+// mais bloque le brute-force ciblé sur le code 6 chiffres.
+export const otpVerifyLimiter = gracefulLimit(new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '600 s'),
+  prefix: 'rl:otp-verify',
+}))
+
 export const cardWriteLimiter = gracefulLimit(new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(20, '60 s'),

@@ -21,7 +21,7 @@ import { createPortal } from 'react-dom'
 import OnboardingWelcomeModal from './OnboardingWelcomeModal'
 import OnboardingChecklist from './OnboardingChecklist'
 import OnboardingCompleteModal from './OnboardingCompleteModal'
-import { runMerchantTour } from './onboardingTour'
+import { runMerchantTour, tryRunPendingTour } from './onboardingTour'
 import type { MerchantOnboardingTaskId } from '@/lib/onboarding/getMerchantTaskStatus'
 
 interface OnboardingCoachProps {
@@ -52,6 +52,9 @@ export default function OnboardingCoach({
   useEffect(() => {
     const el = document.querySelector('[data-onboarding-slot]')
     setSlotEl(el)
+    // Relance un tour différé si l'utilisateur vient d'être navigué après clic
+    // sur une tâche depuis une autre page.
+    tryRunPendingTour()
   }, [])
 
   /**

@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01, QrCode02, User01 } from '@untitledui/icons'
 import { Emoji } from '@/lib/emojis'
 import { createClient } from '@/lib/supabase/client'
+import FeedbackBubbleClient from '@/components/client/FeedbackBubbleClient'
 
 interface Customer {
   id: string
@@ -332,6 +333,8 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
           </div>
         </div>
       )}
+
+      <FeedbackBubbleClient />
     </div>
   )
 }

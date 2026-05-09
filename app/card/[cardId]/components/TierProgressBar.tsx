@@ -1,5 +1,6 @@
 'use client'
 
+import { Lock01, Stars02 } from '@untitledui/icons'
 import { Emoji } from '@/lib/emojis'
 import type { LoyaltyTier } from '@/lib/types'
 import { cx } from '@/utils/cx'
@@ -106,7 +107,7 @@ export default function TierProgressBar({
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-tertiary">
-                  <Emoji name="lock" size={12} /> {remaining} {unit}
+                  <Lock01 className="size-3" aria-hidden="true" /> {remaining} {unit}
                   {remaining > 1 ? 's' : ''}
                 </span>
               )}
@@ -140,7 +141,7 @@ export default function TierProgressBar({
         )}
         {allReached && (
           <p className="text-center text-sm font-semibold text-success-primary inline-flex items-center justify-center gap-1.5 w-full">
-            <Emoji name="confetti" size={18} />
+            <Stars02 className="size-4" aria-hidden="true" />
             <span>Tous les paliers débloqués !</span>
           </p>
         )}

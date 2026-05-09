@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { CreditCard02 } from '@untitledui/icons'
+import { CreditCard02, Gift01 } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
@@ -133,7 +133,7 @@ export default function CardTab({
         <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center space-y-3">
           <div>
             <p className="text-sm font-semibold text-success-primary inline-flex items-center gap-1.5">
-              <Emoji name="gift" size={18} />
+              <Gift01 className="size-4" aria-hidden="true" />
               <span>Récompense disponible : {business.stamps_reward}</span>
             </p>
             <p className="text-xs text-success-primary/80 mt-0.5">

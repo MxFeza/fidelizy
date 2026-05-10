@@ -431,14 +431,20 @@ export default function ClientDetailClient({ card, business, transactions, rewar
             </div>
             <input
               type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
               min={1}
-              max={isStamps ? stampsRequired : 9999}
               value={adjustAmount === '' ? '' : adjustAmount}
               onChange={(e) => {
                 const v = e.target.value
-                setAdjustAmount(v === '' ? '' : Math.max(1, Number(v)))
+                if (v === '') {
+                  setAdjustAmount('')
+                  return
+                }
+                const n = Number(v)
+                if (Number.isNaN(n) || n < 0) return
+                setAdjustAmount(n)
               }}
-              onBlur={() => { if (adjustAmount === '') setAdjustAmount(1) }}
               className="w-20 px-3 py-1.5 border border-primary rounded-md text-sm text-center bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-sm text-tertiary">

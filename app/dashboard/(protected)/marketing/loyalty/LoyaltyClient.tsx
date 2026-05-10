@@ -217,9 +217,9 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                   value={String(stampsRequired)}
                   onChange={(v) => {
                     const n = parseInt(v, 10)
-                    if (!isNaN(n) && n >= 1 && n <= 50) setStampsRequired(n)
+                    if (!isNaN(n) && n >= 3 && n <= 30) setStampsRequired(n)
                   }}
-                  hint="Le total visible sur la carte. Les récompenses sont définies par paliers ci-dessous."
+                  hint="Entre 3 et 30 tampons. Les récompenses sont définies par paliers ci-dessous."
                 />
               </div>
             ) : (

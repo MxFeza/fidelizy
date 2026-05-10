@@ -18,7 +18,9 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import OnboardingWelcomeSheet from '@/components/client/onboarding/OnboardingWelcomeSheet'
 import OnboardingProgressBanner from '@/components/client/onboarding/OnboardingProgressBanner'
 import PwaInstallPrompt from '@/components/client/onboarding/PwaInstallPrompt'
-import type { OnboardingStatus } from '@/lib/onboarding/getCustomerTaskStatus'
+import CustomerCoach from '@/components/client/onboarding/CustomerCoach'
+import { requestRunCustomerFlow } from '@/components/client/onboarding/customerOnboardingFlows'
+import type { OnboardingStatus, OnboardingTaskId } from '@/lib/onboarding/getCustomerTaskStatus'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -56,6 +58,7 @@ export default function CardPageClient({
     initialOnboardingStatus ? !initialOnboardingStatus.started : false,
   )
   const [showInstallModal, setShowInstallModal] = useState(false)
+  const [coachFlowToStart, setCoachFlowToStart] = useState<OnboardingTaskId | null>(null)
   const completeSentRef = useRef(false)
 
   const color = business.primary_color || '#7F56D9'
@@ -243,16 +246,24 @@ export default function CardPageClient({
   }, [onboardingStatus])
 
   // Mark wallet ajoute (idempotent) + refresh status.
+  // Story 9.2 v2 : depuis le banner, on déclenche un coachmark qui highlight
+  // le bouton Wallet du CardTab plutôt que de download directement. Le user
+  // voit "où cliquer" puis fait l'action lui-même. Au clic du bouton, le
+  // coachmark se ferme + le download s'effectue + tracking.
   const handleWalletClick = useCallback(() => {
-    // Le download du .pkpass se fait via le href du <CardTab> bouton existant.
-    // Ici on declenche aussi le download programmatique (depuis le sheet welcome
-    // ou le banner progress) + tracking.
-    if (typeof window !== 'undefined') {
-      window.open(`/api/wallet/${card.qr_code_id}`, '_blank', 'noopener,noreferrer')
+    const flow = requestRunCustomerFlow('wallet_added')
+    if (flow) {
+      setCoachFlowToStart('wallet_added')
+    } else {
+      // Fallback (sessionStorage indispo, ou autre) → fallback à l'ancien
+      // comportement de download direct.
+      if (typeof window !== 'undefined') {
+        window.open(`/api/wallet/${card.qr_code_id}`, '_blank', 'noopener,noreferrer')
+      }
+      fetch('/api/me/onboarding/wallet-added', { method: 'POST' })
+        .then(() => refreshOnboarding())
+        .catch(() => {})
     }
-    fetch('/api/me/onboarding/wallet-added', { method: 'POST' })
-      .then(() => refreshOnboarding())
-      .catch(() => {})
   }, [card.qr_code_id, refreshOnboarding])
 
   // PWA install — declenche depuis sheet ou banner progress.
@@ -260,12 +271,23 @@ export default function CardPageClient({
     setShowInstallModal(true)
   }, [])
 
-  // Customize card color — navigate to dedicated screen. Story 9.2 v2.
+  // Customize card color — Story 9.2 v2 : déclenche un coachmark qui navigue
+  // d'abord vers /me/profile/card-customization puis guide en 2 steps
+  // (color picker → save). requestRunCustomerFlow gère la navigation +
+  // sessionStorage ; le coachmark se relance au mount via tryGetPendingCustomerFlow.
   const handleCustomizeClick = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/me/profile/card-customization'
+    const flow = requestRunCustomerFlow('card_customized')
+    if (flow) {
+      // (path === flow path) — pas de navigation requise, lance inline
+      setCoachFlowToStart('card_customized')
     }
+    // Sinon navigation déjà déclenchée, le flow se relancera après landing.
   }, [])
+
+  const handleCoachFlowEnded = useCallback(() => {
+    setCoachFlowToStart(null)
+    refreshOnboarding()
+  }, [refreshOnboarding])
 
   // Quand l'install PWA est confirme (display-mode standalone ou Android prompt accepted),
   // refresh le banner progress.
@@ -455,6 +477,13 @@ export default function CardPageClient({
           la trouvait que sur /me alors qu'il passait l'essentiel de son temps
           ici. Pattern miroir du dashboard merchant. */}
       <FeedbackBubbleClient />
+
+      {/* Coachmark interactif client (wallet, customize). Story 9.2 v2.
+          PWA reste géré via PwaInstallPrompt en modal — pas de coachmark. */}
+      <CustomerCoach
+        flowToStart={coachFlowToStart}
+        onFlowEnded={handleCoachFlowEnded}
+      />
     </>
   )
 }

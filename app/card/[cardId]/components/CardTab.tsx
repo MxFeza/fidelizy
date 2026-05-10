@@ -194,6 +194,7 @@ export default function CardTab({
           variants standard, et c'est intentionnel (cf. Figma A6). */}
       {walletAvailable && (
         <a
+          data-tour="wallet-add"
           href={`/api/wallet/${card.qr_code_id}`}
           target="_blank"
           rel="noopener noreferrer"

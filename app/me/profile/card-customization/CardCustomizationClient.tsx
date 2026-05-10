@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import SubScreenLayout from '@/components/client/profile/SubScreenLayout'
+import CustomerCoach from '@/components/client/onboarding/CustomerCoach'
 import { useToast } from '@/components/client/ToastContainer'
 import type { CardColor } from '@/lib/types'
+import type { OnboardingTaskId } from '@/lib/onboarding/getCustomerTaskStatus'
 import { cx } from '@/utils/cx'
 
 const COLOR_OPTIONS: Array<{ value: CardColor | null; label: string; hex: string }> = [
@@ -43,6 +45,11 @@ export default function CardCustomizationClient({
   const { toast, showToast } = useToast()
   const [selected, setSelected] = useState<CardColor | null>(initialColor)
   const [saving, setSaving] = useState(false)
+  // Story 9.2 v2 : controlled flow null par défaut. CustomerCoach détecte
+  // le pending flow en sessionStorage à son mount et lance le coachmark
+  // (color picker → save) si l'utilisateur arrive depuis le banner.
+  const [coachFlowToStart, setCoachFlowToStart] = useState<OnboardingTaskId | null>(null)
+  const handleCoachFlowEnded = useCallback(() => setCoachFlowToStart(null), [])
 
   const dirty = selected !== initialColor
 
@@ -88,7 +95,10 @@ export default function CardCustomizationClient({
         />
       </div>
 
-      <section className="bg-white rounded-2xl border border-gray-200 p-5">
+      <section
+        data-tour="card-color-picker"
+        className="bg-white rounded-2xl border border-gray-200 p-5"
+      >
         <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase mb-3">Couleurs</p>
         <ul className="flex flex-wrap gap-3" role="radiogroup" aria-label="Couleur de la carte">
           {COLOR_OPTIONS.map(({ value, label, hex }) => {
@@ -127,6 +137,7 @@ export default function CardCustomizationClient({
 
       <div className="flex justify-end pt-2">
         <Button
+          data-tour="card-color-save"
           color="primary"
           size="md"
           onClick={handleSave}
@@ -136,6 +147,11 @@ export default function CardCustomizationClient({
           Enregistrer
         </Button>
       </div>
+
+      <CustomerCoach
+        flowToStart={coachFlowToStart}
+        onFlowEnded={handleCoachFlowEnded}
+      />
     </SubScreenLayout>
   )
 }

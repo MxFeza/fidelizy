@@ -617,7 +617,10 @@ function ComposeView({
           </div>
         </section>
 
-        <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-5">
+        <section
+          data-tour="push-config"
+          className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-5"
+        >
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-medium text-secondary">Titre</label>

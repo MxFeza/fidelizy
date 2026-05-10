@@ -30,8 +30,15 @@ interface TaskItemProps {
 export default function TaskItem({ id, label, done, href, onTriggerTour }: TaskItemProps) {
   const router = useRouter()
 
-  function handleClick() {
-    if (done) return // Pas d'action sur tâche déjà cochée
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    // Story 9.1.fix : triple safeguard pour éviter le bug "click on done task
+    // re-déclenche l'action". L'attribut `disabled` ET le check JS ET
+    // `pointer-events-none` côté CSS doivent tous trois empêcher l'action.
+    if (done) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     if (onTriggerTour) {
       onTriggerTour(id)
       return
@@ -49,7 +56,7 @@ export default function TaskItem({ id, label, done, href, onTriggerTour }: TaskI
       aria-label={done ? `${label} (complété)` : label}
       className={`group w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-left text-sm transition-colors ${
         done
-          ? 'cursor-default text-quaternary'
+          ? 'cursor-default pointer-events-none text-quaternary'
           : 'cursor-pointer text-primary hover:bg-primary_hover'
       }`}
     >

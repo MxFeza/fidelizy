@@ -1,18 +1,17 @@
 /**
- * Story 9.1.fix — Définition des flows interactifs (remplace driver.js).
+ * Story 9.1.fix v2 — Walkthroughs interactifs multi-step.
  *
- * Chaque flow = 1 à N coachmark steps. Steps avancent automatiquement quand
- * l'utilisateur fait l'action attendue (clic sur radio, submit, etc.) plutôt
- * que via un bouton "Suivant" — c'est ce qui rend le tour vraiment interactif
- * (cf. feedback user 2026-05-10 sur Story 9.1).
+ * Chaque flow décompose une tâche d'onboarding en 1-N steps qui pointent
+ * SUCCESSIVEMENT chaque bouton/champ que l'utilisateur doit toucher.
+ * Les steps avancent automatiquement quand l'action attendue est détectée
+ * sur la cible (clic d'un bouton, change d'un input).
  *
  * Pattern :
  *   1. requestRunFlow(taskId) appelé depuis la checklist sidebar.
  *   2. Si la page cible !== page actuelle → sessionStorage + navigate, false retourné.
  *   3. Au montage de OnboardingCoach sur la nouvelle page,
- *      tryGetPendingFlowOnMount() relit sessionStorage, retourne le taskId,
- *      et OnboardingCoach lance le flow inline.
- *   4. Le Coachmark écoute l'event sur la cible et avance auto le step.
+ *      tryGetPendingFlowOnMount() relit sessionStorage, retourne le taskId.
+ *   4. Le Coachmark joue les steps un par un, avance auto sur action user.
  */
 
 import {
@@ -20,9 +19,13 @@ import {
   Image01,
   Gift01,
   Star01,
+  CheckDone01,
   QrCode01,
+  Download01,
   UserPlus01,
   Bell01,
+  Send01,
+  Lightbulb02,
 } from '@untitledui/icons'
 
 import type { CoachmarkStep } from './Coachmark'
@@ -38,12 +41,20 @@ export interface MerchantFlow {
 const SESSION_KEY = 'izou:onboarding:pendingFlow'
 
 /**
- * Définition des 5 flows interactifs (les 2 tâches "first_client" et
- * "first_reward_claimed" se cochent par actions naturelles, pas de tour).
+ * Définition des flows interactifs.
  *
- * Les sélecteurs `[data-tour=...]` doivent être ajoutés sur les pages cibles.
+ * Sélecteurs `[data-tour=...]` à maintenir en cohérence avec les pages cibles :
+ *   - business-info, logo-upload     dans settings/BusinessClient.tsx
+ *   - loyalty-type, loyalty-add-tier dans marketing/loyalty/LoyaltyClient.tsx
+ *   - loyalty-save                   idem
+ *   - qr-pdf, qr-confirm-printed     dans DashboardClient.tsx
+ *   - invite-cta                     dans clients/ClientsClient.tsx
+ *   - push-create, push-templates    dans marketing/push/PushClient.tsx
+ *   - push-config, push-send         idem
  */
 export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFlow>> = {
+  // Profil : 1 step sur la zone Nom + Adresse (les 2 inputs ensemble),
+  // suivant manuel pour laisser à l'utilisateur le temps de saisir.
   profile_complete: {
     path: '/dashboard/settings',
     steps: [
@@ -52,12 +63,13 @@ export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFl
         targetSelector: '[data-tour="business-info"]',
         icon: Settings01,
         title: 'Renseignez votre commerce',
-        description: 'Nom et adresse — vos clients verront ces infos.',
+        description: 'Le nom et l\'adresse — vos clients verront ces infos.',
         advanceOn: 'manual',
       },
     ],
   },
 
+  // Logo : 1 step sur la zone d'upload, manuel (l'upload prend du temps).
   logo_uploaded: {
     path: '/dashboard/settings',
     steps: [
@@ -66,12 +78,13 @@ export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFl
         targetSelector: '[data-tour="logo-upload"]',
         icon: Image01,
         title: 'Ajoutez votre logo',
-        description: 'Il apparaîtra sur les cartes de fidélité de vos clients.',
+        description: 'Il apparaîtra sur les cartes de fidélité.',
         advanceOn: 'manual',
       },
     ],
   },
 
+  // Programme fidélité : 3 steps qui suivent l'enchaînement réel.
   loyalty_configured: {
     path: '/dashboard/marketing/loyalty',
     steps: [
@@ -79,35 +92,53 @@ export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFl
         id: 'loyalty-type',
         targetSelector: '[data-tour="loyalty-type"]',
         icon: Gift01,
-        title: 'Tampons ou points ?',
-        description: 'Choisissez le système qui correspond à votre commerce.',
+        title: 'Choisissez votre système',
+        description: 'Tampons (visite = tampon) ou points (€ = point).',
         advanceOn: 'click',
       },
       {
-        id: 'loyalty-tiers',
-        targetSelector: '[data-tour="loyalty-tiers"]',
+        id: 'loyalty-add-tier',
+        targetSelector: '[data-tour="loyalty-add-tier"]',
         icon: Star01,
-        title: 'Définissez les récompenses',
-        description: 'Ajoutez 2-4 paliers pour donner envie de revenir.',
-        advanceOn: 'manual',
+        title: 'Ajoutez un palier de récompense',
+        description: 'Ex. 10 visites = 1 boisson offerte. Cliquez ici.',
+        advanceOn: 'click',
+      },
+      {
+        id: 'loyalty-save',
+        targetSelector: '[data-tour="loyalty-save"]',
+        icon: CheckDone01,
+        title: 'Enregistrez votre programme',
+        description: 'Une fois le palier rempli, validez ici.',
+        advanceOn: 'click',
       },
     ],
   },
 
+  // QR code : 2 steps — télécharger le PDF, puis cocher la tâche.
   qr_printed: {
     path: '/dashboard',
     steps: [
       {
-        id: 'qr-section',
-        targetSelector: '[data-tour="qr-section"]',
-        icon: QrCode01,
+        id: 'qr-pdf',
+        targetSelector: '[data-tour="qr-pdf"]',
+        icon: Download01,
         title: 'Téléchargez votre QR',
         description: 'Imprimez-le et posez-le près de la caisse.',
-        advanceOn: 'manual',
+        advanceOn: 'click',
+      },
+      {
+        id: 'qr-confirm',
+        targetSelector: '[data-tour="qr-confirm-printed"]',
+        icon: QrCode01,
+        title: 'Confirmez l\'impression',
+        description: 'Cliquez ici une fois votre QR posé en boutique.',
+        advanceOn: 'click',
       },
     ],
   },
 
+  // Premier client : 1 step sur le CTA Scanner.
   first_client: {
     path: '/dashboard/clients',
     steps: [
@@ -116,21 +147,46 @@ export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFl
         targetSelector: '[data-tour="invite-cta"]',
         icon: UserPlus01,
         title: 'Invitez votre premier client',
-        description: 'Partagez votre QR ou créez une carte manuellement.',
+        description: 'Scannez un client présent ou partagez votre QR.',
         advanceOn: 'manual',
       },
     ],
   },
 
+  // Notifications push : 4 steps qui guident la création complète.
   notif_setup: {
     path: '/dashboard/marketing/push',
     steps: [
       {
+        id: 'push-create',
+        targetSelector: '[data-tour="push-create"]',
+        icon: Bell01,
+        title: 'Créez votre première notification',
+        description: 'Cliquez ici pour ouvrir le formulaire.',
+        advanceOn: 'click',
+      },
+      {
+        id: 'push-templates',
+        targetSelector: '[data-tour="push-templates"]',
+        icon: Lightbulb02,
+        title: 'Choisissez un modèle',
+        description: 'Ces formulations marchent bien — cliquez-en une.',
+        advanceOn: 'click',
+      },
+      {
         id: 'push-config',
         targetSelector: '[data-tour="push-config"]',
-        icon: Bell01,
-        title: 'Activez les notifications',
-        description: 'Relancez vos clients endormis en quelques clics.',
+        icon: Settings01,
+        title: 'Personnalisez votre message',
+        description: 'Ajustez le titre et le corps puis cliquez Suivant.',
+        advanceOn: 'manual',
+      },
+      {
+        id: 'push-send',
+        targetSelector: '[data-tour="push-send"]',
+        icon: Send01,
+        title: 'Envoyez la campagne',
+        description: 'Quand vous êtes prêt, envoyez à tous vos abonnés.',
         advanceOn: 'manual',
       },
     ],
@@ -154,10 +210,10 @@ export function requestRunFlow(taskId: MerchantOnboardingTaskId): MerchantFlow |
       sessionStorage.setItem(SESSION_KEY, taskId)
     } catch {
       // sessionStorage indisponible (mode privé) → on lance quand même un flow
-      // centré sans navigation ; le user verra un popover sans highlight.
+      // sans navigation ; le user verra un popover en bas-droite.
     }
     window.location.assign(flow.path)
-    return null // navigation en cours, le caller ne doit pas démarrer le flow ici
+    return null
   }
 
   return flow

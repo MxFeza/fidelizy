@@ -115,6 +115,51 @@ function formatRelativeDay(iso: string): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' à ' + formatTime(iso)
 }
 
+/**
+ * Mini-bouton "J'ai imprimé mon QR" — coche la tâche d'onboarding qr_printed.
+ * Idempotent côté serveur. Cache lui-même après succès. Ciblé par le coachmark
+ * step 2 du flow qr_printed (data-tour="qr-confirm-printed").
+ */
+function QrPrintedConfirmButton() {
+  const [confirmed, setConfirmed] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleClick() {
+    if (loading || confirmed) return
+    setLoading(true)
+    try {
+      await fetch('/api/business/onboarding/qr-printed', { method: 'POST' })
+    } catch {
+      // Best-effort
+    } finally {
+      setConfirmed(true)
+      setLoading(false)
+    }
+  }
+
+  if (confirmed) {
+    return (
+      <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-success-primary">
+        <CheckDone01 className="size-3.5" />
+        Confirmé — tâche cochée dans la checklist.
+      </p>
+    )
+  }
+
+  return (
+    <button
+      data-tour="qr-confirm-printed"
+      type="button"
+      onClick={handleClick}
+      disabled={loading}
+      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-fg-brand-secondary hover:text-fg-brand-secondary_hover transition-colors disabled:opacity-50"
+    >
+      <CheckDone01 className="size-3.5" />
+      {loading ? '...' : "J'ai imprimé mon QR"}
+    </button>
+  )
+}
+
 function StatCard({
   label,
   value,
@@ -419,6 +464,7 @@ export default function DashboardClient({
             </div>
             <div className="mt-4 flex gap-2">
               <Button
+                data-tour="qr-pdf"
                 color="primary"
                 size="sm"
                 className="flex-1"
@@ -432,6 +478,7 @@ export default function DashboardClient({
                 {linkCopied ? 'Copié' : 'Lien'}
               </Button>
             </div>
+            <QrPrintedConfirmButton />
           </div>
         </div>
 

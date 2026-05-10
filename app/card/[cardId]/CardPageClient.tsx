@@ -11,6 +11,7 @@ import WheelModal from './components/WheelModal'
 import PushBanner from './components/PushBanner'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
+import FeedbackBubbleClient from '@/components/client/FeedbackBubbleClient'
 import Toast from '@/components/client/Toast'
 import { Emoji } from '@/lib/emojis'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -448,6 +449,12 @@ export default function CardPageClient({
       )}
 
       <BottomTabBarClient cardId={card.qr_code_id} />
+
+      {/* Bulle "Envoyer un feedback" — mobile uniquement (md:hidden interne).
+          Story 9.2 v2 : ajoutée sur la card page suite au retour user qui ne
+          la trouvait que sur /me alors qu'il passait l'essentiel de son temps
+          ici. Pattern miroir du dashboard merchant. */}
+      <FeedbackBubbleClient />
     </>
   )
 }

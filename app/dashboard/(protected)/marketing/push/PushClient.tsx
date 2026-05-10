@@ -205,7 +205,14 @@ export default function PushClient({ business, initialBroadcasts }: PushClientPr
             </span>
           </div>
           {view === 'list' ? (
-            <Button color="primary" size="md" iconLeading={Plus} className="flex-1 sm:flex-none" onClick={() => { setSend({ status: 'idle' }); setView('compose') }}>
+            <Button
+              data-tour="push-create"
+              color="primary"
+              size="md"
+              iconLeading={Plus}
+              className="flex-1 sm:flex-none"
+              onClick={() => { setSend({ status: 'idle' }); setView('compose') }}
+            >
               Nouvelle
             </Button>
           ) : (
@@ -386,7 +393,7 @@ function ListView({
           <p className="text-sm text-tertiary mb-5">
             Vos campagnes apparaîtront ici. Commencez par créer votre première notification.
           </p>
-          <Button color="primary" size="md" iconLeading={Plus} onClick={onCompose}>
+          <Button data-tour="push-create" color="primary" size="md" iconLeading={Plus} onClick={onCompose}>
             Créer ma première notification
           </Button>
         </div>
@@ -600,7 +607,10 @@ function ComposeView({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7 space-y-6">
-        <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6">
+        <section
+          data-tour="push-templates"
+          className="rounded-xl bg-primary border border-secondary p-5 sm:p-6"
+        >
           <h2 className="text-sm font-semibold text-primary mb-3">Modèles rapides</h2>
           <div className="flex flex-wrap gap-2">
             {TEMPLATES.map((t) => (
@@ -677,6 +687,7 @@ function ComposeView({
           <div className="flex items-center justify-between gap-3 pt-2">
             <p className="text-xs text-tertiary">Limite : 5 envois par heure</p>
             <Button
+              data-tour="push-send"
               color="primary"
               size="md"
               iconLeading={scheduleEnabled ? Clock : Rocket01}

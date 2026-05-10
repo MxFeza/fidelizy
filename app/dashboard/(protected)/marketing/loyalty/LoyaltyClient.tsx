@@ -344,6 +344,7 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
           </span>
         )}
         <Button
+          data-tour="loyalty-save"
           color="primary"
           size="md"
           isDisabled={!isDirty || saving}
@@ -447,6 +448,7 @@ function TiersInline({
       )}
 
       <button
+        data-tour="loyalty-add-tier"
         type="button"
         onClick={add}
         className="w-full rounded-lg border border-dashed border-secondary bg-primary hover:bg-secondary/30 text-secondary hover:text-primary py-4 px-4 transition-colors flex items-center justify-center gap-2 text-sm font-medium"

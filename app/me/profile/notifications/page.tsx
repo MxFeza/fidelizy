@@ -20,9 +20,10 @@ export default async function NotificationsPage() {
 
   if (!customer) redirect('/me')
 
+  // Bug fix 2026-05-10 : qr_code_id (route segment) au lieu de id (UUID interne).
   const { data: card } = await service
     .from('loyalty_cards')
-    .select('id')
+    .select('qr_code_id')
     .eq('customer_id', customer.id)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
@@ -32,7 +33,7 @@ export default async function NotificationsPage() {
   return (
     <NotificationsClient
       initialPrefs={customer.notification_prefs ?? {}}
-      cardId={card?.id ?? null}
+      cardId={card?.qr_code_id ?? null}
     />
   )
 }

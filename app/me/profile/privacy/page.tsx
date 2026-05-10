@@ -19,14 +19,15 @@ export default async function PrivacyPage() {
 
   if (!customer) redirect('/me')
 
+  // Bug fix 2026-05-10 : qr_code_id (route segment) au lieu de id (UUID interne).
   const { data: card } = await service
     .from('loyalty_cards')
-    .select('id')
+    .select('qr_code_id')
     .eq('customer_id', customer.id)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
-  return <PrivacyClient firstName={customer.first_name as string} cardId={card?.id ?? null} />
+  return <PrivacyClient firstName={customer.first_name as string} cardId={card?.qr_code_id ?? null} />
 }

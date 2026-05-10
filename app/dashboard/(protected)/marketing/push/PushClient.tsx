@@ -162,6 +162,13 @@ export default function PushClient({ business, initialBroadcasts }: PushClientPr
       setBody('')
       setScheduleEnabled(false)
       setScheduledAt('')
+
+      // Story 9.x.fix 2026-05-10 : marque la tâche notif_setup de la checklist
+      // d'onboarding comme done. L'envoi d'une push notification est l'action
+      // attendue pour cocher cette tâche, mais avant ce fix, aucun appel API
+      // n'était fait → tâche restait non cochée même après envoi.
+      // Idempotent : safe à ré-appeler à chaque envoi.
+      fetch('/api/business/onboarding/notif-setup', { method: 'POST' }).catch(() => {})
     } catch (err) {
       setSend({ status: 'error', message: err instanceof Error ? err.message : 'Erreur réseau' })
     }

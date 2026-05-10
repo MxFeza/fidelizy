@@ -172,16 +172,19 @@ export default function Coachmark({
   let highlightStyle: React.CSSProperties | null = null
 
   if (targetRect) {
-    // Highlight ring around target
+    // Highlight ring around target. Dim léger (0.35) pour laisser l'UI visible
+    // derrière comme dans les patterns Usetiful/Linear, plus border brand visible
+    // pour bien démarquer la zone à cliquer.
     highlightStyle = {
       position: 'fixed',
-      top: targetRect.top - 6,
-      left: targetRect.left - 6,
-      width: targetRect.width + 12,
-      height: targetRect.height + 12,
+      top: targetRect.top - 4,
+      left: targetRect.left - 4,
+      width: targetRect.width + 8,
+      height: targetRect.height + 8,
       borderRadius: 12,
       pointerEvents: 'none',
-      boxShadow: '0 0 0 9999px rgba(12, 17, 29, 0.55)',
+      boxShadow:
+        '0 0 0 2px rgb(127 86 217), 0 0 0 9999px rgba(12, 17, 29, 0.35)',
       zIndex: 70,
     }
 
@@ -209,12 +212,13 @@ export default function Coachmark({
       zIndex: 80,
     }
   } else {
-    // Fallback: centered popover (no target found)
+    // Fallback : si la cible est introuvable (page pas encore prête, ou pas la
+    // bonne page), on affiche le popover en bas-droite sans backdrop pour
+    // ne pas masquer toute la page.
     popoverStyle = {
       position: 'fixed',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
+      bottom: 24,
+      right: 24,
       width: POPOVER_WIDTH,
       zIndex: 80,
     }
@@ -227,16 +231,6 @@ export default function Coachmark({
       aria-labelledby={`coachmark-title-${step.id}`}
       aria-describedby={step.description ? `coachmark-desc-${step.id}` : undefined}
     >
-      {/* Backdrop overlay (always present) — only blocks clicks outside target */}
-      {!targetRect && (
-        <div
-          className="fixed inset-0 bg-overlay"
-          style={{ zIndex: 60 }}
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
-
       {/* Highlight ring around target (pointer-events: none → clicks pass through) */}
       {highlightStyle && <div style={highlightStyle} aria-hidden="true" />}
 

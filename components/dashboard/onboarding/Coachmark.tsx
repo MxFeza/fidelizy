@@ -1,11 +1,6 @@
 'use client'
 
-/* eslint-disable react-hooks/set-state-in-effect --
- * Ce composant utilise plusieurs patterns SSR-safe / DOM-dependent qui
- * nécessitent setState dans des effects (mounted flag, target rect computed
- * after layout, target query after navigation). Tous sont synchronisés avec
- * le DOM externe et ne déclenchent pas de cascading re-renders en pratique.
- */
+ 
 
 /**
  * Story 9.1.fix — Coachmark interactif Untitled UI.
@@ -104,46 +99,75 @@ export default function Coachmark({
       }
     }
 
-    // Initial + retries (target peut apparaître après hydration / data fetch)
+    // Initial + poll jusqu'à 3 secondes (la cible peut apparaître après
+    // hydration, data fetch, route transition, etc.).
     update()
-    const t1 = setTimeout(update, 200)
-    const t2 = setTimeout(update, 600)
+    let attempts = 0
+    const MAX_ATTEMPTS = 30
+    const poll = setInterval(() => {
+      attempts++
+      const el = document.querySelector(step.targetSelector!)
+      if (el instanceof HTMLElement) {
+        update()
+        clearInterval(poll)
+      } else if (attempts >= MAX_ATTEMPTS) {
+        clearInterval(poll)
+      }
+    }, 100)
 
     window.addEventListener('resize', update)
     window.addEventListener('scroll', update, true)
     return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
+      clearInterval(poll)
       window.removeEventListener('resize', update)
       window.removeEventListener('scroll', update, true)
     }
   }, [step.targetSelector])
 
-  // Auto-advance listener on target
+  // Auto-advance listener on target. Le listener doit attendre que la cible
+  // existe dans le DOM (la page peut ne pas être montée immédiatement après
+  // navigation). On poll jusqu'à 3 secondes, puis abandon silencieux.
   useEffect(() => {
     advancedRef.current = false
     if (!step.targetSelector) return
     const advanceOn = step.advanceOn ?? 'manual'
     if (advanceOn === 'manual') return
 
-    const el = document.querySelector(step.targetSelector)
-    if (!(el instanceof HTMLElement)) return
+    let cleanup: (() => void) | null = null
+    let attempts = 0
+    const MAX_ATTEMPTS = 30 // 30 × 100ms = 3 secondes
 
     function handler() {
       if (advancedRef.current) return
       advancedRef.current = true
-      // Small delay so the user perceives the action register before advancing
-      setTimeout(() => {
-        onAdvance()
-      }, 450)
+      // Délai pour que l'utilisateur perçoive l'action avant qu'on avance
+      setTimeout(() => onAdvance(), 450)
     }
 
-    // Bubble phase so les state updates des enfants ont le temps de s'appliquer
-    // avant qu'on avance le step (ex: setLoyaltyType('stamps') doit s'exécuter
-    // avant qu'on retire le coachmark).
-    el.addEventListener(advanceOn, handler)
+    function tryAttach() {
+      const el = document.querySelector(step.targetSelector!)
+      if (!(el instanceof HTMLElement)) return false
+      // Bubble phase pour que les state updates des enfants s'appliquent
+      // avant qu'on avance le step.
+      el.addEventListener(advanceOn, handler)
+      cleanup = () => el.removeEventListener(advanceOn, handler)
+      return true
+    }
+
+    if (tryAttach()) {
+      return () => cleanup?.()
+    }
+
+    const interval = setInterval(() => {
+      attempts++
+      if (tryAttach() || attempts >= MAX_ATTEMPTS) {
+        clearInterval(interval)
+      }
+    }, 100)
+
     return () => {
-      el.removeEventListener(advanceOn, handler)
+      clearInterval(interval)
+      cleanup?.()
     }
   }, [step.id, step.targetSelector, step.advanceOn, onAdvance])
 
@@ -185,7 +209,10 @@ export default function Coachmark({
       pointerEvents: 'none',
       boxShadow:
         '0 0 0 2px rgb(127 86 217), 0 0 0 9999px rgba(12, 17, 29, 0.35)',
-      zIndex: 70,
+      // z-index 30 : sous les modals app (typiquement 50). Si une vraie modal
+      // s'ouvre par-dessus (ex: confirmation envoi push), elle masque
+      // proprement le coachmark plutôt que de stacker.
+      zIndex: 30,
     }
 
     // Popover placement: prefer below, fall back to above
@@ -209,7 +236,8 @@ export default function Coachmark({
       top,
       left,
       width: POPOVER_WIDTH,
-      zIndex: 80,
+      // z-index 40 : juste au-dessus du highlight, mais sous les modals app (50+).
+      zIndex: 40,
     }
   } else {
     // Fallback : si la cible est introuvable (page pas encore prête, ou pas la
@@ -220,7 +248,7 @@ export default function Coachmark({
       bottom: 24,
       right: 24,
       width: POPOVER_WIDTH,
-      zIndex: 80,
+      zIndex: 40,
     }
   }
 

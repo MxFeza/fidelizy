@@ -186,8 +186,11 @@ export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFl
         targetSelector: '[data-tour="push-send"]',
         icon: Send01,
         title: 'Envoyez la campagne',
-        description: 'Quand vous êtes prêt, envoyez à tous vos abonnés.',
-        advanceOn: 'manual',
+        description: 'Quand vous êtes prêt, cliquez ici pour envoyer.',
+        // advanceOn 'click' : le coachmark se ferme automatiquement quand
+        // l'utilisateur clique Envoyer (la modal de confirmation app prend
+        // alors le relais sans stacker avec un coachmark résiduel).
+        advanceOn: 'click',
       },
     ],
   },

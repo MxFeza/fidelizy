@@ -259,6 +259,13 @@ export default function CardPageClient({
     setShowInstallModal(true)
   }, [])
 
+  // Customize card color — navigate to dedicated screen. Story 9.2 v2.
+  const handleCustomizeClick = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/me/profile/card-customization'
+    }
+  }, [])
+
   // Quand l'install PWA est confirme (display-mode standalone ou Android prompt accepted),
   // refresh le banner progress.
   const handlePwaInstalled = useCallback(() => {
@@ -387,6 +394,7 @@ export default function CardPageClient({
               color={color}
               onInstallClick={handleInstallClick}
               onWalletClick={handleWalletClick}
+              onCustomizeClick={handleCustomizeClick}
             />
           </div>
         )}

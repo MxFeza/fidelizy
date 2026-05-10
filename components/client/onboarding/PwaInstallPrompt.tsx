@@ -159,6 +159,16 @@ export default function PwaInstallPrompt({
     }
   }, [])
 
+  // Confirme l'install côté serveur quand l'utilisateur clique "J'ai installé"
+  // sur le tutorial iOS (fallback si la détection auto display-mode standalone
+  // ne se déclenche pas, ex: user a installé mais re-ouvert via Safari direct).
+  const confirmManualInstall = useCallback(() => {
+    if (installedSentRef.current) return
+    installedSentRef.current = true
+    fetch('/api/me/onboarding/pwa-installed', { method: 'POST' }).catch(() => {})
+    onInstalled?.()
+  }, [onInstalled])
+
   // Si on est en standalone, on ne montre plus le prompt (deja installe).
   if (isStandalone) return null
 
@@ -168,7 +178,13 @@ export default function PwaInstallPrompt({
     return (
       <ModalShell onClose={() => onClose?.()}>
         {isIOS ? (
-          <IOSTutorial onClose={() => onClose?.()} />
+          <IOSTutorial
+            onConfirm={() => {
+              confirmManualInstall()
+              onClose?.()
+            }}
+            onClose={() => onClose?.()}
+          />
         ) : installEvent ? (
           <AndroidPrompt
             color={color}
@@ -192,7 +208,13 @@ export default function PwaInstallPrompt({
   if (showIOSTutorial) {
     return (
       <ModalShell onClose={() => setShowIOSTutorial(false)}>
-        <IOSTutorial onClose={() => setShowIOSTutorial(false)} />
+        <IOSTutorial
+          onConfirm={() => {
+            confirmManualInstall()
+            setShowIOSTutorial(false)
+          }}
+          onClose={() => setShowIOSTutorial(false)}
+        />
       </ModalShell>
     )
   }
@@ -304,7 +326,13 @@ function ModalShell({ children, onClose }: { children: React.ReactNode; onClose:
   )
 }
 
-function IOSTutorial({ onClose }: { onClose: () => void }) {
+function IOSTutorial({
+  onConfirm,
+  onClose,
+}: {
+  onConfirm: () => void
+  onClose: () => void
+}) {
   return (
     <div className="p-6">
       <div className="flex items-start justify-between mb-4">
@@ -330,9 +358,18 @@ function IOSTutorial({ onClose }: { onClose: () => void }) {
         <Step number={2} body={<>Faites défiler et choisissez <strong>Ajouter à l’écran d’accueil</strong></>} />
         <Step number={3} body={<>Confirmez en tapant <strong>Ajouter</strong></>} />
       </ol>
-      <Button type="button" size="lg" color="primary" className="w-full mt-6" onClick={onClose}>
-        J&apos;ai compris
-      </Button>
+      {/* Story 9.2 v2 fix : iOS Safari ne peut détecter l'install que si l'app
+          est ouverte depuis l'écran d'accueil (display-mode: standalone). Si
+          l'utilisateur installe puis re-ouvre via Safari direct, on ne détecte
+          pas. Bouton explicite "J'ai installé" pour fallback manuel. */}
+      <div className="flex flex-col gap-2 mt-6">
+        <Button type="button" size="lg" color="primary" className="w-full" onClick={onConfirm}>
+          J&apos;ai installé l&apos;app
+        </Button>
+        <Button type="button" size="md" color="link-gray" className="w-full" onClick={onClose}>
+          Plus tard
+        </Button>
+      </div>
     </div>
   )
 }

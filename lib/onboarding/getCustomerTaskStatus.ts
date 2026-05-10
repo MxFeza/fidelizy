@@ -1,6 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/service'
 
-export type OnboardingTaskId = 'card_created' | 'pwa_installed' | 'wallet_added'
+export type OnboardingTaskId =
+  | 'card_created'
+  | 'pwa_installed'
+  | 'wallet_added'
+  | 'card_customized'
 
 export interface OnboardingTask {
   id: OnboardingTaskId
@@ -12,7 +16,7 @@ export interface OnboardingStatus {
   started: boolean
   completed: boolean
   tasks: OnboardingTask[]
-  /** Pourcentage complété 0-100 (basé sur les 3 tâches) */
+  /** Pourcentage complété 0-100 (basé sur les tâches). */
   percent: number
 }
 
@@ -20,22 +24,38 @@ const TASK_LABELS: Record<OnboardingTaskId, string> = {
   card_created: 'Carte créée',
   pwa_installed: "Installer l'app sur mon tel",
   wallet_added: 'Ajouter au Apple Wallet',
+  card_customized: 'Personnaliser ma carte',
+}
+
+const TASK_ORDER: OnboardingTaskId[] = [
+  'card_created',
+  'pwa_installed',
+  'wallet_added',
+  'card_customized',
+]
+
+function emptyTasks(): OnboardingTask[] {
+  return TASK_ORDER.map((id) => ({ id, label: TASK_LABELS[id], done: false }))
 }
 
 /**
- * Calcule l'état d'onboarding d'un client (3 tâches).
+ * Calcule l'état d'onboarding d'un client (4 tâches depuis Story 9.2 v2).
  *
- * - `card_created` : auto vrai dès qu'au moins une loyalty_card existe.
- * - `pwa_installed` : vrai si `customers.pwa_installed_at IS NOT NULL`.
- * - `wallet_added` : vrai si `customers.wallet_added_at IS NOT NULL`
- *   OU s'il y a une ligne dans `wallet_registrations` pour ce client.
+ * - `card_created`     : auto, dès qu'au moins une loyalty_card existe.
+ * - `pwa_installed`    : `customers.pwa_installed_at IS NOT NULL`.
+ * - `wallet_added`     : `customers.wallet_added_at IS NOT NULL` OU
+ *                         ligne dans `wallet_registrations` pour ce client.
+ * - `card_customized`  : `customers.card_color IS NOT NULL` (couleur choisie
+ *                         depuis /me/profile/card-customization).
  */
 export async function getCustomerTaskStatus(customerId: string): Promise<OnboardingStatus> {
   const service = createServiceClient()
 
   const { data: customer } = await service
     .from('customers')
-    .select('onboarding_started_at, onboarding_completed_at, pwa_installed_at, wallet_added_at')
+    .select(
+      'onboarding_started_at, onboarding_completed_at, pwa_installed_at, wallet_added_at, card_color',
+    )
     .eq('id', customerId)
     .maybeSingle()
 
@@ -43,11 +63,7 @@ export async function getCustomerTaskStatus(customerId: string): Promise<Onboard
     return {
       started: false,
       completed: false,
-      tasks: [
-        { id: 'card_created', label: TASK_LABELS.card_created, done: false },
-        { id: 'pwa_installed', label: TASK_LABELS.pwa_installed, done: false },
-        { id: 'wallet_added', label: TASK_LABELS.wallet_added, done: false },
-      ],
+      tasks: emptyTasks(),
       percent: 0,
     }
   }
@@ -64,7 +80,6 @@ export async function getCustomerTaskStatus(customerId: string): Promise<Onboard
   const pwaInstalled = customer.pwa_installed_at !== null
 
   // 3) Wallet ajouté — soit timestamp, soit ligne dans wallet_registrations.
-  // wallet_registrations.serial_number = qr_code_id de la carte. On rejoint via loyalty_cards.
   let walletAdded = customer.wallet_added_at !== null
 
   if (!walletAdded) {
@@ -83,11 +98,21 @@ export async function getCustomerTaskStatus(customerId: string): Promise<Onboard
     }
   }
 
-  const tasks: OnboardingTask[] = [
-    { id: 'card_created', label: TASK_LABELS.card_created, done: cardCreated },
-    { id: 'pwa_installed', label: TASK_LABELS.pwa_installed, done: pwaInstalled },
-    { id: 'wallet_added', label: TASK_LABELS.wallet_added, done: walletAdded },
-  ]
+  // 4) Carte personnalisée — couleur choisie
+  const cardCustomized = customer.card_color !== null && customer.card_color !== undefined
+
+  const doneByTask: Record<OnboardingTaskId, boolean> = {
+    card_created: cardCreated,
+    pwa_installed: pwaInstalled,
+    wallet_added: walletAdded,
+    card_customized: cardCustomized,
+  }
+
+  const tasks: OnboardingTask[] = TASK_ORDER.map((id) => ({
+    id,
+    label: TASK_LABELS[id],
+    done: doneByTask[id],
+  }))
 
   const doneCount = tasks.filter((t) => t.done).length
   const percent = Math.round((doneCount / tasks.length) * 100)

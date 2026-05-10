@@ -8,7 +8,7 @@ import {
   HomeLine, Users01, Send03, Settings01,
   Gift01, Rocket01, Heart,
   Building07, ShieldTick, CoinsStacked01, FileShield02,
-  LogOut01,
+  LifeBuoy01, LogOut01,
 } from '@untitledui/icons'
 import { NavList } from '@/components/ui/application/app-navigation/nav-list'
 import type { NavItemType } from '@/components/ui/application/app-navigation/config'
@@ -52,6 +52,7 @@ const navItems: NavItemType[] = [
       { href: '/dashboard/settings/security', label: 'Sécurité', icon: ShieldTick },
       { href: '/dashboard/settings/plan', label: 'Abonnement', icon: CoinsStacked01 },
       { href: '/dashboard/settings/privacy', label: 'Confidentialité', icon: FileShield02 },
+      { href: '/dashboard/settings/help', label: 'Aide & support', icon: LifeBuoy01 },
     ],
   },
 ]

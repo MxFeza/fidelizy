@@ -46,16 +46,20 @@ export const POST = withErrorHandler(async (request) => {
   if (!existing) throw AppError.notFound('Commerce introuvable')
 
   if (body.reset === true) {
-    // Mode "Refaire la visite" : reset le flag completed → widget re-apparaît.
-    if (existing.onboarding_completed_at === null) {
-      return NextResponse.json({ ok: true, already: true, mode: 'reset' })
-    }
+    // Mode "Refaire la visite" : reset les 2 flags onboarding_started_at et
+    // onboarding_completed_at → la modal Welcome re-apparaît au prochain
+    // /dashboard load + checklist re-visible + tour relançable. Les autres
+    // timestamps de tâches (qr_printed_at, notif_setup_at) sont conservés
+    // pour ne pas faire perdre les actions déjà accomplies.
     const { error } = await service
       .from('businesses')
-      .update({ onboarding_completed_at: null })
+      .update({
+        onboarding_started_at: null,
+        onboarding_completed_at: null,
+      })
       .eq('id', user.id)
     if (error) throw error
-    return NextResponse.json({ ok: true, already: false, mode: 'reset' })
+    return NextResponse.json({ ok: true, mode: 'reset' })
   }
 
   // Mode complete classique (idempotent).

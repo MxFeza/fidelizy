@@ -168,6 +168,9 @@ export default function OnboardingWelcomeSheet({
               body={
                 <>
                   Ajoutez la carte à Apple Wallet pour la retrouver d&apos;un swipe, sans déverrouiller le téléphone.
+                  <span className="block mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
+                    💬 Une question ou un retour ? Touchez la bulle violette en bas à droite à tout moment.
+                  </span>
                 </>
               }
             />

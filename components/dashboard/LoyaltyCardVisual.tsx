@@ -104,54 +104,61 @@ export default function LoyaltyCardVisual({
           {customerName}
         </p>
 
-        {/* Grille tampons : visualisation type carte fidelite physique */}
-        {loyaltyType === 'stamps' && (
-          <div
-            className="flex flex-wrap gap-1 sm:gap-1.5 my-1 sm:my-2"
-            role="meter"
-            aria-valuenow={currentStamps}
-            aria-valuemin={0}
-            aria-valuemax={stampsRequired}
-            aria-label={`${currentStamps} tampons sur ${stampsRequired}`}
-          >
-            {Array.from({ length: stampsRequired }).map((_, i) => {
-              const filled = i < currentStamps
-              return (
-                <div
-                  key={i}
-                  className={cx(
-                    'size-4 sm:size-5 lg:size-6 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
-                    filled
-                      ? useDarkText
-                        ? 'bg-gray-900 shadow-sm'
-                        : 'bg-white shadow-sm'
-                      : useDarkText
-                      ? 'border border-gray-900/25'
-                      : 'border border-white/25',
-                  )}
-                  aria-hidden="true"
-                >
-                  {filled && (
-                    <svg
-                      className={cx(
-                        'size-2.5 sm:size-3 lg:size-3.5',
-                        useDarkText ? 'text-yellow-400' : 'text-gray-900',
-                      )}
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.704 5.29a1 1 0 010 1.42l-7.99 7.99a1 1 0 01-1.42 0l-3.99-3.99a1 1 0 011.42-1.42l3.28 3.28 7.28-7.28a1 1 0 011.42 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+        {/* Grille tampons : visualisation type carte fidelite physique.
+            Story 9.2 v2 fix : grid avec colonnes adaptatives pour stacker en
+            2 rangées équilibrées (5+5 pour 10, 4+4 pour 8, etc.) au lieu de
+            squeezer en 1 longue ligne sur mobile. Cf retour user 2026-05-10. */}
+        {loyaltyType === 'stamps' && (() => {
+          const cols = stampsRequired <= 5 ? stampsRequired : Math.ceil(stampsRequired / 2)
+          return (
+            <div
+              className="grid gap-1.5 sm:gap-2 my-1 sm:my-2 justify-items-start"
+              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, max-content))` }}
+              role="meter"
+              aria-valuenow={currentStamps}
+              aria-valuemin={0}
+              aria-valuemax={stampsRequired}
+              aria-label={`${currentStamps} tampons sur ${stampsRequired}`}
+            >
+              {Array.from({ length: stampsRequired }).map((_, i) => {
+                const filled = i < currentStamps
+                return (
+                  <div
+                    key={i}
+                    className={cx(
+                      'size-5 sm:size-6 lg:size-7 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
+                      filled
+                        ? useDarkText
+                          ? 'bg-gray-900 shadow-sm'
+                          : 'bg-white shadow-sm'
+                        : useDarkText
+                        ? 'border border-gray-900/25'
+                        : 'border border-white/25',
+                    )}
+                    aria-hidden="true"
+                  >
+                    {filled && (
+                      <svg
+                        className={cx(
+                          'size-3 sm:size-3.5 lg:size-4',
+                          useDarkText ? 'text-yellow-400' : 'text-gray-900',
+                        )}
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.704 5.29a1 1 0 010 1.42l-7.99 7.99a1 1 0 01-1.42 0l-3.99-3.99a1 1 0 011.42-1.42l3.28 3.28 7.28-7.28a1 1 0 011.42 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         <p className={cx('text-xs sm:text-sm lg:text-base font-medium transition-all duration-300', textColorMuted)}>
           {loyaltyType === 'stamps'

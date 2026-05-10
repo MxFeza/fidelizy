@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import Link from 'next/link'
 import { ArrowLeft } from '@untitledui/icons'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 
@@ -110,16 +109,29 @@ export default function ScanClient() {
     }
   }, [handleScan])
 
+  // Story 9.x.fix 2026-05-10 : back button doit revenir d'où le user est venu
+  // (carte, profil, etc.) au lieu d'aller toujours sur /me. Si pas d'historique
+  // (tab ouvert direct sur /scan via deep link), fallback vers /me.
+  const handleBack = useCallback(async () => {
+    await stopScanner()
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push('/me')
+    }
+  }, [router, stopScanner])
+
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       <header className="relative px-5 py-4 flex items-center justify-center">
-        <Link
-          href="/me"
+        <button
+          type="button"
+          onClick={handleBack}
           aria-label="Retour"
           className="absolute left-4 top-1/2 -translate-y-1/2 size-10 flex items-center justify-center text-white hover:opacity-80 transition-opacity"
         >
           <ArrowLeft className="size-5" />
-        </Link>
+        </button>
         <Image
           src={PUBLIC_ASSETS.branding.logoBlanc}
           alt="Izou"
@@ -167,12 +179,13 @@ export default function ScanClient() {
               <p className="text-sm font-medium text-error-primary">
                 {errorMessage}
               </p>
-              <Link
-                href="/me"
+              <button
+                type="button"
+                onClick={handleBack}
                 className="inline-block mt-2 text-sm text-white underline hover:opacity-80"
               >
-                Retour à mes cartes
-              </Link>
+                Retour
+              </button>
             </>
           )}
         </div>

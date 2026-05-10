@@ -69,7 +69,7 @@ const TASK_DEFS: Array<{
   },
   {
     id: 'notif_setup',
-    label: 'Activer les notifications push',
+    label: 'Envoyer ma 1ʳᵉ notification',
     doneCelebration: 'Vos clients reviendront plus souvent.',
     href: '/dashboard/marketing/push',
   },

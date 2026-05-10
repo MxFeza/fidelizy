@@ -162,6 +162,13 @@ export default function PushClient({ business, initialBroadcasts }: PushClientPr
       setBody('')
       setScheduleEnabled(false)
       setScheduledAt('')
+
+      // Story 9.x.fix 2026-05-10 : marque la tâche notif_setup de la checklist
+      // d'onboarding comme done. L'envoi d'une push notification est l'action
+      // attendue pour cocher cette tâche, mais avant ce fix, aucun appel API
+      // n'était fait → tâche restait non cochée même après envoi.
+      // Idempotent : safe à ré-appeler à chaque envoi.
+      fetch('/api/business/onboarding/notif-setup', { method: 'POST' }).catch(() => {})
     } catch (err) {
       setSend({ status: 'error', message: err instanceof Error ? err.message : 'Erreur réseau' })
     }
@@ -281,7 +288,17 @@ export default function PushClient({ business, initialBroadcasts }: PushClientPr
 
       {send.status === 'success' && (
         <Overlay>
-          <div className="bg-primary rounded-2xl p-8 text-center max-w-sm">
+          <div className="relative bg-primary rounded-2xl p-8 text-center max-w-sm">
+            {/* Story 9.x.fix 2026-05-10 : X close button — avant la modal
+                forçait à choisir entre Nouvelle/Historique pour partir. */}
+            <button
+              type="button"
+              onClick={() => setSend({ status: 'idle' })}
+              aria-label="Fermer"
+              className="absolute top-3 right-3 size-8 rounded-full hover:bg-secondary inline-flex items-center justify-center text-quaternary hover:text-primary transition-colors"
+            >
+              <XIcon className="size-4" />
+            </button>
             <div className="size-14 mx-auto mb-4 bg-success-secondary rounded-full flex items-center justify-center">
               <CheckDone01 className="size-7 text-fg-success-primary" />
             </div>

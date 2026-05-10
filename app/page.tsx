@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { redirect } from 'next/navigation'
 import { Building02, CreditCard02, ArrowRight } from '@untitledui/icons'
 import HeroBalloon from '@/components/client/HeroBalloon'
 import IzouBulletLogo from '@/components/client/IzouBulletLogo'
+import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export const metadata = {
   title: 'Izou — Cartes de fidélité digitales',
@@ -11,17 +14,50 @@ export const metadata = {
 /**
  * Home / — 2 espaces : client et commerçant.
  *
- * Reprend le pattern visuel des écrans onboarding `/join/[shortCode]` :
- * header logo + hero ballon + IzouBulletLogo central, pour rester
- * cohérent avec l'univers client (Figma A2/A4) et donner du caractère
- * à la page d'arrivée. Décision user 2026-05-05.
+ * Bug fix 2026-05-10 : si l'utilisateur a déjà une session valide
+ * (cookie Supabase non expiré), on redirige automatiquement vers son
+ * espace (/dashboard pour merchant, /me pour customer) au lieu de
+ * réafficher la page de sélection. Sinon, sur PWA installée, à chaque
+ * réouverture après suspension iOS/Android (~5 min), l'utilisateur
+ * tombait sur cette page de sélection et avait l'impression d'être
+ * déconnecté alors que son cookie était encore valide.
  *
- * Le scan QR n'est PAS un point d'entrée landing : un commerçant qui
- * affiche son QR redirige directement vers `/join/{shortCode}` (URL
- * encodée dans le QR), et la fonction `/scan` interne sert depuis
- * l'espace client `/me`.
+ * Reprend le pattern visuel des écrans onboarding `/join/[shortCode]`.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  // Detection auth + role pour redirect transparent quand session valide.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user?.email) {
+    const service = createServiceClient()
+
+    // 1) Merchant ? business.id === user.id (Supabase Auth UID est aussi le PK businesses)
+    const { data: business } = await service
+      .from('businesses')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (business) redirect('/dashboard')
+
+    // 2) Customer ? lookup par email
+    const { data: customer } = await service
+      .from('customers')
+      .select('id')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (customer) redirect('/me')
+
+    // Sinon (cas edge : session sans business ni customer) — on affiche la
+    // selection comme fallback, l'utilisateur peut choisir son espace.
+  }
+
+  return <HomePageView />
+}
+
+function HomePageView() {
   return (
     <div className="min-h-screen flex flex-col bg-primary">
       <header className="px-5 py-4 border-b border-secondary">

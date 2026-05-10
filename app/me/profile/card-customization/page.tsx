@@ -19,9 +19,10 @@ export default async function CardCustomizationPage() {
     .maybeSingle<{ id: string; first_name: string; card_color: CardColor | null }>()
   if (!customer) redirect('/me')
 
+  // Bug fix 2026-05-10 : qr_code_id (route segment) au lieu de id (UUID interne).
   const { data: card } = await service
     .from('loyalty_cards')
-    .select('id, current_stamps, current_points, businesses(stamps_required, loyalty_type, logo_url, card_image_url)')
+    .select('qr_code_id, current_stamps, current_points, businesses(stamps_required, loyalty_type, logo_url, card_image_url)')
     .eq('customer_id', customer.id)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
@@ -32,7 +33,7 @@ export default async function CardCustomizationPage() {
 
   return (
     <CardCustomizationClient
-      cardId={card?.id ?? null}
+      cardId={card?.qr_code_id ?? null}
       customerName={customer.first_name}
       initialColor={customer.card_color}
       preview={{

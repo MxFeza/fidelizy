@@ -42,15 +42,20 @@ export default async function ProfilePage() {
 
   if (!customer) redirect('/me')
 
-  // BottomTabBarClient nécessite un cardId — on prend la 1ère carte active du client.
+  // BottomTabBarClient nécessite un cardId — on prend la 1ère carte active.
+  // /!\ BUG FIX 2026-05-10 : on prend `qr_code_id` (le segment de route
+  // /card/[cardId]) et NON `id` (UUID interne loyalty_cards). Avant ce fix,
+  // BottomTabBar construisait des URLs `/card/<uuid-interne>/...` qui ne
+  // matchaient aucune carte dans `/card/[cardId]/page.tsx` qui query par
+  // `qr_code_id` → 404 systématique en navigation profil → carte/parrainage.
   const { data: card } = await service
     .from('loyalty_cards')
-    .select('id')
+    .select('qr_code_id')
     .eq('customer_id', customer.id)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
-  return <ProfileClient customer={customer} cardId={card?.id ?? null} />
+  return <ProfileClient customer={customer} cardId={card?.qr_code_id ?? null} />
 }

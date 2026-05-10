@@ -87,7 +87,7 @@ export default function OnboardingWelcomeSheet({
       onClick={handleSkip}
     >
       <div
-        className="w-full md:max-w-md bg-white rounded-t-2xl md:rounded-2xl shadow-2xl animate-in slide-in-from-bottom md:zoom-in-95 duration-200"
+        className="w-full md:max-w-md max-h-[85vh] md:max-h-[90vh] overflow-y-auto bg-white rounded-t-2xl md:rounded-2xl shadow-2xl animate-in slide-in-from-bottom md:zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >

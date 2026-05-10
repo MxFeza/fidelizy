@@ -400,20 +400,20 @@ async function earnStampsInternal(
   let message: string
 
   if (isComplete) {
-    await supabase.from('transactions').insert({
-      loyalty_card_id: card.id,
-      business_id: business.id,
-      type: 'redeem',
-      stamps_added: null,
-      points_added: null,
-      description: `Récompense accordée — carte réinitialisée (${stampsRequired}/${stampsRequired})`,
-    }).throwOnError()
-    message = `+${amount} tampon${amount > 1 ? 's' : ''} — Carte complète ! Récompense : ${business.stamps_reward}. Carte remise à 0.`
+    // Story 9.x.fix 2026-05-10 : on N'INSERT PLUS la transaction redeem ici
+    // et on NE RESET PLUS la carte à 0. La RPC `increment_stamps` cap maintenant
+    // la carte au seuil. Le claim de récompense se fait explicitement par le
+    // client via le flow claim_requests (code 6 chars présenté au merchant
+    // qui valide via /api/scan/validate-claim).
+    //
+    // On notifie juste le client qu'une récompense est disponible.
+    message = `+${amount} tampon${amount > 1 ? 's' : ''} — Carte complète ! Récompense ${business.stamps_reward} disponible. Le client peut la réclamer depuis son app.`
 
+    // Wallet : badge à 0 restant, indique au client que c'est claimable.
     setPendingWalletAction(card.qr_code_id, 'add', 0)
     notifyClient(card.id, card.qr_code_id, {
       title: business.business_name,
-      body: 'Récompense débloquée ! Montre ta carte au comptoir.',
+      body: `Récompense ${business.stamps_reward} débloquée ! Réclame-la depuis ton app.`,
     }).catch(() => {})
   } else {
     const remaining = stampsRequired - finalStamps

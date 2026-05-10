@@ -19,3 +19,91 @@ input, textarea, select {
 input::placeholder, textarea::placeholder {
   color: #9ca3af;
 }
+
+/*
+ * Story 9.1 — Customisation des popovers driver.js pour matcher le design
+ * Untitled UI (bg blanc, radius 16, shadow-xl, boutons brand-solid).
+ *
+ * Sélecteurs ciblés sur la classe .driver-popover (driver.js v1.4) — voir
+ * components/dashboard/onboarding/onboardingTour.ts pour le câblage.
+ */
+.driver-popover {
+  background: #ffffff;
+  border-radius: 1rem; /* rounded-2xl */
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* shadow-xl */
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #eaecf0; /* border-secondary */
+}
+.driver-popover-title {
+  font-size: 1rem; /* text-md */
+  font-weight: 600;
+  color: #101828; /* text-primary */
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+.driver-popover-description {
+  font-size: 0.875rem; /* text-sm */
+  color: #475467; /* text-tertiary */
+  line-height: 1.55;
+}
+.driver-popover-progress-text {
+  font-size: 0.75rem;
+  color: #98a2b3; /* text-quaternary */
+  font-weight: 500;
+}
+.driver-popover-footer {
+  margin-top: 1rem;
+  gap: 0.5rem;
+}
+.driver-popover-prev-btn,
+.driver-popover-next-btn,
+.driver-popover-close-btn {
+  border-radius: 0.5rem; /* rounded-lg */
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 100ms ease-linear, color 100ms ease-linear;
+  text-shadow: none;
+}
+/* Bouton Suivant / Terminer — primaire violet brand-solid Izou. */
+.driver-popover-next-btn {
+  background: #7f56d9; /* bg-brand-solid */
+  color: #ffffff;
+}
+.driver-popover-next-btn:hover {
+  background: #6941c6; /* bg-brand-solid_hover */
+  color: #ffffff;
+}
+/* Bouton Précédent — secondaire neutre. */
+.driver-popover-prev-btn {
+  background: #ffffff;
+  color: #344054; /* text-secondary */
+  border-color: #d0d5dd; /* border-secondary */
+}
+.driver-popover-prev-btn:hover {
+  background: #f9fafb;
+}
+/* Bouton X (close) — réutilise le style tertiaire. */
+.driver-popover-close-btn {
+  background: transparent;
+  color: #98a2b3;
+  padding: 0.25rem 0.5rem;
+}
+.driver-popover-close-btn:hover {
+  color: #101828;
+}
+/* Flèche du popover : couleur cohérente avec le fond blanc. */
+.driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: #ffffff;
+}
+.driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: #ffffff;
+}
+.driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: #ffffff;
+}
+.driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: #ffffff;
+}

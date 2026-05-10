@@ -10,7 +10,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail01, Lock01, LogOut01, AlertCircle, CheckDone01, ShieldTick } from '@untitledui/icons'
+import { Mail01, Lock01, LogOut01, AlertCircle, CheckDone01, ShieldTick, LifeBuoy01, RefreshCw01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import { PasswordInput } from '@/components/ui/base/input/password-input'
@@ -44,6 +44,10 @@ export default function SecurityClient({ email }: SecurityClientProps) {
   const [pwMsg, setPwMsg] = useState<Msg | null>(null)
 
   const [logoutLoading, setLogoutLoading] = useState(false)
+
+  // Story 9.1 — Refaire la visite onboarding
+  const [tourResetLoading, setTourResetLoading] = useState(false)
+  const [tourResetMsg, setTourResetMsg] = useState<Msg | null>(null)
 
   async function handleEmailChange(e: React.FormEvent) {
     e.preventDefault()
@@ -91,6 +95,32 @@ export default function SecurityClient({ email }: SecurityClientProps) {
     setLogoutLoading(true)
     await supabase.auth.signOut()
     router.push('/dashboard/login')
+  }
+
+  // Story 9.1 — "Refaire la visite" : reset onboarding_completed_at = NULL
+  // côté serveur puis redirige vers le dashboard pour que le widget réapparaisse.
+  async function handleReplayTour() {
+    setTourResetLoading(true)
+    setTourResetMsg(null)
+    try {
+      const res = await fetch('/api/business/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: true }),
+      })
+      if (!res.ok) {
+        const data: { error?: string } = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? `Erreur ${res.status}`)
+      }
+      router.push('/dashboard')
+      router.refresh()
+    } catch (err) {
+      setTourResetMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : "Impossible de relancer la visite. Réessayez plus tard.",
+      })
+      setTourResetLoading(false)
+    }
   }
 
   return (
@@ -229,6 +259,27 @@ export default function SecurityClient({ email }: SecurityClientProps) {
             >
               Se déconnecter
             </Button>
+          </div>
+        </SettingsSection>
+
+        {/* Aide & support — Story 9.1 */}
+        <SettingsSection
+          icon={LifeBuoy01}
+          title="Aide & support"
+          subtitle="Besoin d'un coup de pouce ? Refaites la visite guidée à tout moment."
+        >
+          <div className="flex flex-col gap-2">
+            <Button
+              size="sm"
+              color="secondary"
+              iconLeading={RefreshCw01}
+              onClick={handleReplayTour}
+              isDisabled={tourResetLoading}
+              isLoading={tourResetLoading}
+            >
+              Refaire la visite
+            </Button>
+            {tourResetMsg && <FlashMessage msg={tourResetMsg} />}
           </div>
         </SettingsSection>
       </SettingsBody>

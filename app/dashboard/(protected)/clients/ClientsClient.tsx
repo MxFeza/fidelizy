@@ -231,7 +231,13 @@ export default function ClientsClient({ clients, business }: Props) {
           >
             {exporting ? 'Export...' : 'Exporter CSV'}
           </Button>
-          <Button color="primary" size="md" iconLeading={QrCode01} onClick={() => router.push('/dashboard?action=scan')}>
+          <Button
+            data-tour="invite-cta"
+            color="primary"
+            size="md"
+            iconLeading={QrCode01}
+            onClick={() => router.push('/dashboard?action=scan')}
+          >
             <span className="hidden sm:inline">Scanner client</span>
             <span className="sm:hidden">Scanner</span>
           </Button>

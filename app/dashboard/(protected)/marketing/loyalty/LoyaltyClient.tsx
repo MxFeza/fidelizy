@@ -148,7 +148,10 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
         {/* Form column */}
         <div className="lg:col-span-7 space-y-6">
           {/* 1. Type de programme */}
-          <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6">
+          <section
+            data-tour="loyalty-type"
+            className="rounded-xl bg-primary border border-secondary p-5 sm:p-6"
+          >
             <h2 className="text-lg font-semibold text-primary mb-1">Type de programme</h2>
             <p className="text-sm text-tertiary mb-5">
               Choisissez le système qui correspond à votre activité.
@@ -172,7 +175,10 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
           </section>
 
           {/* 2. Système de récompense — fusion mode-spec + paliers + délai anti-fraude */}
-          <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-6">
+          <section
+            data-tour="loyalty-tiers"
+            className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-6"
+          >
             <div>
               <h2 className="text-lg font-semibold text-primary mb-1">
                 {loyaltyType === 'stamps' ? 'Carte à tampons' : 'Système de points'}

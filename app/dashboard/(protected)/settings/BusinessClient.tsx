@@ -266,23 +266,25 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           subtitle="Identité visuelle et localisation de votre commerce."
           icon={Building07}
         >
-          <Input
-            label="Nom du commerce"
-            value={businessName}
-            onChange={setBusinessName}
-            isRequired
-            placeholder="Café du Marché"
-          />
+          <div data-tour="business-info" className="space-y-4">
+            <Input
+              label="Nom du commerce"
+              value={businessName}
+              onChange={setBusinessName}
+              isRequired
+              placeholder="Café du Marché"
+            />
 
-          <Input
-            label="Adresse"
-            icon={MarkerPin01}
-            value={address}
-            onChange={setAddress}
-            placeholder="15 rue de la Paix, 75002 Paris"
-          />
+            <Input
+              label="Adresse"
+              icon={MarkerPin01}
+              value={address}
+              onChange={setAddress}
+              placeholder="15 rue de la Paix, 75002 Paris"
+            />
+          </div>
 
-          <div className="pt-2">
+          <div data-tour="logo-upload" className="pt-2">
             <p className="text-sm font-medium text-secondary mb-2">Logo du commerce</p>
             <AssetUploader
               kind="logo"

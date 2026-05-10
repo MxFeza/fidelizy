@@ -393,7 +393,10 @@ export default function DashboardClient({
             )}
           </div>
 
-          <div className="lg:col-span-4 rounded-xl bg-primary border border-secondary p-6 flex flex-col">
+          <div
+            data-tour="qr-section"
+            className="lg:col-span-4 rounded-xl bg-primary border border-secondary p-6 flex flex-col"
+          >
             <h2 className="text-lg font-semibold text-primary mb-4">Code commerce</h2>
             <div className="flex flex-col items-center text-center flex-1">
               {qrDataUrl ? (

@@ -84,7 +84,10 @@ export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFl
     ],
   },
 
-  // Programme fidélité : 3 steps qui suivent l'enchaînement réel.
+  // Programme fidélité : 4 steps. Auparavant 3 mais le user n'avait pas le
+  // temps de remplir le palier après avoir cliqué Ajouter (advance auto trop
+  // rapide → palier vide sans nom/emoji/seuil). On split en 2 : clic sur
+  // Ajouter (auto), puis pause manual pour remplir le palier, puis clic Save.
   loyalty_configured: {
     path: '/dashboard/marketing/loyalty',
     steps: [
@@ -100,16 +103,24 @@ export const MERCHANT_FLOWS: Partial<Record<MerchantOnboardingTaskId, MerchantFl
         id: 'loyalty-add-tier',
         targetSelector: '[data-tour="loyalty-add-tier"]',
         icon: Star01,
-        title: 'Ajoutez un palier de récompense',
-        description: 'Ex. 10 visites = 1 boisson offerte. Cliquez ici.',
+        title: 'Ajoutez votre 1er palier',
+        description: 'Cliquez ici pour créer un palier vide à remplir.',
         advanceOn: 'click',
+      },
+      {
+        id: 'loyalty-tier-edit',
+        targetSelector: '[data-tour="loyalty-tiers"]',
+        icon: Star01,
+        title: 'Personnalisez votre palier',
+        description: 'Choisissez emoji, nom et seuil. Cliquez Suivant quand prêt.',
+        advanceOn: 'manual',
       },
       {
         id: 'loyalty-save',
         targetSelector: '[data-tour="loyalty-save"]',
         icon: CheckDone01,
         title: 'Enregistrez votre programme',
-        description: 'Une fois le palier rempli, validez ici.',
+        description: 'Validez ici pour activer votre programme de fidélité.',
         advanceOn: 'click',
       },
     ],

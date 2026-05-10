@@ -6,6 +6,7 @@ const settingsSubNav = [
   { label: 'Sécurité', href: '/dashboard/settings/security' },
   { label: 'Abonnement', href: '/dashboard/settings/plan' },
   { label: 'Confidentialité', href: '/dashboard/settings/privacy' },
+  { label: 'Aide & support', href: '/dashboard/settings/help' },
 ]
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

@@ -20,7 +20,7 @@ export const GET = withErrorHandler(async () => {
   const service = createServiceClient()
   const { data: customer } = await service
     .from('customers')
-    .select('id, first_name, last_name, phone, email, avatar_url, notification_prefs, card_color, created_at')
+    .select('id, first_name, last_name, phone, email, notification_prefs, created_at')
     .eq('email', user.email)
     .maybeSingle()
 

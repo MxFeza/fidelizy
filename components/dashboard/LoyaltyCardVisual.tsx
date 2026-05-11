@@ -4,8 +4,10 @@
  * Visualisation de la carte fidelite (Figma F2 9951:586).
  *
  * Regle v1 (decision user 2026-04-26 — "on va revenir a la regle de base") :
- *   - Toutes les cartes sont **noires** (zero personnalisation couleur en v1)
- *   - Cote droit : meme image standard pour tous les commerces (landscape montgolfiere)
+ *   - Toutes les cartes utilisent la charte du commerce (business.primary_color
+ *     ou noir #0F172A par défaut)
+ *   - Cote droit : image custom du commerce si fournie, sinon image standard
+ *     (paysage montgolfiere)
  *   - Logo du commerce en bas a droite, **sur transparent** (pas de pill blanche)
  *   - Logo se met automatiquement sur toutes les cartes des clients du commerce
  *
@@ -17,35 +19,18 @@
  *
  * Update 2026-05-05 (retour user — feedback "tampons visuels") :
  *   - Mode stamps : grille de cercles (rappel des cartes de fidelite physique)
- *     a la place du simple texte "X/Y". Layout adaptatif via flex-wrap pour
- *     s'adapter aux differents stamps_required (5, 8, 10, 12...).
+ *     a la place du simple texte "X/Y".
  *
- * Personnalisation v2 (deferred) :
- *   - Banniere personnalisable (image au-dessus de la carte ou variante de design)
+ * Update 2026-05-11 :
+ *   - Retrait de la personnalisation couleur client (`card_color`) : décision
+ *     produit "charte merchant fixe" pour le pilote (cf. PLAN_PRE_PILOTE).
  */
 
 import Image from 'next/image'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
-import type { CardColor } from '@/lib/types'
-
-/**
- * Mapping cardColor -> hex (Story 4.7 v2). Override le noir default #0F172A
- * uniquement sur le côté gauche, en respectant le format prod (gauche coloré
- * uni / droite image standard ou business.card_image_url).
- */
-const CARD_COLOR_MAP: Record<CardColor, string> = {
-  violet: '#7F56D9',
-  orange: '#F79009',
-  jaune: '#FAC515',
-  corail: '#F97066',
-  vert: '#17B26A',
-}
 
 const DEFAULT_COLOR = '#0F172A'
-
-/** Yellow #FAC515 demande un texte sombre pour le contraste (les autres -> blanc). */
-const DARK_TEXT_COLORS = new Set<CardColor>(['jaune'])
 
 interface LoyaltyCardVisualProps {
   customerName: string
@@ -58,11 +43,11 @@ interface LoyaltyCardVisualProps {
   /** Image custom cote droit (depuis business.card_image_url). Remplace la montgolfiere standard si fournie. */
   cardImageUrl?: string | null
   /**
-   * Couleur du fond gauche (Story 4.7 v2 — depuis customer.card_color).
-   * undefined / null = noir default #0F172A. Format prod préservé (image
-   * standard à droite, logo commerce bottom-right).
+   * Couleur principale du commerce (depuis business.primary_color). Fallback
+   * noir #0F172A si non configurée. La règle "charte merchant fixe" (2026-05-11)
+   * remplace la personnalisation côté client.
    */
-  cardColor?: CardColor | null
+  businessPrimaryColor?: string | null
   /** Affiche un fond gradient (purple→orange→rose) autour de la carte, comme dans Figma F2/F3. Default: true. */
   withGradientBackground?: boolean
   className?: string
@@ -76,7 +61,7 @@ export default function LoyaltyCardVisual({
   currentPoints = 0,
   businessLogoUrl,
   cardImageUrl,
-  cardColor,
+  businessPrimaryColor,
   withGradientBackground = true,
   className,
 }: LoyaltyCardVisualProps) {
@@ -84,10 +69,7 @@ export default function LoyaltyCardVisual({
     ? `${currentPoints} pts`
     : `${currentStamps}/${stampsRequired}`
 
-  const bgColor = cardColor ? CARD_COLOR_MAP[cardColor] : DEFAULT_COLOR
-  const useDarkText = cardColor && DARK_TEXT_COLORS.has(cardColor)
-  const textColor = useDarkText ? 'text-gray-900' : 'text-white'
-  const textColorMuted = useDarkText ? 'text-gray-900/85' : 'text-white/85'
+  const bgColor = businessPrimaryColor || DEFAULT_COLOR
 
   const card = (
     <div
@@ -98,22 +80,24 @@ export default function LoyaltyCardVisual({
       )}
       style={{ backgroundColor: bgColor }}
     >
-      {/* Cote gauche — fond coloré + nom + grille tampons (mode stamps) ou compteur points */}
+      {/* Cote gauche — fond charte + nom + grille tampons (mode stamps) ou compteur points */}
       <div className="relative flex-[0.62] flex flex-col justify-between p-4 sm:p-5 lg:p-6">
-        <p className={cx('text-lg sm:text-2xl lg:text-[26px] font-semibold tracking-tight truncate leading-tight', textColor)}>
+        <p className="text-lg sm:text-2xl lg:text-[26px] font-semibold tracking-tight truncate leading-tight text-white">
           {customerName}
         </p>
 
         {/* Grille tampons : visualisation type carte fidelite physique.
             Story 9.2 v2 fix : grid avec colonnes adaptatives pour stacker en
             2 rangées équilibrées (5+5 pour 10, 4+4 pour 8, etc.) au lieu de
-            squeezer en 1 longue ligne sur mobile. Cf retour user 2026-05-10. */}
+            squeezer en 1 longue ligne sur mobile. Cf retour user 2026-05-10.
+            2026-05-11 (B2): minmax(0, 1fr) + justify-items-center pour
+            répartir uniformément les cercles dans la largeur disponible. */}
         {loyaltyType === 'stamps' && (() => {
           const cols = stampsRequired <= 5 ? stampsRequired : Math.ceil(stampsRequired / 2)
           return (
             <div
-              className="grid gap-1.5 sm:gap-2 my-1 sm:my-2 justify-items-start"
-              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, max-content))` }}
+              className="grid gap-1.5 sm:gap-2 my-1 sm:my-2 justify-items-center"
+              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
               role="meter"
               aria-valuenow={currentStamps}
               aria-valuemin={0}
@@ -127,22 +111,13 @@ export default function LoyaltyCardVisual({
                     key={i}
                     className={cx(
                       'size-5 sm:size-6 lg:size-7 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
-                      filled
-                        ? useDarkText
-                          ? 'bg-gray-900 shadow-sm'
-                          : 'bg-white shadow-sm'
-                        : useDarkText
-                        ? 'border border-gray-900/25'
-                        : 'border border-white/25',
+                      filled ? 'bg-white shadow-sm' : 'border border-white/25',
                     )}
                     aria-hidden="true"
                   >
                     {filled && (
                       <svg
-                        className={cx(
-                          'size-3 sm:size-3.5 lg:size-4',
-                          useDarkText ? 'text-yellow-400' : 'text-gray-900',
-                        )}
+                        className="size-3 sm:size-3.5 lg:size-4 text-gray-900"
                         viewBox="0 0 20 20"
                         fill="currentColor"
                       >
@@ -160,7 +135,7 @@ export default function LoyaltyCardVisual({
           )
         })()}
 
-        <p className={cx('text-xs sm:text-sm lg:text-base font-medium transition-all duration-300', textColorMuted)}>
+        <p className="text-xs sm:text-sm lg:text-base font-medium transition-all duration-300 text-white/85">
           {loyaltyType === 'stamps'
             ? `${currentStamps}/${stampsRequired} tampons`
             : `${currentPoints} pts cumulés`}

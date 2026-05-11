@@ -293,15 +293,29 @@ export async function generatePkpass(
     'icon@2x.png': sha1(icon2x),
   })
 
-  const keyPem = Buffer.from(process.env.APPLE_PASS_KEY_B64!, 'base64').toString()
-  const certPem = Buffer.from(process.env.APPLE_PASS_CERT_B64!, 'base64').toString()
-  const wwdrPem = Buffer.from(process.env.APPLE_WWDR_CERT_B64!, 'base64').toString()
+  const keyB64 = process.env.APPLE_PASS_KEY_B64
+  const certB64 = process.env.APPLE_PASS_CERT_B64
+  const wwdrB64 = process.env.APPLE_WWDR_CERT_B64
+
+  if (!keyB64 || !certB64 || !wwdrB64) {
+    const missing = [
+      !keyB64 && 'APPLE_PASS_KEY_B64',
+      !certB64 && 'APPLE_PASS_CERT_B64',
+      !wwdrB64 && 'APPLE_WWDR_CERT_B64',
+    ].filter(Boolean).join(', ')
+    console.error(`[wallet] missing Apple Wallet env vars: ${missing}. Pass cannot be signed.`)
+    return null
+  }
+
+  const keyPem = Buffer.from(keyB64, 'base64').toString()
+  const certPem = Buffer.from(certB64, 'base64').toString()
+  const wwdrPem = Buffer.from(wwdrB64, 'base64').toString()
 
   let signature: Buffer
   try {
     signature = signManifest(keyPem, certPem, wwdrPem, manifest)
   } catch (err) {
-    console.error('Wallet signing error:', err)
+    console.error('[wallet] signing failed (likely invalid/expired cert or key/cert mismatch):', err)
     return null
   }
 

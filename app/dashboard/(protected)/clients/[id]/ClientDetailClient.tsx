@@ -33,7 +33,7 @@ import {
   AlertCircle,
   X as XIcon,
 } from '@untitledui/icons'
-import type { Business, Customer, LoyaltyCard, Transaction, RewardTier } from '@/lib/types'
+import type { Business, Customer, LoyaltyCard, LoyaltyTier, Transaction } from '@/lib/types'
 import { Button } from '@/components/ui/base/buttons/button'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import { cx } from '@/utils/cx'
@@ -44,7 +44,8 @@ interface Props {
   card: ClientCard
   business: Business
   transactions: Transaction[]
-  rewardTiers: RewardTier[]
+  /** Paliers JSONB depuis businesses.reward_tiers (source unique). */
+  tiers: LoyaltyTier[]
 }
 
 const PAGE_SIZE = 6
@@ -75,7 +76,7 @@ function StatusBadge({ status }: { status: ReturnType<typeof getStatus> }) {
   )
 }
 
-export default function ClientDetailClient({ card, business, transactions, rewardTiers }: Props) {
+export default function ClientDetailClient({ card, business, transactions, tiers }: Props) {
   const router = useRouter()
   const isStamps = business.loyalty_type === 'stamps'
   const stampsRequired = business.stamps_required ?? 10
@@ -243,7 +244,7 @@ export default function ClientDetailClient({ card, business, transactions, rewar
   // ── Quick actions (toolbar) ─────────────────────────────────────────
 
   function handleQuickReward() {
-    if (rewardTiers.length === 0) {
+    if (tiers.length === 0) {
       setFeedback({ type: 'error', message: 'Aucune récompense configurée. Allez dans Réglages pour en créer.' })
       return
     }
@@ -644,28 +645,27 @@ export default function ClientDetailClient({ card, business, transactions, rewar
         // Rewards tab
         <div className="rounded-xl bg-primary border border-secondary p-6">
           <h2 className="text-lg font-semibold text-primary mb-4">Récompenses disponibles</h2>
-          {rewardTiers.length === 0 ? (
+          {tiers.length === 0 ? (
             <p className="text-sm text-tertiary">
               Aucune récompense configurée. Allez dans <a href="/dashboard/marketing/loyalty" className="text-brand-secondary font-semibold hover:underline">Réglages</a> pour en créer.
             </p>
           ) : (
             <ul className="space-y-3">
-              {rewardTiers.map((r) => {
+              {tiers.map((r) => {
                 const reachable = isStamps
-                  ? currentStamps >= stampsRequired
-                  : currentPoints >= r.points_required
+                  ? currentStamps >= r.threshold
+                  : currentPoints >= r.threshold
                 return (
                   <li key={r.id} className={cx(
                     'rounded-lg border p-4 flex items-center justify-between gap-4',
                     reachable ? 'border-success bg-success-secondary' : 'border-secondary bg-primary',
                   )}>
                     <div className="flex items-center gap-3">
-                      <Gift01 className={cx('size-6', reachable ? 'text-success-primary' : 'text-tertiary')} />
+                      <span className="text-2xl shrink-0" aria-hidden="true">{r.emoji || '🎁'}</span>
                       <div>
-                        <p className="font-semibold text-primary">{r.reward_name}</p>
-                        {r.reward_description && <p className="text-xs text-tertiary mt-0.5">{r.reward_description}</p>}
+                        <p className="font-semibold text-primary">{r.name}</p>
                         <p className="text-xs text-tertiary mt-1">
-                          {isStamps ? `Carte complète (${stampsRequired} tampons)` : `${r.points_required} points`}
+                          {isStamps ? `À ${r.threshold} tampon${r.threshold > 1 ? 's' : ''}` : `${r.threshold} points`}
                         </p>
                       </div>
                     </div>
@@ -733,8 +733,10 @@ export default function ClientDetailClient({ card, business, transactions, rewar
               </button>
             </div>
             <ul className="space-y-2">
-              {rewardTiers.map((r) => {
-                const reachable = isStamps ? currentStamps >= stampsRequired : currentPoints >= r.points_required
+              {tiers.map((r) => {
+                const reachable = isStamps
+                  ? currentStamps >= r.threshold
+                  : currentPoints >= r.threshold
                 return (
                   <li key={r.id}>
                     <button
@@ -746,11 +748,14 @@ export default function ClientDetailClient({ card, business, transactions, rewar
                         reachable ? 'border-success bg-success-secondary hover:bg-success-secondary_hover' : 'border-secondary opacity-50 cursor-not-allowed',
                       )}
                     >
-                      <div>
-                        <p className="font-semibold text-primary">{r.reward_name}</p>
-                        <p className="text-xs text-tertiary">
-                          {isStamps ? `Carte complète` : `${r.points_required} points`}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl" aria-hidden="true">{r.emoji || '🎁'}</span>
+                        <div>
+                          <p className="font-semibold text-primary">{r.name}</p>
+                          <p className="text-xs text-tertiary">
+                            {isStamps ? `À ${r.threshold} tampon${r.threshold > 1 ? 's' : ''}` : `${r.threshold} points`}
+                          </p>
+                        </div>
                       </div>
                       {reachable && <Gift01 className="size-5 text-success-primary" />}
                     </button>

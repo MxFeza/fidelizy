@@ -116,7 +116,8 @@ export default function CardTab({
       </div>
 
       {/* Loyalty card visual — image carte custom merchant (Story 4.3.f) sinon standard.
-          cardColor : override couleur fond gauche choisie par le client (Story 4.7 v2). */}
+          Charte couleur = business.primary_color (décision 2026-05-11 : retrait
+          de la personnalisation couleur client, fixe côté merchant). */}
       <LoyaltyCardVisual
         customerName={card.customers?.first_name?.trim() || 'Client'}
         loyaltyType={business.loyalty_type}
@@ -125,7 +126,7 @@ export default function CardTab({
         currentPoints={pointsBalance}
         businessLogoUrl={business.logo_url}
         cardImageUrl={business.card_image_url}
-        cardColor={card.customers?.card_color ?? null}
+        businessPrimaryColor={business.primary_color}
       />
 
       {/* Reward unlocked banner (stamps mode, single-tier) */}

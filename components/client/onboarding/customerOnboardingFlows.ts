@@ -1,16 +1,17 @@
 /**
- * Story 9.2 v2 — Walkthroughs interactifs côté client.
+ * Walkthroughs interactifs côté client.
  *
  * Symétrique au merchant onboardingFlows.ts mais adapté au scope client :
  *  - PWA install : la bonne UX est la modal (PwaInstallPrompt en mode="modal"),
  *    pas un coachmark — donc PAS de flow ici, le banner click ouvre directement
  *    la modal.
  *  - Wallet : 1 step coachmark sur le bouton "Ajouter à Apple Wallet" du CardTab.
- *  - Carte personnalisée : navigation vers /me/profile/card-customization +
- *    2 steps (color picker → save).
+ *
+ * (2026-05-11) Flow `card_customized` retiré : la personnalisation client a
+ * été supprimée du scope pilote (la carte affiche désormais la charte merchant).
  */
 
-import { CreditCard02, Palette, CheckDone01 } from '@untitledui/icons'
+import { CreditCard02 } from '@untitledui/icons'
 import type { CoachmarkStep } from '@/components/dashboard/onboarding/Coachmark'
 import type { OnboardingTaskId } from '@/lib/onboarding/getCustomerTaskStatus'
 
@@ -28,7 +29,6 @@ const SESSION_KEY = 'izou:customer:pendingFlow'
  *
  * Sélecteurs `[data-tour=...]` à maintenir en cohérence avec :
  *  - wallet-add  → app/card/[cardId]/components/CardTab.tsx
- *  - card-color-picker, card-color-save → app/me/profile/card-customization/CardCustomizationClient.tsx
  */
 export const CUSTOMER_FLOWS: Partial<Record<OnboardingTaskId, CustomerFlow>> = {
   wallet_added: {
@@ -43,28 +43,6 @@ export const CUSTOMER_FLOWS: Partial<Record<OnboardingTaskId, CustomerFlow>> = {
         icon: CreditCard02,
         title: 'Ajoutez votre carte au Wallet',
         description: 'Cliquez ici pour télécharger le pass et l\'ajouter.',
-        advanceOn: 'click',
-      },
-    ],
-  },
-
-  card_customized: {
-    path: '/me/profile/card-customization',
-    steps: [
-      {
-        id: 'color-picker',
-        targetSelector: '[data-tour="card-color-picker"]',
-        icon: Palette,
-        title: 'Choisissez votre couleur',
-        description: 'Touchez une couleur pour la prévisualiser.',
-        advanceOn: 'click',
-      },
-      {
-        id: 'color-save',
-        targetSelector: '[data-tour="card-color-save"]',
-        icon: CheckDone01,
-        title: 'Enregistrez votre choix',
-        description: 'Cliquez ici pour appliquer la couleur.',
         advanceOn: 'click',
       },
     ],

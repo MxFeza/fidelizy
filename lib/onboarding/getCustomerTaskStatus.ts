@@ -4,7 +4,6 @@ export type OnboardingTaskId =
   | 'card_created'
   | 'pwa_installed'
   | 'wallet_added'
-  | 'card_customized'
 
 export interface OnboardingTask {
   id: OnboardingTaskId
@@ -24,14 +23,12 @@ const TASK_LABELS: Record<OnboardingTaskId, string> = {
   card_created: 'Carte créée',
   pwa_installed: "Installer l'app sur mon tel",
   wallet_added: 'Ajouter au Apple Wallet',
-  card_customized: 'Personnaliser ma carte',
 }
 
 const TASK_ORDER: OnboardingTaskId[] = [
   'card_created',
   'pwa_installed',
   'wallet_added',
-  'card_customized',
 ]
 
 function emptyTasks(): OnboardingTask[] {
@@ -39,14 +36,13 @@ function emptyTasks(): OnboardingTask[] {
 }
 
 /**
- * Calcule l'état d'onboarding d'un client (4 tâches depuis Story 9.2 v2).
+ * Calcule l'état d'onboarding d'un client (3 tâches depuis 2026-05-11 après
+ * retrait de la personnalisation couleur cliente).
  *
  * - `card_created`     : auto, dès qu'au moins une loyalty_card existe.
  * - `pwa_installed`    : `customers.pwa_installed_at IS NOT NULL`.
  * - `wallet_added`     : `customers.wallet_added_at IS NOT NULL` OU
  *                         ligne dans `wallet_registrations` pour ce client.
- * - `card_customized`  : `customers.card_color IS NOT NULL` (couleur choisie
- *                         depuis /me/profile/card-customization).
  */
 export async function getCustomerTaskStatus(customerId: string): Promise<OnboardingStatus> {
   const service = createServiceClient()
@@ -54,7 +50,7 @@ export async function getCustomerTaskStatus(customerId: string): Promise<Onboard
   const { data: customer } = await service
     .from('customers')
     .select(
-      'onboarding_started_at, onboarding_completed_at, pwa_installed_at, wallet_added_at, card_color',
+      'onboarding_started_at, onboarding_completed_at, pwa_installed_at, wallet_added_at',
     )
     .eq('id', customerId)
     .maybeSingle()
@@ -98,14 +94,10 @@ export async function getCustomerTaskStatus(customerId: string): Promise<Onboard
     }
   }
 
-  // 4) Carte personnalisée — couleur choisie
-  const cardCustomized = customer.card_color !== null && customer.card_color !== undefined
-
   const doneByTask: Record<OnboardingTaskId, boolean> = {
     card_created: cardCreated,
     pwa_installed: pwaInstalled,
     wallet_added: walletAdded,
-    card_customized: cardCustomized,
   }
 
   const tasks: OnboardingTask[] = TASK_ORDER.map((id) => ({

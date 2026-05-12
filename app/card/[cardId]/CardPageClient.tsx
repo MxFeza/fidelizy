@@ -271,19 +271,6 @@ export default function CardPageClient({
     setShowInstallModal(true)
   }, [])
 
-  // Customize card color — Story 9.2 v2 : déclenche un coachmark qui navigue
-  // d'abord vers /me/profile/card-customization puis guide en 2 steps
-  // (color picker → save). requestRunCustomerFlow gère la navigation +
-  // sessionStorage ; le coachmark se relance au mount via tryGetPendingCustomerFlow.
-  const handleCustomizeClick = useCallback(() => {
-    const flow = requestRunCustomerFlow('card_customized')
-    if (flow) {
-      // (path === flow path) — pas de navigation requise, lance inline
-      setCoachFlowToStart('card_customized')
-    }
-    // Sinon navigation déjà déclenchée, le flow se relancera après landing.
-  }, [])
-
   const handleCoachFlowEnded = useCallback(() => {
     setCoachFlowToStart(null)
     refreshOnboarding()
@@ -417,7 +404,6 @@ export default function CardPageClient({
               color={color}
               onInstallClick={handleInstallClick}
               onWalletClick={handleWalletClick}
-              onCustomizeClick={handleCustomizeClick}
             />
           </div>
         )}

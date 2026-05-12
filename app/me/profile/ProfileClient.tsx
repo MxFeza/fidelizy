@@ -1,21 +1,21 @@
 'use client'
 
 /**
- * /me/profile — ProfileClient refondu (Story 4.7 v2, Figma 2026-05-07).
+ * /me/profile — ProfileClient refondu (Figma 2026-05-07).
  *
  * Form Prénom + Nom + Email (avec validation email)
- * + avatar uploadable (modal AvatarUploadModal)
- * + menu Réglages (6 items)
+ * + menu Réglages (5 items)
  * + logout (modal warning) + delete compte (2-step strict avec input "SUPPRIMER")
  * + toasts unifiés (success/info/error) via useToast.
  *
  * BottomTabBarClient nécessite un cardId — passé null si le client n'a pas
  * encore de carte active (cas edge : compte créé mais pas encore de scan).
+ *
+ * 2026-05-11 : retrait avatar + entrée card-customization (décision pré-pilote).
  */
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
 import {
   Mail01,
@@ -24,10 +24,7 @@ import {
   HelpCircle,
   MessageCircle01,
   Lock01,
-  CreditCard02,
   ChevronRight,
-  Camera01,
-  User01,
 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
@@ -35,7 +32,6 @@ import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
 import { useToast } from '@/components/client/ToastContainer'
 import { createClient } from '@/lib/supabase/client'
-import AvatarUploadModal from '@/components/client/profile/AvatarUploadModal'
 import FeedbackModal from '@/components/client/profile/FeedbackModal'
 import LogoutModal from '@/components/client/profile/LogoutModal'
 import DeleteAccountStep1Modal from '@/components/client/profile/DeleteAccountStep1Modal'
@@ -60,10 +56,8 @@ export default function ProfileClient({ customer, cardId }: ProfileClientProps) 
   const [firstName, setFirstName] = useState(customer.first_name)
   const [lastName, setLastName] = useState(customer.last_name ?? '')
   const [email, setEmail] = useState(customer.email ?? '')
-  const [avatarUrl, setAvatarUrl] = useState(customer.avatar_url)
   const [saving, setSaving] = useState(false)
 
-  const [avatarModal, setAvatarModal] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(false)
   const [logoutModal, setLogoutModal] = useState(false)
   const [deleteStep, setDeleteStep] = useState<DeleteStep>(0)
@@ -219,29 +213,6 @@ export default function ProfileClient({ customer, cardId }: ProfileClientProps) 
             hint={emailInvalid ? 'Format d\'email invalide' : undefined}
           />
 
-          {/* Avatar */}
-          <div className="flex items-end gap-3 pt-2">
-            <div className="relative">
-              <div className="size-16 rounded-full overflow-hidden bg-gray-100 ring-1 ring-gray-200 flex items-center justify-center">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="Photo de profil" className="w-full h-full object-cover" />
-                ) : (
-                  <User01 className="size-7 text-gray-400" aria-hidden="true" />
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setAvatarModal(true)}
-                aria-label="Changer ma photo"
-                disabled={saving}
-                className="absolute -bottom-1 -left-1 size-7 rounded-full bg-brand text-white flex items-center justify-center shadow-md hover:bg-brand_hover transition-colors disabled:opacity-50"
-              >
-                <Camera01 className="size-3.5" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
           {/* Form footer */}
           <div className="flex gap-2 justify-end pt-2">
             <Button
@@ -277,7 +248,6 @@ export default function ProfileClient({ customer, cardId }: ProfileClientProps) 
             <MenuItemLink href="/me/profile/help" icon={HelpCircle} label="Aide & support" />
             <MenuItemButton onClick={() => setFeedbackModal(true)} icon={MessageCircle01} label="Envoyer un feedback" />
             <MenuItemLink href="/me/profile/security" icon={Lock01} label="Sécurité" />
-            <MenuItemLink href="/me/profile/card-customization" icon={CreditCard02} label="Ma carte (personnaliser)" />
           </ul>
         </section>
 
@@ -311,16 +281,6 @@ export default function ProfileClient({ customer, cardId }: ProfileClientProps) 
       {cardId ? <BottomTabBarClient cardId={cardId} /> : null}
 
       {/* Modals */}
-      <AvatarUploadModal
-        isOpen={avatarModal}
-        onClose={() => setAvatarModal(false)}
-        onUploaded={(url) => {
-          setAvatarUrl(url)
-          showToast({ variant: 'success', title: 'Photo mise à jour' })
-          router.refresh()
-        }}
-        onError={(message) => showToast({ variant: 'error', title: 'Erreur', message })}
-      />
       <FeedbackModal
         isOpen={feedbackModal}
         onClose={() => setFeedbackModal(false)}

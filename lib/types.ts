@@ -55,8 +55,6 @@ export interface LoyaltyTier {
   threshold: number
 }
 
-export type CardColor = 'violet' | 'orange' | 'jaune' | 'corail' | 'vert'
-
 export interface NotificationPrefs {
   push_enabled?: boolean
   stamps_enabled?: boolean
@@ -72,9 +70,7 @@ export interface Customer {
   phone: string
   email: string | null
   push_token: string | null
-  avatar_url: string | null
   notification_prefs: NotificationPrefs
-  card_color: CardColor | null
   created_at: string
 }
 

@@ -30,18 +30,12 @@ interface Props {
    * Callback quand l'utilisateur clique sur la tache "Ajouter au Wallet".
    */
   onWalletClick: () => void
-  /**
-   * Callback quand l'utilisateur clique sur la tache "Personnaliser ma carte".
-   * Story 9.2 v2.
-   */
-  onCustomizeClick: () => void
 }
 
 const TASK_LABELS_FR: Record<OnboardingTaskId, string> = {
   card_created: 'Carte créée',
   pwa_installed: 'Installer l’app sur mon tel',
   wallet_added: 'Ajouter au Wallet',
-  card_customized: 'Personnaliser ma carte',
 }
 
 export default function OnboardingProgressBanner({
@@ -49,7 +43,6 @@ export default function OnboardingProgressBanner({
   color = '#7F56D9',
   onInstallClick,
   onWalletClick,
-  onCustomizeClick,
 }: Props) {
   const doneCount = status.tasks.filter((t) => t.done).length
   const totalCount = status.tasks.length
@@ -92,13 +85,10 @@ export default function OnboardingProgressBanner({
           const label = TASK_LABELS_FR[task.id] ?? task.label
           const isClickable =
             !task.done &&
-            (task.id === 'pwa_installed' ||
-              task.id === 'wallet_added' ||
-              task.id === 'card_customized')
+            (task.id === 'pwa_installed' || task.id === 'wallet_added')
           const handleClick =
             task.id === 'pwa_installed' ? onInstallClick :
             task.id === 'wallet_added' ? onWalletClick :
-            task.id === 'card_customized' ? onCustomizeClick :
             undefined
 
           return (

@@ -16,10 +16,11 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Building07, MarkerPin01, Phone, Clock, Share04, ArrowUpRight,
-  CheckDone01, AlertCircle, Globe01, User01,
+  Building07, MarkerPin01, Phone, Clock, Share04,
+  CheckDone01, AlertCircle, Globe01, User01, LinkExternal01,
 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
@@ -171,27 +172,21 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
     </div>
   )
 
+  // U2.A1 (2026-05-12) : retrait du CTA "Voir fiche" du header — il faisait
+  // doublon avec le champ "Lien Google My Business" édité plus bas, et
+  // restait désactivé tant que le lien n'était pas configuré.
+  // Le user qui veut tester son lien GMB le fait depuis le hint "Tester"
+  // sous le champ d'édition (cf. plus bas dans le form).
   const headerActions = (
-    <>
-      <Button
-        size="sm"
-        color="secondary"
-        iconLeading={shareCopied ? CheckDone01 : Share04}
-        onClick={handleShare}
-        isDisabled={!business.short_code}
-      >
-        {shareCopied ? 'Lien copié' : 'Partager'}
-      </Button>
-      <Button
-        size="sm"
-        color="primary"
-        iconLeading={ArrowUpRight}
-        href={gmbUrl ? (gmbUrl.startsWith('http') ? gmbUrl : `https://${gmbUrl}`) : undefined}
-        isDisabled={!gmbUrl}
-      >
-        Voir fiche
-      </Button>
-    </>
+    <Button
+      size="sm"
+      color="primary"
+      iconLeading={shareCopied ? CheckDone01 : Share04}
+      onClick={handleShare}
+      isDisabled={!business.short_code}
+    >
+      {shareCopied ? 'Lien copié' : 'Partager'}
+    </Button>
   )
 
   return (
@@ -255,7 +250,13 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
               {email}
             </div>
             <p className="text-xs text-tertiary mt-1.5">
-              Pour modifier votre email, allez dans <strong className="font-medium">Sécurité</strong>.
+              Pour modifier votre email, allez dans{' '}
+              <Link
+                href="/dashboard/security"
+                className="font-medium text-brand-secondary hover:text-brand-secondary_hover underline"
+              >
+                Sécurité
+              </Link>.
             </p>
           </div>
         </SettingsSection>
@@ -333,31 +334,40 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
               placeholder="01 23 45 67 89"
               type="tel"
             />
-            <Input
-              label="Lien Google My Business"
-              value={gmbUrl}
-              onChange={setGmbUrl}
-              placeholder="https://g.page/votre-commerce"
-              hint="Permet à vos clients de laisser un avis Google."
-            />
+            <div>
+              <Input
+                label="Lien Google My Business"
+                value={gmbUrl}
+                onChange={setGmbUrl}
+                placeholder="https://g.page/votre-commerce"
+                hint="Permet à vos clients de laisser un avis Google."
+              />
+              <TestLink value={gmbUrl} label="Tester le lien GMB" />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Site internet"
-              icon={Globe01}
-              value={websiteUrl}
-              onChange={setWebsiteUrl}
-              placeholder="https://votre-commerce.fr"
-              hint="Optionnel — affiché sur la fiche de votre commerce."
-            />
-            <Input
-              label="Lien de réservation"
-              value={bookingUrl}
-              onChange={setBookingUrl}
-              placeholder="https://treatwell.fr/votre-commerce"
-              hint="Resamania, Treatwell, TheFork, Calendly… apparaît comme bouton « Réserver »."
-            />
+            <div>
+              <Input
+                label="Site internet"
+                icon={Globe01}
+                value={websiteUrl}
+                onChange={setWebsiteUrl}
+                placeholder="https://votre-commerce.fr"
+                hint="Optionnel — affiché sur la fiche de votre commerce."
+              />
+              <TestLink value={websiteUrl} label="Ouvrir le site" />
+            </div>
+            <div>
+              <Input
+                label="Lien de réservation"
+                value={bookingUrl}
+                onChange={setBookingUrl}
+                placeholder="https://treatwell.fr/votre-commerce"
+                hint="Resamania, Treatwell, TheFork, Calendly… apparaît comme bouton « Réserver »."
+              />
+              <TestLink value={bookingUrl} label="Tester la réservation" />
+            </div>
           </div>
 
           <div>
@@ -433,6 +443,30 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
         </div>
       </SettingsBody>
     </SettingsPage>
+  )
+}
+
+/**
+ * Petit lien "Tester" affiche sous les inputs URL quand le user a saisi
+ * une valeur. Évite le copier-coller pour valider que le lien marche, et
+ * remplace le bouton "Voir fiche" du header qui faisait doublon (U2.A1+A3,
+ * 2026-05-12). Le lien tolère les URL sans `https://` au début (normalisé
+ * comme le `href` du header avant).
+ */
+function TestLink({ value, label }: { value: string; label: string }) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const href = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-xs font-medium text-brand-secondary hover:text-brand-secondary_hover hover:underline mt-1.5"
+    >
+      <LinkExternal01 className="size-3" aria-hidden="true" />
+      {label}
+    </a>
   )
 }
 

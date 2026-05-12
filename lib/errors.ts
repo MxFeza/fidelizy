@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 
 export type ErrorCode = 'VALIDATION' | 'AUTH' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'RATE_LIMIT' | 'INTERNAL'
 
@@ -47,7 +48,9 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
       const timestamp = new Date().toISOString()
       const route = request.nextUrl.pathname
 
-      // Known application errors
+      // Known application errors — these are expected (validation, auth,
+      // not-found, rate-limit). Log to console for Vercel debugging but do
+      // NOT send to Sentry: they're not bugs, they're contract violations.
       if (err instanceof AppError) {
         console.error(
           `[${timestamp}] AppError ${err.code} ${err.statusCode} on ${route}: ${err.message}`
@@ -58,7 +61,7 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
         )
       }
 
-      // Malformed JSON body from client
+      // Malformed JSON body from client — also expected, don't ship to Sentry.
       if (err instanceof SyntaxError && err.message.includes('JSON')) {
         console.error(`[${timestamp}] Invalid JSON on ${route}: ${err.message}`)
         return NextResponse.json(
@@ -67,26 +70,42 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
         )
       }
 
-      // Supabase errors (have a `code` and `message` property)
+      // Supabase / Postgres errors (have a `code` and `message` property)
+      // → these usually indicate a real bug (RLS broken, schema drift, RPC
+      // wrong signature). Capture with structured tags so we can filter
+      // by db_code in Sentry issues.
       const supaErr = err as { code?: string; message?: string; details?: string }
       if (supaErr.code && supaErr.message) {
         console.error(
           `[${timestamp}] DB error on ${route}: ${supaErr.code} — ${supaErr.message}`,
           supaErr.details ?? ''
         )
+        Sentry.withScope((scope) => {
+          scope.setTag('error_kind', 'db')
+          scope.setTag('db_code', supaErr.code ?? 'unknown')
+          scope.setTag('route', route)
+          scope.setExtra('details', supaErr.details ?? null)
+          Sentry.captureException(err)
+        })
         return NextResponse.json(
           { error: 'Erreur serveur inattendue', code: 'INTERNAL' as ErrorCode },
           { status: 500 }
         )
       }
 
-      // Unknown error
+      // Unknown error — the most important to surface in Sentry. These are
+      // raw bugs (TypeError, undefined access, third-party SDK throws, ...).
       const message = err instanceof Error ? err.message : String(err)
       const stack = err instanceof Error ? err.stack : undefined
       console.error(
         `[${timestamp}] Unhandled error on ${route}: ${message}`,
         process.env.NODE_ENV === 'development' ? stack : ''
       )
+      Sentry.withScope((scope) => {
+        scope.setTag('error_kind', 'unhandled')
+        scope.setTag('route', route)
+        Sentry.captureException(err)
+      })
 
       return NextResponse.json(
         { error: 'Erreur serveur inattendue', code: 'INTERNAL' as ErrorCode },

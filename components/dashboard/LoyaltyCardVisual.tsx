@@ -112,8 +112,8 @@ export default function LoyaltyCardVisual({
           const cols = stampsRequired <= 5 ? stampsRequired : Math.ceil(stampsRequired / 2)
           return (
             <div
-              className="grid gap-1.5 sm:gap-2 my-1 sm:my-2 justify-items-start"
-              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, max-content))` }}
+              className="grid gap-1.5 sm:gap-2 my-1 sm:my-2 justify-items-center"
+              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
               role="meter"
               aria-valuenow={currentStamps}
               aria-valuemin={0}

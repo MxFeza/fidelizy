@@ -29,6 +29,7 @@ import {
   SettingsPage, SettingsHeader, SettingsBody, SettingsSection,
 } from '@/components/dashboard/SettingsLayout'
 import { createClient } from '@/lib/supabase/client'
+import { joinUrl } from '@/lib/config'
 import type { Business } from '@/lib/types'
 import { cx } from '@/utils/cx'
 
@@ -139,11 +140,17 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   }
 
   async function handleShare() {
-    if (!business.short_code) return
-    const url = `${window.location.origin}/?code=${business.short_code}`
+    // Le lien doit pointer vers la page d'inscription du commerce
+    // (preview riche OG avec banner + logo via generateMetadata dans
+    // app/join/[businessId]/page.tsx). Avant 2026-05-12 le lien tapait
+    // sur /?code=X qui n'avait pas de traitement spécial.
+    const target = business.short_code || business.id
+    const url = joinUrl(target)
+    const title = `Carte de fidélité ${businessName}`
+    const text = `Rejoignez le programme fidélité de ${businessName} sur Izou.`
     try {
-      if (navigator.share) {
-        await navigator.share({ title: businessName, url })
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({ title, text, url })
       } else {
         await navigator.clipboard.writeText(url)
         setShareCopied(true)

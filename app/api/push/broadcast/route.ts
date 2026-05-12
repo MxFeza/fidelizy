@@ -6,6 +6,15 @@ import { broadcastLimiter } from '@/lib/ratelimit'
 import { createServiceClient } from '@/lib/supabase/service'
 import { broadcastToBusinessClients } from '@/lib/services/notification.service'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
+
+const broadcastInputSchema = z.object({
+  title: z.string().trim().min(1).max(50),
+  body: z.string().trim().min(1).max(100),
+  // scheduledAt : ISO 8601 (Date.parse-compatible). Validation temporelle
+  // (>= maintenant - 60s) faite après le parse pour message d'erreur clair.
+  scheduledAt: z.string().datetime({ offset: true }).optional(),
+})
 
 export const GET = withErrorHandler(async () => {
   const supabase = await createClient()
@@ -29,15 +38,22 @@ export const POST = withErrorHandler(async (request) => {
   const { success: rateLimitOk } = await broadcastLimiter.limit(user.id)
   if (!rateLimitOk) throw AppError.rateLimit('Limite atteinte : 5 notifications par heure maximum.')
 
-  const { title, body, scheduledAt } = await request.json()
-  if (!title || !body) throw AppError.validation('Titre et message requis')
-  if (typeof title !== 'string' || title.length > 50) throw AppError.validation('Titre trop long (50 caractères max)')
-  if (typeof body !== 'string' || body.length > 100) throw AppError.validation('Message trop long (100 caractères max)')
+  const parsed = broadcastInputSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    throw AppError.validation(
+      issue?.path?.[0] === 'title'
+        ? 'Titre invalide (1-50 caractères)'
+        : issue?.path?.[0] === 'body'
+        ? 'Message invalide (1-100 caractères)'
+        : 'Paramètres invalides'
+    )
+  }
+  const { title, body, scheduledAt } = parsed.data
 
   // Programmation : on persiste sans envoyer, le cron prendra le relais
   if (scheduledAt) {
     const when = new Date(scheduledAt)
-    if (isNaN(when.getTime())) throw AppError.validation('Date de programmation invalide')
     if (when.getTime() < Date.now() - 60_000) throw AppError.validation('La date doit être dans le futur')
 
     const { data: row, error: insertErr } = await supabase.from('push_broadcasts').insert({

@@ -3,13 +3,36 @@ import { NextResponse } from 'next/server'
 import { profileUpdateLimiter, getIP } from '@/lib/ratelimit'
 import { verifyCardToken } from '@/lib/auth/cardToken'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
+
+// cardId ici est l'UUID interne de la table loyalty_cards (pas le qr_code_id).
+// email : optionnel, format strict (server-side même check qu'avant + Zod).
+// birthday : optionnel, ISO date YYYY-MM-DD pour éviter qu'un client envoie
+// un timestamp ou une string libre stockée telle quelle.
+const inputSchema = z.object({
+  cardId: z.string().uuid(),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email()
+    .max(254)
+    .optional()
+    .or(z.literal('')),
+  birthday: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .or(z.literal('')),
+})
 
 export const POST = withErrorHandler(async (request) => {
   const { success } = await profileUpdateLimiter.limit(getIP(request))
   if (!success) throw AppError.rateLimit('Trop de requêtes. Réessayez plus tard.')
 
-  const { cardId, email, birthday } = await request.json()
-  if (!cardId) throw AppError.validation('Paramètres manquants')
+  const parsed = inputSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) throw AppError.validation('Paramètres invalides')
+  const { cardId, email, birthday } = parsed.data
 
   const supabase = createServiceClient()
 
@@ -26,18 +49,15 @@ export const POST = withErrorHandler(async (request) => {
     throw new AppError('Non autorisé', 403, 'AUTH')
   }
 
-  if (email && typeof email === 'string') {
-    const trimmedEmail = email.trim().toLowerCase()
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      await supabase
-        .from('customers')
-        .update({ email: trimmedEmail })
-        .eq('id', card.customer_id)
-        .throwOnError()
-    }
+  if (email) {
+    await supabase
+      .from('customers')
+      .update({ email })
+      .eq('id', card.customer_id)
+      .throwOnError()
   }
 
-  if (birthday && typeof birthday === 'string') {
+  if (birthday) {
     await supabase
       .from('loyalty_cards')
       .update({ birthday })

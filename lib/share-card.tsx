@@ -320,7 +320,15 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
               {
                 type: 'div',
                 props: {
-                  style: { display: 'flex', fontSize: 60, fontWeight: 700, color: '#1E1E1E', lineHeight: 1.1 },
+                  style: {
+                    display: 'flex',
+                    fontSize: 60,
+                    fontWeight: 700,
+                    color: '#1E1E1E',
+                    lineHeight: 1.1,
+                    width: WIDTH - 120, // explicite pour forcer le wrap calculation
+                    flexShrink: 0,
+                  },
                   children: opts.businessName,
                 },
               },
@@ -328,7 +336,14 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
                 ? {
                     type: 'div',
                     props: {
-                      style: { display: 'flex', fontSize: 28, color: '#666', lineHeight: 1.4 },
+                      style: {
+                        display: 'flex',
+                        fontSize: 28,
+                        color: '#666',
+                        lineHeight: 1.4,
+                        width: WIDTH - 120,
+                        flexShrink: 0,
+                      },
                       children: opts.description,
                     },
                   }
@@ -336,7 +351,7 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
               {
                 type: 'div',
                 props: {
-                  style: { display: 'flex', flexDirection: 'column', gap: 14, marginTop: 6 },
+                  style: { display: 'flex', flexDirection: 'column', gap: 14, marginTop: 6, flexShrink: 0 },
                   children: coordsItems,
                 },
               },

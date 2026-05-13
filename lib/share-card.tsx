@@ -301,7 +301,11 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
           },
         },
 
-        // === CONTENT SECTION (flex 1 — prend l'espace restant entre banner et footer) ===
+        // === CONTENT SECTION (flex 1 — prend l'espace restant entre banner et footer)
+        // NOTE Satori : tous les <div> qui contiennent du texte multiline DOIVENT
+        // avoir `display: flex` explicite, sinon le wrap est ignore et les
+        // enfants se chevauchent. On utilise `gap` au lieu de marginBottom
+        // pour un spacing reliable.
         {
           type: 'div',
           props: {
@@ -310,12 +314,13 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
               display: 'flex',
               flexDirection: 'column',
               padding: hasLogo ? '140px 60px 30px 60px' : '70px 60px 30px 60px',
+              gap: 22,
             },
             children: [
               {
                 type: 'div',
                 props: {
-                  style: { fontSize: 60, fontWeight: 700, color: '#1E1E1E', lineHeight: 1.1, marginBottom: 14 },
+                  style: { display: 'flex', fontSize: 60, fontWeight: 700, color: '#1E1E1E', lineHeight: 1.1 },
                   children: opts.businessName,
                 },
               },
@@ -323,7 +328,7 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
                 ? {
                     type: 'div',
                     props: {
-                      style: { fontSize: 28, color: '#666', lineHeight: 1.4, marginBottom: 28 },
+                      style: { display: 'flex', fontSize: 28, color: '#666', lineHeight: 1.4 },
                       children: opts.description,
                     },
                   }
@@ -331,7 +336,7 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
               {
                 type: 'div',
                 props: {
-                  style: { display: 'flex', flexDirection: 'column', gap: 16 },
+                  style: { display: 'flex', flexDirection: 'column', gap: 14, marginTop: 6 },
                   children: coordsItems,
                 },
               },

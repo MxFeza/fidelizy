@@ -33,7 +33,7 @@ export default function ClaimRewardModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="claim-reward-title"
-      className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
       onClick={onCancel}
     >
       <div

@@ -1,23 +1,22 @@
 'use client'
 
 /**
- * Widget "Demandes de récompenses" affiché en haut du dashboard merchant.
+ * Widget "Demandes de récompenses" affiché sur le dashboard merchant et
+ * la page /dashboard/notifications.
  *
- * Demandé par le user 2026-05-13 : remplacer le flow "scanner le QR client
- * puis taper le code 6 chars" par une notification simple dans l'espace
- * merchant avec un bouton "Accepter" qui valide en 1 clic.
+ * Refonte visuelle 2026-05-13 (user retour) : le widget précédent passait
+ * inaperçu (fond bg-primary identique au reste du dashboard). Maintenant on
+ * utilise un FeaturedIcon brand + bandeau d'en-tête contrasté + bordure
+ * brand pour qu'il se démarque vraiment des cards génériques.
  *
- * Le widget poll /api/business/claim-requests toutes les 15s pour récupérer
- * les demandes en attente du commerce, et permet de les valider sans quitter
- * la page. Si aucune demande pending, le widget est masqué (rendu null).
- *
- * Le code 6 chars reste disponible comme fallback (scan ou saisie classique
- * sur le DashboardClient input). Cf. claim.service.ts validateClaim qui
- * accepte maintenant code OU claimId.
+ * Flow demandé : remplacer "scanner QR client puis taper code 6 chars" par
+ * une notification simple avec bouton "Accepter" qui valide en 1 clic. Le
+ * code 6 chars reste actif comme fallback (cf. claim.service.ts validateClaim
+ * qui accepte code OU claimId).
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Gift01, Clock, CheckCircle, X as XIcon } from '@untitledui/icons'
+import { Gift01, Clock, CheckCircle, X as XIcon, Bell01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { cx } from '@/utils/cx'
 
@@ -44,7 +43,17 @@ function timeUntilExpiry(expiresAt: string): string {
   return `${seconds}s`
 }
 
-export default function PendingClaimRequests() {
+interface PendingClaimRequestsProps {
+  /**
+   * Si true (default false), affiche le widget même quand aucune demande est
+   * pending — utile sur la page Notifications dédiée qui doit toujours
+   * montrer un état (empty state inclus). Sur le dashboard home le widget
+   * disparaît pour ne pas encombrer.
+   */
+  showEmptyState?: boolean
+}
+
+export default function PendingClaimRequests({ showEmptyState = false }: PendingClaimRequestsProps) {
   const [requests, setRequests] = useState<PendingClaimRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [validating, setValidating] = useState<string | null>(null)
@@ -64,14 +73,13 @@ export default function PendingClaimRequests() {
     }
   }, [])
 
-  // Initial fetch + polling 15s
   useEffect(() => {
     fetchRequests()
     const interval = setInterval(fetchRequests, POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [fetchRequests])
 
-  // Re-render every second pour MAJ le compte à rebours "expire dans X"
+  // Re-render chaque seconde pour MAJ le compte à rebours "expire dans X"
   useEffect(() => {
     if (requests.length === 0) return
     const tick = setInterval(() => forceTick((n) => n + 1), 1000)
@@ -81,7 +89,6 @@ export default function PendingClaimRequests() {
   async function handleValidate(claimId: string, rewardName: string) {
     setValidating(claimId)
     setError(null)
-    // Optimistic remove
     const prev = requests
     setRequests((r) => r.filter((req) => req.id !== claimId))
     try {
@@ -97,8 +104,6 @@ export default function PendingClaimRequests() {
         setTimeout(() => setError(null), 5000)
         return
       }
-      // Validation OK — la liste est déjà à jour côté optimistic. On refetch
-      // pour capter d'autres claims arrivés pendant ce temps.
       fetchRequests()
     } catch {
       setRequests(prev)
@@ -109,19 +114,47 @@ export default function PendingClaimRequests() {
     }
   }
 
-  if (loading || requests.length === 0) return null
+  // Empty state pour la page notifications dédiée
+  if (loading) {
+    return showEmptyState ? <SkeletonWidget /> : null
+  }
+
+  if (requests.length === 0) {
+    if (!showEmptyState) return null
+    return (
+      <div className="rounded-2xl bg-primary border border-secondary p-10 text-center">
+        <div className="size-14 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
+          <Bell01 className="size-7 text-fg-quaternary" aria-hidden="true" />
+        </div>
+        <p className="text-primary font-semibold mb-1">Aucune demande en attente</p>
+        <p className="text-sm text-tertiary max-w-sm mx-auto">
+          Vous serez notifié ici dès qu&apos;un client réclamera sa récompense depuis son espace.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <section
       role="region"
       aria-label="Demandes de récompenses en attente"
-      className="rounded-2xl bg-primary border border-secondary shadow-xs overflow-hidden"
+      // Style prominent : bordure brand + fond brand-secondary subtil pour
+      // se démarquer des cards génériques du dashboard (retour user 2026-05-13).
+      className="rounded-2xl border-2 border-brand bg-brand-secondary/60 shadow-md overflow-hidden"
     >
-      <header className="px-5 py-4 border-b border-secondary flex items-center gap-2">
-        <Gift01 className="size-5 text-brand-secondary" aria-hidden="true" />
-        <h2 className="text-md font-semibold text-primary flex-1">
-          {requests.length} demande{requests.length > 1 ? 's' : ''} de récompense en attente
-        </h2>
+      <header className="px-5 py-4 flex items-center gap-3 bg-brand-solid">
+        {/* FeaturedIcon brand circle pour donner le ton "ça vient d'arriver" */}
+        <div className="size-10 rounded-full bg-white/15 ring-2 ring-white/30 flex items-center justify-center shrink-0">
+          <Gift01 className="size-5 text-white" aria-hidden="true" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-md font-semibold text-white">
+            {requests.length} demande{requests.length > 1 ? 's' : ''} de récompense à valider
+          </h2>
+          <p className="text-xs text-white/85 mt-0.5">
+            Cliquez sur Accepter pour valider en 1 clic — pas besoin de scanner.
+          </p>
+        </div>
       </header>
 
       {error && (
@@ -138,7 +171,7 @@ export default function PendingClaimRequests() {
         </div>
       )}
 
-      <ul className="divide-y divide-secondary">
+      <ul className="divide-y divide-brand/15 bg-primary">
         {requests.map((req) => {
           const isValidating = validating === req.id
           const remaining = timeUntilExpiry(req.expiresAt)
@@ -146,9 +179,9 @@ export default function PendingClaimRequests() {
             <li key={req.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-primary truncate">
-                  {req.customerName} — {req.rewardName}
+                  {req.customerName} — <span className="text-brand-secondary">{req.rewardName}</span>
                 </p>
-                <p className="text-xs text-tertiary mt-0.5 flex items-center gap-3">
+                <p className="text-xs text-tertiary mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="inline-flex items-center gap-1">
                     <Clock className="size-3" aria-hidden="true" />
                     Expire dans {remaining}
@@ -156,7 +189,7 @@ export default function PendingClaimRequests() {
                   {req.pointsCost !== null && (
                     <span>−{req.pointsCost} pts</span>
                   )}
-                  <span className="font-mono text-fg-quaternary">{req.code}</span>
+                  <span className="font-mono text-fg-quaternary">code {req.code}</span>
                 </p>
               </div>
               <Button
@@ -175,5 +208,22 @@ export default function PendingClaimRequests() {
         })}
       </ul>
     </section>
+  )
+}
+
+function SkeletonWidget() {
+  return (
+    <div className="rounded-2xl border-2 border-brand bg-brand-secondary/60 shadow-md overflow-hidden">
+      <header className="px-5 py-4 flex items-center gap-3 bg-brand-solid">
+        <div className="size-10 rounded-full bg-white/15 ring-2 ring-white/30 animate-pulse" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-48 rounded bg-white/30 animate-pulse" />
+          <div className="h-3 w-72 rounded bg-white/20 animate-pulse" />
+        </div>
+      </header>
+      <div className="px-5 py-4 bg-primary">
+        <div className="h-4 w-2/3 rounded bg-secondary animate-pulse" />
+      </div>
+    </div>
   )
 }

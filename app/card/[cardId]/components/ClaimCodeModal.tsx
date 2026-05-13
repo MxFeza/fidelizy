@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle, Clock } from '@untitledui/icons'
+import { Button } from '@/components/ui/base/buttons/button'
 
 interface ClaimCodeModalProps {
   isOpen: boolean
@@ -50,11 +51,11 @@ export default function ClaimCodeModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="claim-code-title"
-      className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7"
+        className="bg-primary rounded-3xl max-w-sm w-full p-6 sm:p-7"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center mb-4">
@@ -89,13 +90,15 @@ export default function ClaimCodeModal({
           <span>{expired ? 'Code expiré — réessayez' : `Expire dans ${formatRemaining(secondsLeft)}`}</span>
         </div>
 
-        <button
+        <Button
           type="button"
+          color="secondary"
+          size="md"
+          className="w-full"
           onClick={onClose}
-          className="w-full bg-white ring-1 ring-gray-200 hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-2xl text-sm transition-colors"
         >
           Retour à ma carte
-        </button>
+        </Button>
       </div>
     </div>
   )

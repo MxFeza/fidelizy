@@ -1,6 +1,7 @@
 'use client'
 
-import { Lock01, Stars02 } from '@untitledui/icons'
+import { Gift01, Lock01, Stars02 } from '@untitledui/icons'
+import { Button } from '@/components/ui/base/buttons/button'
 import { Emoji } from '@/lib/emojis'
 import type { LoyaltyTier } from '@/lib/types'
 import { cx } from '@/utils/cx'
@@ -11,6 +12,14 @@ interface TierProgressBarProps {
   loyaltyType: 'stamps' | 'points'
   /** Couleur brand du commerce */
   color: string
+  /**
+   * Au moins un palier est atteint et le client peut réclamer la récompense.
+   * Si défini, on affiche un CTA "Réclamer ma récompense" inline sous le
+   * carousel (continuité visuelle avec les paliers, retour user 2026-05-13).
+   * Si null/undefined, aucun CTA — le composant reste purement informatif.
+   */
+  onClaim?: () => void
+  isClaiming?: boolean
 }
 
 /**
@@ -27,6 +36,8 @@ export default function TierProgressBar({
   currentValue,
   loyaltyType,
   color,
+  onClaim,
+  isClaiming = false,
 }: TierProgressBarProps) {
   if (tiers.length === 0) return null
 
@@ -36,6 +47,9 @@ export default function TierProgressBar({
   const progressPct = Math.min(100, (currentValue / maxThreshold) * 100)
   const nextTier = sorted.find((t) => t.threshold > currentValue)
   const allReached = !nextTier && currentValue >= maxThreshold
+  // Au moins un palier atteint = on peut réclamer (le merchant choisira le
+  // palier exact si plusieurs sont débloqués, via la modal côté CardTab).
+  const someReached = sorted.some((t) => currentValue >= t.threshold)
 
   return (
     <div className="space-y-4">
@@ -146,6 +160,25 @@ export default function TierProgressBar({
           </p>
         )}
       </div>
+
+      {/* CTA "Réclamer ma récompense" — inline ici (sous les paliers) plutôt
+          qu'en banner séparé au-dessus, pour la continuité visuelle entre
+          la liste des récompenses et l'action de réclamation
+          (refonte UX 2026-05-13 demandée par user). */}
+      {someReached && onClaim && (
+        <Button
+          type="button"
+          color="primary"
+          size="md"
+          iconLeading={Gift01}
+          isLoading={isClaiming}
+          isDisabled={isClaiming}
+          className="w-full"
+          onClick={onClaim}
+        >
+          Réclamer ma récompense
+        </Button>
+      )}
     </div>
   )
 }

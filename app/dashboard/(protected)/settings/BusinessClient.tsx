@@ -48,25 +48,6 @@ const HOUR_PRESETS = [
 
 const MAX_DESC = 280
 
-/**
- * Charte couleur du commerce. Le merchant choisit dans cette palette ; le
- * champ accepte aussi un hex libre pour une charte spécifique.
- *
- * La couleur est appliquée à la carte loyalty (fond), la progress bar des
- * paliers, et aux états "récompense débloquée" sur la fiche client.
- * Default DB historique = #6366f1 (indigo), nettoyé en Brand Izou.
- */
-const COLOR_PRESETS = [
-  { value: '#7F56D9', label: 'Violet Izou' },
-  { value: '#0F172A', label: 'Noir' },
-  { value: '#E11D48', label: 'Rouge' },
-  { value: '#2563EB', label: 'Bleu' },
-  { value: '#16A34A', label: 'Vert' },
-  { value: '#F59E0B', label: 'Orange' },
-] as const
-
-const HEX_REGEX = /^#[0-9a-fA-F]{6}$/
-
 export default function BusinessClient({ business, email }: BusinessClientProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -83,7 +64,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   // Mon entreprise
   const [businessName, setBusinessName] = useState(business.business_name)
   const [address, setAddress] = useState(business.address ?? '')
-  const [primaryColor, setPrimaryColor] = useState(business.primary_color || '#7F56D9')
 
   // Details du commerce
   const [phone, setPhone] = useState(business.phone ?? '')
@@ -110,25 +90,19 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
     lastName !== (business.last_name ?? '') ||
     businessName !== business.business_name ||
     address !== (business.address ?? '') ||
-    primaryColor !== (business.primary_color || '#7F56D9') ||
     phone !== (business.phone ?? '') ||
     gmbUrl !== (business.gmb_url ?? '') ||
     websiteUrl !== (business.website_url ?? '') ||
     bookingUrl !== (business.booking_url ?? '') ||
     description !== (business.description ?? '') ||
     openingHours !== (business.opening_hours ?? '')
-  ), [firstName, lastName, businessName, address, primaryColor, phone, gmbUrl, websiteUrl, bookingUrl, description, openingHours, business])
+  ), [firstName, lastName, businessName, address, phone, gmbUrl, websiteUrl, bookingUrl, description, openingHours, business])
 
   async function handleSaveAll() {
     if (!isDirty || saving) return
     setSaving(true)
     setError(null)
     try {
-      // Guard hex format avant l'envoi pour éviter de persister une valeur
-      // libre type "indigo" — la DB l'accepte mais la carte loyalty ne saurait
-      // pas l'afficher.
-      const safePrimary = HEX_REGEX.test(primaryColor) ? primaryColor.toUpperCase() : '#7F56D9'
-
       const { error: dbError } = await supabase
         .from('businesses')
         .update({
@@ -136,7 +110,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           last_name: lastName.trim() || null,
           business_name: businessName.trim(),
           address: address.trim() || null,
-          primary_color: safePrimary,
           phone: phone.trim() || null,
           gmb_url: gmbUrl.trim() || null,
           website_url: websiteUrl.trim() || null,
@@ -161,7 +134,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
     setLastName(business.last_name ?? '')
     setBusinessName(business.business_name)
     setAddress(business.address ?? '')
-    setPrimaryColor(business.primary_color || '#7F56D9')
     setPhone(business.phone ?? '')
     setGmbUrl(business.gmb_url ?? '')
     setDescription(business.description ?? '')
@@ -330,46 +302,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
             />
           </div>
 
-          {/* Color picker — la charte couleur s'applique partout côté client
-              (carte loyalty, progress bar paliers, états récompense débloquée).
-              Default historique = #6366f1 indigo, on guide vers la palette Izou
-              ou un hex custom (validé HEX_REGEX). Ajouté 2026-05-12 suite à
-              retour user "la carte est bleue alors qu'on n'a rien configuré". */}
-          <div className="pt-2">
-            <p className="text-sm font-medium text-secondary mb-2">Couleur de votre charte</p>
-            <p className="text-xs text-tertiary mb-3">
-              Appliquée à la carte de fidélité, à la barre de progression et aux récompenses débloquées.
-            </p>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {COLOR_PRESETS.map((preset) => {
-                const isActive = primaryColor.toUpperCase() === preset.value.toUpperCase()
-                return (
-                  <button
-                    key={preset.value}
-                    type="button"
-                    onClick={() => setPrimaryColor(preset.value)}
-                    aria-label={preset.label}
-                    aria-pressed={isActive}
-                    title={preset.label}
-                    className={cx(
-                      'size-10 rounded-full transition-all ring-2 ring-offset-2 ring-offset-primary',
-                      isActive ? 'ring-brand scale-105' : 'ring-transparent hover:ring-secondary',
-                    )}
-                    style={{ backgroundColor: preset.value }}
-                  />
-                )
-              })}
-            </div>
-            <Input
-              label="Hex personnalisé"
-              value={primaryColor}
-              onChange={(v) => setPrimaryColor(v.startsWith('#') ? v : `#${v}`)}
-              placeholder="#7F56D9"
-              hint={HEX_REGEX.test(primaryColor) ? undefined : 'Format attendu : #RRGGBB'}
-              isInvalid={!HEX_REGEX.test(primaryColor)}
-            />
-          </div>
-
           <div className="pt-2">
             <p className="text-sm font-medium text-secondary mb-2">Image de votre carte de fidélité</p>
             <AssetUploader
@@ -386,7 +318,6 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
                   currentPoints={50}
                   businessLogoUrl={logoUrl}
                   cardImageUrl={cardImageUrl}
-                  businessPrimaryColor={HEX_REGEX.test(primaryColor) ? primaryColor : null}
                   withGradientBackground={false}
                 />
               }

@@ -5,7 +5,6 @@ import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
 import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
 import { isIOS } from './components/utils'
-import ConfettiEffect from './components/ConfettiEffect'
 import CardTab from './components/CardTab'
 import WheelModal from './components/WheelModal'
 import PushBanner from './components/PushBanner'
@@ -44,7 +43,6 @@ export default function CardPageClient({
   initialOnboardingStatus,
 }: Props) {
   const [notification, setNotification] = useState<string | null>(null)
-  const [showConfetti, setShowConfetti] = useState(false)
   const [walletAvailable, setWalletAvailable] = useState(false)
   const [showPushBanner, setShowPushBanner] = useState(false)
   const [liveTiers, setLiveTiers] = useState(tiers)
@@ -144,16 +142,10 @@ export default function CardPageClient({
           const diff = data.stamps - prev
           setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
           setTimeout(() => setNotification(null), 4000)
-          if (data.stamps >= stampsRequired && prev < stampsRequired) {
-            setShowConfetti(true)
-            setTimeout(() => setShowConfetti(false), 3500)
-          }
           localStorage.setItem(`fidelizy_stamps_${card.id}`, String(capped))
         } else if (data.stamps === 0 && prev > 0) {
           setNotification('🎉 Récompense obtenue ! Carte remise à zéro.')
           setTimeout(() => setNotification(null), 5000)
-          setShowConfetti(true)
-          setTimeout(() => setShowConfetti(false), 3500)
           localStorage.setItem(`fidelizy_stamps_${card.id}`, '0')
         }
 
@@ -170,7 +162,7 @@ export default function CardPageClient({
     return () => clearInterval(interval)
   }, [card.qr_code_id, card.id, stampsRequired])
 
-  // Stamp notification + confetti on reward unlock
+  // Stamp notification on increment (confetti retire 2026-05-13 — retour user).
   useEffect(() => {
     const storageKey = `fidelizy_stamps_${card.id}`
     const lastStr = localStorage.getItem(storageKey)
@@ -181,17 +173,6 @@ export default function CardPageClient({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
       setTimeout(() => setNotification(null), 4000)
-    }
-
-    if (
-      business.loyalty_type === 'stamps' &&
-      stampsCount >= stampsRequired &&
-      (lastStamps === null || lastStamps < stampsRequired)
-    ) {
-      setTimeout(() => {
-        setShowConfetti(true)
-        setTimeout(() => setShowConfetti(false), 3500)
-      }, 400)
     }
 
     localStorage.setItem(storageKey, String(stampsCount))
@@ -298,8 +279,6 @@ export default function CardPageClient({
           100% { opacity: 0; transform: translateX(-50%) translateY(-16px); }
         }
       `}</style>
-
-      {showConfetti && <ConfettiEffect color={color} />}
 
       {/* Stamp notification toast */}
       {notification && (
@@ -423,10 +402,6 @@ export default function CardPageClient({
             stampsRequired={stampsRequired}
             walletAvailable={walletAvailable}
             onShowWheel={() => setShowWheel(true)}
-            onShowConfetti={() => {
-              setShowConfetti(true)
-              setTimeout(() => setShowConfetti(false), 3500)
-            }}
           />
         </div>
 
@@ -450,8 +425,6 @@ export default function CardPageClient({
           onClose={() => setShowWheel(false)}
           onResult={(newPoints) => {
             setPointsBalance(newPoints)
-            setShowConfetti(true)
-            setTimeout(() => setShowConfetti(false), 3500)
           }}
         />
       )}

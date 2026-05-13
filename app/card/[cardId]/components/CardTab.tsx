@@ -30,7 +30,6 @@ interface CardTabProps {
   stampsRequired: number
   walletAvailable: boolean
   onShowWheel: () => void
-  onShowConfetti: () => void
 }
 
 export default function CardTab({

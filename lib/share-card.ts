@@ -26,16 +26,43 @@ import { getPublicAsset } from '@/lib/assets'
 
 // ── Font loading (module-level — cache au cold start) ─────────────────────────
 
-const FONTS_DIR = join(process.cwd(), 'lib', 'fonts')
+/**
+ * Charge un fichier font en essayant plusieurs paths possibles. Vercel
+ * serverless peut placer les fichiers a differents endroits selon le tracing
+ * config (cf. next.config.ts outputFileTracingIncludes).
+ */
+function tryReadFont(filename: string): string {
+  const candidates = [
+    join(process.cwd(), 'lib', 'fonts', filename),
+    join(process.cwd(), '.next', 'server', 'lib', 'fonts', filename),
+    join('/var/task', 'lib', 'fonts', filename),
+    join(process.cwd(), 'public', 'fonts', filename),
+  ]
+  for (const p of candidates) {
+    try {
+      const buf = readFileSync(p)
+      if (buf.length > 0) {
+        console.log(`[share-card] font loaded from ${p} (${buf.length} bytes)`)
+        return buf.toString('base64')
+      }
+    } catch {
+      /* path doesn't exist, try next */
+    }
+  }
+  console.error(
+    `[share-card] FONT NOT FOUND: ${filename}. Tried: ${candidates.join(', ')}. Text will fallback to system font (likely render as boxes on Linux serverless).`,
+  )
+  return ''
+}
 
-// Lecture des TTF + encodage base64 fait une seule fois au boot de la lambda.
-// Les buffers restent en memoire — re-utilises par chaque request (warm).
-const FONT_REGULAR_B64 = readFileSync(join(FONTS_DIR, 'Inter-Regular.ttf')).toString('base64')
-const FONT_BOLD_B64 = readFileSync(join(FONTS_DIR, 'Inter-Bold.ttf')).toString('base64')
+const FONT_REGULAR_B64 = tryReadFont('Inter-Regular.ttf')
+const FONT_BOLD_B64 = tryReadFont('Inter-Bold.ttf')
 
-/** @font-face defs a injecter dans <defs> du SVG. librsvg supporte
- *  les data: URLs depuis 2.40 (version Vercel serverless OK). */
-const FONT_FACE_DEFS = `<style type="text/css">
+/** @font-face defs a injecter dans <defs> du SVG. Si les fonts ne sont
+ *  pas dispo, on omet le bloc (le SVG fallback sur sans-serif). */
+const FONT_FACE_DEFS =
+  FONT_REGULAR_B64 && FONT_BOLD_B64
+    ? `<style type="text/css">
 @font-face {
   font-family: 'Inter';
   font-weight: 400;
@@ -49,8 +76,9 @@ const FONT_FACE_DEFS = `<style type="text/css">
   src: url(data:font/ttf;base64,${FONT_BOLD_B64}) format('truetype');
 }
 </style>`
+    : ''
 
-const FONT_FAMILY = 'Inter,sans-serif'
+const FONT_FAMILY = FONT_FACE_DEFS ? 'Inter,sans-serif' : 'sans-serif'
 
 // ── Types + constantes ────────────────────────────────────────────────────────
 

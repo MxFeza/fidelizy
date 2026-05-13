@@ -57,13 +57,16 @@ async function generateIconPng(size: number): Promise<Buffer> {
 }
 
 /**
- * Genere le SVG de la grille de tampons pour la partie BAS du strip composite.
- * Dimensions : largeur x hauteur (750x144 @2x).
+ * SVG TRANSPARENT contenant uniquement la grille de tampons.
+ * Pas de fond, pas de texte (le compteur va dans un pkpass field natif —
+ * evite les problemes de police corrompue sur serverless).
  *
- * Layout :
- *   - fond #1E1E1E
- *   - grille N tampons (2 rangees max), cercles blancs avec checkmark si filled
- *   - texte "X / Y tampons" en bas
+ * Layout : 2 rangees max, cercles plus gros (radius cape a 55px) pour
+ * lisibilite Apple Wallet a echelle reelle (~375px de large rendered).
+ *   - filled  : cercle blanc + checkmark dark au centre
+ *   - unfilled: cercle semi-transparent noir + border blanche
+ *               (le bg semi-transparent assure visibilite sur l'image
+ *               commerce darkenee derriere).
  */
 function buildStampsGridSvg(
   width: number,
@@ -73,103 +76,103 @@ function buildStampsGridSvg(
 ): string {
   const cols = stampsRequired <= 5 ? stampsRequired : Math.ceil(stampsRequired / 2)
   const rows = Math.ceil(stampsRequired / cols)
-  const padX = 40
-  const padTop = 18
-  const padBottom = 32 // espace pour le texte en bas
+  const padX = 60
+  const padY = 30
   const gridW = width - padX * 2
-  const gridH = height - padTop - padBottom
+  const gridH = height - padY * 2
   const cellW = gridW / cols
   const cellH = gridH / rows
-  const radius = Math.min(cellW, cellH) * 0.36
+  const cellSize = Math.min(cellW, cellH)
+  // Cape a 55px pour eviter cercles geants quand stampsRequired faible (3-4).
+  const radius = Math.min(cellSize * 0.42, 55)
 
   let cells = ''
   for (let i = 0; i < stampsRequired; i++) {
     const r = Math.floor(i / cols)
     const c = i % cols
     const cx = padX + cellW * c + cellW / 2
-    const cy = padTop + cellH * r + cellH / 2
+    const cy = padY + cellH * r + cellH / 2
     const filled = i < stampsCount
     if (filled) {
-      const checkR = radius * 0.5
       cells += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#ffffff"/>`
-      cells += `<path d="M ${cx - checkR} ${cy} l ${checkR * 0.7} ${checkR * 0.7} l ${checkR * 1.3} -${checkR * 1.3}" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`
+      // Checkmark dark au centre (path simple)
+      const cm = radius * 0.55
+      const strokeW = Math.max(3, radius * 0.18)
+      cells += `<path d="M ${cx - cm * 0.6} ${cy + cm * 0.05} l ${cm * 0.5} ${cm * 0.45} l ${cm * 1.05} -${cm * 0.95}" stroke="#1E1E1E" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`
     } else {
-      cells += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="2"/>`
+      // Fond semi-transparent + border blanche pour rester visible sur image
+      cells += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="rgba(0,0,0,0.35)" stroke="#ffffff" stroke-opacity="0.55" stroke-width="${Math.max(2, radius * 0.07)}"/>`
     }
   }
 
-  const counterY = height - 10
-  const counterText = `${stampsCount}/${stampsRequired} tampons`
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#1E1E1E"/>${cells}<text x="${padX}" y="${counterY}" fill="#ffffff" font-family="-apple-system,system-ui,sans-serif" font-size="22" font-weight="600">${counterText}</text></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${cells}</svg>`
 }
 
 /**
- * Composite strip image (Apple Wallet storeCard QR : 375x144 @1x, 750x288 @2x) :
- *   - moitie haute = image bandeau commerce (cover)
- *   - moitie basse = grille de tampons dynamique + compteur sur #1E1E1E
+ * Composite strip image v3 (refonte 2026-05-13 — retour user) :
+ *   - Background : image commerce DARKENED (brightness 0.42) → garde l'identite
+ *     unique de chaque commerce sans masquer la grille de tampons.
+ *   - Overlay : grille de tampons (mode stamps) ou rien (mode points).
+ *   - PAS de texte counter dans le SVG (font corruption sur serverless).
+ *     Le counter "12/12 TAMPONS" est dans un pkpass field natif a la place.
  *
- * NOTE limitations Apple Wallet : pkpass NE PERMET PAS d'avoir une vraie grille
- * de tampons custom dans le chrome — c'est uniquement du texte dans les fields.
- * On contourne en COMPOSITANT la grille DANS le strip image (qui est une simple
- * PNG). Du coup la grille n'est pas "interactive" mais elle est visible.
+ * Apple Wallet strip dimensions : 375x144 @1x, 750x288 @2x pour storeCard QR.
  *
- * Si le fetch de l'image commerce echoue : on retourne juste la moitie basse
- * (grille seule) pour avoir au moins quelque chose de visuel.
+ * Si le fetch image echoue : fallback fond noir uni + grille (toujours
+ * exploitable). La fonction ne retourne jamais null pour le mode stamps.
  */
 async function generateCompositeStrip(
-  imageUrl: string,
+  imageUrl: string | null,
   width: number,
   height: number,
   stampsRequired: number,
   stampsCount: number,
-  showStampsGrid: boolean,
+  isStamps: boolean,
 ): Promise<Buffer | null> {
   try {
-    const halfHeight = Math.floor(height / 2)
+    // Base : image merchant darkenee OU fond noir DS Izou.
+    let baseBuf: Buffer
+    let imageFetched = false
 
-    let imageBuf: Buffer | null = null
-    try {
-      const res = await fetch(imageUrl, { cache: 'no-store' })
-      if (res.ok) {
-        const inputBuf = Buffer.from(await res.arrayBuffer())
-        imageBuf = await sharp(inputBuf)
-          .resize({ width, height: halfHeight, fit: 'cover', position: 'center' })
-          .png()
-          .toBuffer()
+    if (imageUrl) {
+      try {
+        const res = await fetch(imageUrl, { cache: 'no-store' })
+        if (res.ok) {
+          const inputBuf: Buffer = Buffer.from(await res.arrayBuffer())
+          baseBuf = await sharp(inputBuf)
+            .resize({ width, height, fit: 'cover', position: 'center' })
+            .modulate({ brightness: 0.42 }) // assombrit pour visibilite grille
+            .png()
+            .toBuffer()
+          imageFetched = true
+        } else {
+          throw new Error(`status ${res.status}`)
+        }
+      } catch (e) {
+        console.warn('[wallet] strip image fetch failed, fallback solid bg', e)
       }
-    } catch (e) {
-      console.warn('[wallet] strip image fetch failed', e)
     }
 
-    if (showStampsGrid) {
-      const gridSvg = buildStampsGridSvg(width, height - halfHeight, stampsRequired, stampsCount)
-      const gridBuf = await sharp(Buffer.from(gridSvg)).png().toBuffer()
-
-      const composites: { input: Buffer; top: number; left: number }[] = [
-        { input: gridBuf, top: halfHeight, left: 0 },
-      ]
-      if (imageBuf) composites.unshift({ input: imageBuf, top: 0, left: 0 })
-
-      return await sharp({
+    if (!imageFetched) {
+      baseBuf = await sharp({
         create: { width, height, channels: 4, background: { r: 30, g: 30, b: 30, alpha: 1 } },
       })
-        .composite(composites)
         .png()
         .toBuffer()
     }
 
-    // Mode points : juste l'image commerce a toute la hauteur (pas de grille).
-    if (imageBuf) {
-      const res = await fetch(imageUrl, { cache: 'no-store' })
-      if (!res.ok) return null
-      const inputBuf: Buffer = Buffer.from(await res.arrayBuffer())
-      return await sharp(inputBuf)
-        .resize({ width, height, fit: 'cover', position: 'center' })
-        .png()
-        .toBuffer()
-    }
-    return null
+    // Mode points : juste l'image darkenee sans grille (le counter "X pts"
+    // est dans un primaryField natif).
+    if (!isStamps) return baseBuf!
+
+    // Mode stamps : grille SVG transparente compositee sur la base.
+    const gridSvg = buildStampsGridSvg(width, height, stampsRequired, stampsCount)
+    const gridBuf = await sharp(Buffer.from(gridSvg)).png().toBuffer()
+
+    return await sharp(baseBuf!)
+      .composite([{ input: gridBuf, top: 0, left: 0 }])
+      .png()
+      .toBuffer()
   } catch (e) {
     console.error('[wallet] composite strip generation failed', e)
     return null
@@ -358,14 +361,25 @@ export async function generatePkpass(
             { key: 'greeting', label: 'BONJOUR', value: clientName },
           ],
           // primaryFields vide : la grille de tampons est rendue DANS le strip.
-          // Ajouter un primary ici afficherait du texte par-dessus le strip
-          // (illisible). Le "12/12 tampons" est dans le strip image directement.
+          // Le counter "X / Y" est dans secondaryFields (rendu en font native
+          // Apple Wallet — evite le bug font corrompue qu'on aurait en SVG sur
+          // le serverless).
           primaryFields: [],
           secondaryFields: [
-            { key: 'business', label: 'COMMERCE', value: business.business_name },
+            {
+              key: 'stamps',
+              label: 'TAMPONS',
+              value: `${stampsCount} / ${stampsRequired}`,
+              ...(getStampsChangeMessage(action, remainingForReward) && {
+                changeMessage: getStampsChangeMessage(action, remainingForReward),
+              }),
+            },
             ...(business.stamps_reward
               ? [{ key: 'reward', label: 'RÉCOMPENSE', value: business.stamps_reward }]
               : []),
+          ],
+          auxiliaryFields: [
+            { key: 'business', label: 'COMMERCE', value: business.business_name },
           ],
           backFields: [
             {
@@ -406,17 +420,8 @@ export async function generatePkpass(
     barcode: { message: qrCodeId, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1' },
   }
 
-  // Generate stamps changeMessage si applicable (lock-screen notif).
-  if (isStamps && action) {
-    const msg = getStampsChangeMessage(action, remainingForReward)
-    if (msg) {
-      // On colle le changeMessage sur le headerField vu qu'il n'y a plus de primaryField stamps.
-      passJson.storeCard.headerFields[0] = {
-        ...passJson.storeCard.headerFields[0],
-        ...{ changeMessage: msg },
-      } as { key: string; label: string; value: string; changeMessage?: string }
-    }
-  }
+  // Note: changeMessage est deja injecte dans secondaryFields[stamps] (mode stamps)
+  // ou primaryFields[points] (mode points) via le spread conditionnel ci-dessus.
 
   const passJsonBuf = Buffer.from(JSON.stringify(passJson))
 

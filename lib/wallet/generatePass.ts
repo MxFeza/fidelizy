@@ -37,11 +37,63 @@ function hexToRgb(hex: string): [number, number, number] {
 /** Wordmark Izou en SVG inline, blanc. ViewBox 56.6 x 16.6 (~3.4:1). */
 const IZOU_WORDMARK_SVG_WHITE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56.6215 16.6021" fill="#ffffff"><path d="M47.409 16.6021C46.1894 16.6021 45.1088 16.3378 44.1673 15.8091C43.2473 15.2592 42.5198 14.4873 41.9848 13.4934C41.4713 12.4994 41.2145 11.3469 41.2145 10.0357V0.646059H44.9697V9.75022C44.9697 10.9979 45.28 11.9285 45.9005 12.5417C46.521 13.155 47.409 13.4617 48.5645 13.4617C49.8483 13.4617 50.8539 13.0387 51.5815 12.1928C52.3304 11.3469 52.7048 10.152 52.7048 8.60824V0.646059H56.46L56.6215 16.5698H52.9305L52.769 14.1913H52.2234C51.9452 14.7411 51.4424 15.2804 50.7149 15.8091C49.9874 16.3378 48.8854 16.6021 47.409 16.6021Z"/><path d="M30.5074 16.6021C28.8923 16.6021 27.441 16.2846 26.1533 15.6498C24.8875 15.0149 23.8836 14.0943 23.1415 12.888C22.3995 11.6818 22.0285 10.2321 22.0285 8.53913V8.06297C22.0285 6.39112 22.3995 4.95207 23.1415 3.7458C23.8836 2.53953 24.8875 1.61896 26.1533 0.984078C27.441 0.328038 28.8923 1.7643e-05 30.5074 1.7643e-05C32.1224 1.7643e-05 33.5628 0.328038 34.8287 0.984078C36.1163 1.61896 37.1203 2.53953 37.8405 3.7458C38.5825 4.95207 38.9535 6.39112 38.9535 8.06297V8.53913C38.9535 10.2321 38.5825 11.6818 37.8405 12.888C37.1203 14.0943 36.1163 15.0149 34.8287 15.6498C33.5628 16.2846 32.1224 16.6021 30.5074 16.6021ZM30.5074 13.3007C31.8387 13.3007 32.9408 12.8775 33.8138 12.031C34.6868 11.1845 35.1233 9.99935 35.1233 8.47564V8.1582C35.1233 6.61333 34.6868 5.41764 33.8138 4.57114C32.9627 3.72464 31.8605 3.30138 30.5074 3.30138C29.1542 3.30138 28.0412 3.72464 27.1682 4.57114C26.2952 5.41764 25.8587 6.61333 25.8587 8.1582V8.47564C25.8587 9.99935 26.2952 11.1845 27.1682 12.031C28.0412 12.8775 29.1542 13.3007 30.5074 13.3007Z"/><path d="M6.78301 16.6021V12.0571L15.5123 4.28856V3.80504H7.09589V0.646059H19.5172V5.19112L10.7566 12.9919V13.4754H19.7675V16.6021H6.78301Z"/><path d="M0 16.6021V0.646059H3.94057V16.6021H0Z"/></svg>`
 
-/** Logo wordmark Izou blanc en PNG. Reduit (120x35 / 240x70 @2x) — retour user
- *  2026-05-13 : le logo precedent (150x44) etait trop gros visuellement. */
-async function generateLogoPng(width: number, height: number): Promise<Buffer> {
+/** Logo pour le pkpass — priorise le logo MERCHANT (business.logo_url) pour
+ *  que chaque carte ait son propre logo en haut. Fallback : wordmark Izou
+ *  blanc inline. Canvas avec padding transparent pour rendre visuellement
+ *  petit dans le rendu Apple Wallet (qui scale en hauteur).
+ *
+ *  Apple Wallet logo recommande : 160x50 @1x. On vise 240x70 @2x.
+ *  Le logo merchant est fit-contain dans un cadre 200x60 centre dans 240x70
+ *  → ~60px de hauteur effective dans le pass apres scale Apple.
+ */
+async function generateLogoPng(
+  width: number,
+  height: number,
+  merchantLogoUrl: string | null,
+): Promise<Buffer> {
+  // Tente le logo merchant en premier
+  if (merchantLogoUrl) {
+    try {
+      const res = await fetch(merchantLogoUrl, { cache: 'no-store' })
+      if (res.ok) {
+        const inputBuf: Buffer = Buffer.from(await res.arrayBuffer())
+        // Cadre interne plus petit pour donner un peu de padding visuel
+        const inner = await sharp(inputBuf)
+          .resize({
+            width: Math.round(width * 0.85),
+            height: Math.round(height * 0.85),
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          })
+          .png()
+          .toBuffer()
+        return await sharp({
+          create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+        })
+          .composite([{ input: inner, gravity: 'west' }])
+          .png()
+          .toBuffer()
+      }
+    } catch (e) {
+      console.warn('[wallet] merchant logo fetch failed, fallback Izou', e)
+    }
+  }
+  // Fallback : wordmark Izou blanc
   return sharp(Buffer.from(IZOU_WORDMARK_SVG_WHITE))
-    .resize({ width, height, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize({
+      width: Math.round(width * 0.7),
+      height: Math.round(height * 0.7),
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .extend({
+      top: Math.round(height * 0.15),
+      bottom: Math.round(height * 0.15),
+      left: Math.round(width * 0.05),
+      right: Math.round(width * 0.25),
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .resize({ width, height, fit: 'fill' })
     .png()
     .toBuffer()
 }
@@ -429,8 +481,8 @@ export async function generatePkpass(
   const [icon, icon2x, logo, logo2x, strip, strip2x] = await Promise.all([
     generateIconPng(29),
     generateIconPng(58),
-    generateLogoPng(120, 35),
-    generateLogoPng(240, 70),
+    generateLogoPng(120, 35, business.logo_url),
+    generateLogoPng(240, 70, business.logo_url),
     generateCompositeStrip(stripImageUrl, 375, 144, stampsRequired, stampsCount, isStamps),
     generateCompositeStrip(stripImageUrl, 750, 288, stampsRequired, stampsCount, isStamps),
   ])

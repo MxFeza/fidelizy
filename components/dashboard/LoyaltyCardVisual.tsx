@@ -93,25 +93,26 @@ export default function LoyaltyCardVisual({
         </div>
       </div>
 
-      {/* 2. Visuel commerce — image bandeau + nom commerce dessous */}
-      <div className="shrink-0 px-3 pt-3 pb-2">
-        <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden bg-white/5">
-          <Image
-            src={cardImageUrl || PUBLIC_ASSETS.cards.loyaltyDefault}
-            alt=""
-            fill
-            sizes="(min-width: 1024px) 320px, 280px"
-            className="object-cover object-center"
-            priority
-            unoptimized={!!cardImageUrl}
-          />
-        </div>
-        {businessName && (
-          <p className="mt-2 text-center text-sm font-semibold tracking-tight text-white truncate">
-            {businessName}
-          </p>
-        )}
+      {/* 2. Visuel commerce — image bandeau EDGE-TO-EDGE (no padding, no
+          rounded corners interieurs) + nom commerce dessous. Aligne sur le
+          style Apple Wallet Carrefour Club : la bande visuelle traverse la
+          carte de bord a bord, clip uniquement par le rounded-2xl exterieur. */}
+      <div className="relative w-full aspect-[2/1] shrink-0">
+        <Image
+          src={cardImageUrl || PUBLIC_ASSETS.cards.loyaltyDefault}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 320px, 280px"
+          className="object-cover object-center"
+          priority
+          unoptimized={!!cardImageUrl}
+        />
       </div>
+      {businessName && (
+        <p className="shrink-0 px-3 pt-2 pb-1 text-center text-sm font-semibold tracking-tight text-white truncate">
+          {businessName}
+        </p>
+      )}
 
       {/* 3. Body — grille tampons centree (occupe l'espace restant) */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-5">

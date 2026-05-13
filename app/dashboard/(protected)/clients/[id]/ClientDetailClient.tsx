@@ -20,11 +20,9 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Gift01,
-  Minus,
   Plus,
   RefreshCcw01,
   Trash01,
-  Download01,
   SearchLg,
   Calendar,
   FilterLines,
@@ -251,11 +249,8 @@ export default function ClientDetailClient({ card, business, transactions, tiers
     setShowClaimReward(true)
   }
 
-  function handleQuickDeduct() {
-    if (isStamps && currentStamps === 0) return
-    if (!isStamps && currentPoints === 0) return
-    handleDeduct(1)
-  }
+  // handleQuickDeduct retiré 2026-05-12 — doublon avec l'input adjust
+  // ci-dessous qui couvre ajouter ET retirer N unités précises.
 
   // ── Transactions filtering ──────────────────────────────────────────
 
@@ -353,7 +348,16 @@ export default function ClientDetailClient({ card, business, transactions, tiers
         cardImageUrl={business.card_image_url}
       />
 
-      {/* Action toolbar */}
+      {/* Action toolbar — simplifié 2026-05-12.
+          Avant : 5 boutons (Offrir récompense, Retirer tampon, Réinitialiser,
+          Supprimer client, Export). Retours user :
+            - "Retirer tampon" doublon avec l'input adjust ci-dessous (qui
+              gère ajouter ET retirer N unités). Retiré.
+            - "Export" n'avait pas d'onClick (bouton mort). Retiré jusqu'à
+              implémentation réelle.
+            - "Réinitialiser" et "Supprimer" déplacés en bas de page dans
+              une zone "Actions sensibles" séparée pour éviter le clic
+              accidentel à côté de "Offrir récompense". */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -363,40 +367,6 @@ export default function ClientDetailClient({ card, business, transactions, tiers
         >
           <Plus className="size-4" />
           Offrir récompense
-        </button>
-        <button
-          type="button"
-          onClick={handleQuickDeduct}
-          disabled={busy !== null || (isStamps && currentStamps === 0) || (!isStamps && currentPoints === 0)}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-warning-secondary border border-warning text-warning-primary text-sm font-semibold hover:bg-warning-secondary_hover disabled:opacity-60 transition-colors"
-        >
-          <Minus className="size-4" />
-          Retirer {isStamps ? 'tampon' : 'point'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirmReset(true)}
-          disabled={busy !== null}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-tertiary text-sm font-semibold hover:bg-primary_hover disabled:opacity-60 transition-colors"
-        >
-          <RefreshCcw01 className="size-4" />
-          Réinitialiser la carte
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirmDelete(true)}
-          disabled={busy !== null}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-error-secondary border border-error text-error-primary text-sm font-semibold hover:bg-error-secondary_hover disabled:opacity-60 transition-colors"
-        >
-          <Trash01 className="size-4" />
-          Supprimer les données client
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-primary border border-secondary text-secondary text-sm font-semibold hover:bg-primary_hover transition-colors ml-auto"
-        >
-          <Download01 className="size-4" />
-          Export
         </button>
       </div>
 
@@ -684,6 +654,36 @@ export default function ClientDetailClient({ card, business, transactions, tiers
           )}
         </div>
       )}
+
+      {/* Zone sensible — actions destructives séparées de la toolbar
+          principale pour éviter le clic accidentel (refonte 2026-05-12).
+          Visuellement discrète (border subtile, label) mais accessible. */}
+      <section className="mt-10 rounded-xl border border-error_subtle bg-error-secondary/40 p-5">
+        <h3 className="text-sm font-semibold text-error-primary mb-1">Actions sensibles</h3>
+        <p className="text-xs text-tertiary mb-4">
+          Ces opérations sont irréversibles. À utiliser avec parcimonie.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg ring-1 ring-secondary bg-primary text-secondary text-sm font-semibold hover:bg-primary_hover disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw01 className="size-4" />
+            Réinitialiser la carte
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-error-secondary border border-error text-error-primary text-sm font-semibold hover:bg-error-secondary_hover disabled:opacity-60 transition-colors"
+          >
+            <Trash01 className="size-4" />
+            Supprimer les données client
+          </button>
+        </div>
+      </section>
 
       {/* Confirm reset modal */}
       {confirmReset && (

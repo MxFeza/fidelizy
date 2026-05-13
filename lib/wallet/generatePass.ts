@@ -27,19 +27,18 @@ export function verifyAuthToken(token: string, qrCodeId: string): boolean {
   }
 }
 
-// ── PNG / image helpers (refonte 2026-05-13 : Sharp pour vrais assets) ────────
+// ── Image helpers (Sharp pour vrais assets) ───────────────────────────────────
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.startsWith('#') ? hex.slice(1) : hex
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
 }
 
-/** Wordmark Izou inline (SVG). fill="#fff" pour rendre blanc sur fond noir Izou.
- *  ViewBox 56.6 x 16.6 (ratio ~3.4:1). */
+/** Wordmark Izou en SVG inline, blanc. ViewBox 56.6 x 16.6 (~3.4:1). */
 const IZOU_WORDMARK_SVG_WHITE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56.6215 16.6021" fill="#ffffff"><path d="M47.409 16.6021C46.1894 16.6021 45.1088 16.3378 44.1673 15.8091C43.2473 15.2592 42.5198 14.4873 41.9848 13.4934C41.4713 12.4994 41.2145 11.3469 41.2145 10.0357V0.646059H44.9697V9.75022C44.9697 10.9979 45.28 11.9285 45.9005 12.5417C46.521 13.155 47.409 13.4617 48.5645 13.4617C49.8483 13.4617 50.8539 13.0387 51.5815 12.1928C52.3304 11.3469 52.7048 10.152 52.7048 8.60824V0.646059H56.46L56.6215 16.5698H52.9305L52.769 14.1913H52.2234C51.9452 14.7411 51.4424 15.2804 50.7149 15.8091C49.9874 16.3378 48.8854 16.6021 47.409 16.6021Z"/><path d="M30.5074 16.6021C28.8923 16.6021 27.441 16.2846 26.1533 15.6498C24.8875 15.0149 23.8836 14.0943 23.1415 12.888C22.3995 11.6818 22.0285 10.2321 22.0285 8.53913V8.06297C22.0285 6.39112 22.3995 4.95207 23.1415 3.7458C23.8836 2.53953 24.8875 1.61896 26.1533 0.984078C27.441 0.328038 28.8923 1.7643e-05 30.5074 1.7643e-05C32.1224 1.7643e-05 33.5628 0.328038 34.8287 0.984078C36.1163 1.61896 37.1203 2.53953 37.8405 3.7458C38.5825 4.95207 38.9535 6.39112 38.9535 8.06297V8.53913C38.9535 10.2321 38.5825 11.6818 37.8405 12.888C37.1203 14.0943 36.1163 15.0149 34.8287 15.6498C33.5628 16.2846 32.1224 16.6021 30.5074 16.6021ZM30.5074 13.3007C31.8387 13.3007 32.9408 12.8775 33.8138 12.031C34.6868 11.1845 35.1233 9.99935 35.1233 8.47564V8.1582C35.1233 6.61333 34.6868 5.41764 33.8138 4.57114C32.9627 3.72464 31.8605 3.30138 30.5074 3.30138C29.1542 3.30138 28.0412 3.72464 27.1682 4.57114C26.2952 5.41764 25.8587 6.61333 25.8587 8.1582V8.47564C25.8587 9.99935 26.2952 11.1845 27.1682 12.031C28.0412 12.8775 29.1542 13.3007 30.5074 13.3007Z"/><path d="M6.78301 16.6021V12.0571L15.5123 4.28856V3.80504H7.09589V0.646059H19.5172V5.19112L10.7566 12.9919V13.4754H19.7675V16.6021H6.78301Z"/><path d="M0 16.6021V0.646059H3.94057V16.6021H0Z"/></svg>`
 
-/** Logo wordmark Izou blanc en PNG, dimensions adaptees au pkpass.
- *  Apple : logo.png recommande max 160x50 @1x, double @2x. On vise 150x44 et 300x88. */
+/** Logo wordmark Izou blanc en PNG. Reduit (120x35 / 240x70 @2x) — retour user
+ *  2026-05-13 : le logo precedent (150x44) etait trop gros visuellement. */
 async function generateLogoPng(width: number, height: number): Promise<Buffer> {
   return sharp(Buffer.from(IZOU_WORDMARK_SVG_WHITE))
     .resize({ width, height, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -47,35 +46,132 @@ async function generateLogoPng(width: number, height: number): Promise<Buffer> {
     .toBuffer()
 }
 
-/** Icon Izou (logomark cercle + checkmark) PNG color depuis le SVG.
- *  Apple : icon.png 29x29 @1x, 58x58 @2x (apparait dans notifications + back). */
-const IZOU_ICON_SVG_BLACK = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0F172A"/><path d="M28 38l-7-7-3 3 10 10 18-18-3-3z" fill="#ffffff"/></svg>`
+/** Icon (logomark Izou simplifie pour notifications). 29x29 / 58x58. */
+const IZOU_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1E1E1E"/><path d="M28 38l-7-7-3 3 10 10 18-18-3-3z" fill="#ffffff"/></svg>`
 
 async function generateIconPng(size: number): Promise<Buffer> {
-  return sharp(Buffer.from(IZOU_ICON_SVG_BLACK))
+  return sharp(Buffer.from(IZOU_ICON_SVG))
     .resize({ width: size, height: size })
     .png()
     .toBuffer()
 }
 
-/** Strip image (bandeau image commerce). Apple : 375x144 @1x, 750x288 @2x pour QR.
- *  Fetch l'URL, resize en cover, retourne null si fetch fail (le pass restera valide
- *  juste sans strip). */
-async function generateStripPng(
+/**
+ * Genere le SVG de la grille de tampons pour la partie BAS du strip composite.
+ * Dimensions : largeur x hauteur (750x144 @2x).
+ *
+ * Layout :
+ *   - fond #1E1E1E
+ *   - grille N tampons (2 rangees max), cercles blancs avec checkmark si filled
+ *   - texte "X / Y tampons" en bas
+ */
+function buildStampsGridSvg(
+  width: number,
+  height: number,
+  stampsRequired: number,
+  stampsCount: number,
+): string {
+  const cols = stampsRequired <= 5 ? stampsRequired : Math.ceil(stampsRequired / 2)
+  const rows = Math.ceil(stampsRequired / cols)
+  const padX = 40
+  const padTop = 18
+  const padBottom = 32 // espace pour le texte en bas
+  const gridW = width - padX * 2
+  const gridH = height - padTop - padBottom
+  const cellW = gridW / cols
+  const cellH = gridH / rows
+  const radius = Math.min(cellW, cellH) * 0.36
+
+  let cells = ''
+  for (let i = 0; i < stampsRequired; i++) {
+    const r = Math.floor(i / cols)
+    const c = i % cols
+    const cx = padX + cellW * c + cellW / 2
+    const cy = padTop + cellH * r + cellH / 2
+    const filled = i < stampsCount
+    if (filled) {
+      const checkR = radius * 0.5
+      cells += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="#ffffff"/>`
+      cells += `<path d="M ${cx - checkR} ${cy} l ${checkR * 0.7} ${checkR * 0.7} l ${checkR * 1.3} -${checkR * 1.3}" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`
+    } else {
+      cells += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="2"/>`
+    }
+  }
+
+  const counterY = height - 10
+  const counterText = `${stampsCount}/${stampsRequired} tampons`
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#1E1E1E"/>${cells}<text x="${padX}" y="${counterY}" fill="#ffffff" font-family="-apple-system,system-ui,sans-serif" font-size="22" font-weight="600">${counterText}</text></svg>`
+}
+
+/**
+ * Composite strip image (Apple Wallet storeCard QR : 375x144 @1x, 750x288 @2x) :
+ *   - moitie haute = image bandeau commerce (cover)
+ *   - moitie basse = grille de tampons dynamique + compteur sur #1E1E1E
+ *
+ * NOTE limitations Apple Wallet : pkpass NE PERMET PAS d'avoir une vraie grille
+ * de tampons custom dans le chrome — c'est uniquement du texte dans les fields.
+ * On contourne en COMPOSITANT la grille DANS le strip image (qui est une simple
+ * PNG). Du coup la grille n'est pas "interactive" mais elle est visible.
+ *
+ * Si le fetch de l'image commerce echoue : on retourne juste la moitie basse
+ * (grille seule) pour avoir au moins quelque chose de visuel.
+ */
+async function generateCompositeStrip(
   imageUrl: string,
   width: number,
   height: number,
+  stampsRequired: number,
+  stampsCount: number,
+  showStampsGrid: boolean,
 ): Promise<Buffer | null> {
   try {
-    const res = await fetch(imageUrl, { cache: 'no-store' })
-    if (!res.ok) return null
-    const buf = Buffer.from(await res.arrayBuffer())
-    return await sharp(buf)
-      .resize({ width, height, fit: 'cover', position: 'center' })
-      .png()
-      .toBuffer()
+    const halfHeight = Math.floor(height / 2)
+
+    let imageBuf: Buffer | null = null
+    try {
+      const res = await fetch(imageUrl, { cache: 'no-store' })
+      if (res.ok) {
+        const inputBuf = Buffer.from(await res.arrayBuffer())
+        imageBuf = await sharp(inputBuf)
+          .resize({ width, height: halfHeight, fit: 'cover', position: 'center' })
+          .png()
+          .toBuffer()
+      }
+    } catch (e) {
+      console.warn('[wallet] strip image fetch failed', e)
+    }
+
+    if (showStampsGrid) {
+      const gridSvg = buildStampsGridSvg(width, height - halfHeight, stampsRequired, stampsCount)
+      const gridBuf = await sharp(Buffer.from(gridSvg)).png().toBuffer()
+
+      const composites: { input: Buffer; top: number; left: number }[] = [
+        { input: gridBuf, top: halfHeight, left: 0 },
+      ]
+      if (imageBuf) composites.unshift({ input: imageBuf, top: 0, left: 0 })
+
+      return await sharp({
+        create: { width, height, channels: 4, background: { r: 30, g: 30, b: 30, alpha: 1 } },
+      })
+        .composite(composites)
+        .png()
+        .toBuffer()
+    }
+
+    // Mode points : juste l'image commerce a toute la hauteur (pas de grille).
+    if (imageBuf) {
+      const res = await fetch(imageUrl, { cache: 'no-store' })
+      if (!res.ok) return null
+      const inputBuf: Buffer = Buffer.from(await res.arrayBuffer())
+      return await sharp(inputBuf)
+        .resize({ width, height, fit: 'cover', position: 'center' })
+        .png()
+        .toBuffer()
+    }
+    return null
   } catch (e) {
-    console.error('[wallet] strip image fetch failed', e)
+    console.error('[wallet] composite strip generation failed', e)
     return null
   }
 }
@@ -190,13 +286,22 @@ export interface GeneratePassOptions {
  * Generates a .pkpass buffer for the loyalty card identified by qrCodeId.
  * Returns null if the card or business is not found.
  *
- * Design 2026-05-13 (matching app loyalty card visual + Carrefour Club inspiration) :
- *   - logo.png    : wordmark IZOU blanc en haut a gauche
- *   - headerFields: "BONJOUR {NOM}" en haut a droite
- *   - strip.png   : image bandeau commerce (business.card_image_url ou fallback)
- *   - primaryFields : compteur (12/12 TAMPONS) overlay sur strip
- *   - secondaryFields : nom commerce + recompense
- *   - barcodes    : QR code en bas
+ * Design 2026-05-13 v2 (matching app loyalty card + DS Izou #1E1E1E) :
+ *   - backgroundColor : #1E1E1E (noir DS Izou)
+ *   - logo.png        : wordmark IZOU blanc reduit (120x35 / 240x70 @2x)
+ *   - headerFields    : "BONJOUR {NOM}" en haut a droite
+ *   - strip.png       : COMPOSITE image commerce (top) + grille tampons (bottom)
+ *                       genere dynamiquement via Sharp + SVG inline. Permet
+ *                       d'afficher la grille de tampons visuellement, ce qui
+ *                       n'est PAS possible nativement dans pkpass (qui ne
+ *                       supporte que des fields texte).
+ *   - secondaryFields : COMMERCE + RÉCOMPENSE
+ *   - barcodes        : QR code en bas
+ *
+ * LIMITATIONS Apple Wallet (a divulguer au user) :
+ *   - Pas de bande blanche distincte du fond noir (background unique)
+ *   - Pas de grille de tampons "live" — uniquement composite figee dans strip
+ *   - Logo taille bornee par Apple (~160x50 max @1x)
  */
 export async function generatePkpass(
   qrCodeId: string,
@@ -222,7 +327,7 @@ export async function generatePkpass(
 
   if (!business) return null
 
-  const color = business.primary_color || '#0F172A'
+  const color = business.primary_color || '#1E1E1E'
   const [r, g, b] = hexToRgb(color)
   const isStamps = business.loyalty_type === 'stamps'
   const stampsRequired = business.stamps_required ?? 10
@@ -230,7 +335,7 @@ export async function generatePkpass(
   const pointsBalance = card.current_points ?? 0
   const clientName: string = (card.customers?.first_name ?? 'Client').toUpperCase()
 
-  // URL strip image : card_image_url merchant ou fallback Izou par defaut.
+  // URL strip image source : merchant ou fallback Izou.
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '')
   const defaultCardImage = `${supabaseUrl}/storage/v1/object/public/public-assets/cards/loyalty-card-default.webp`
   const stripImageUrl: string = business.card_image_url || defaultCardImage
@@ -244,7 +349,7 @@ export async function generatePkpass(
     description: 'Carte de fidélité',
     backgroundColor: `rgb(${r},${g},${b})`,
     foregroundColor: 'rgb(255,255,255)',
-    labelColor: 'rgb(200,200,220)',
+    labelColor: 'rgb(180,180,180)',
     webServiceURL: `${BASE_URL}/api/wallet`,
     authenticationToken: generateAuthToken(qrCodeId),
     storeCard: isStamps
@@ -252,16 +357,10 @@ export async function generatePkpass(
           headerFields: [
             { key: 'greeting', label: 'BONJOUR', value: clientName },
           ],
-          primaryFields: [
-            {
-              key: 'stamps',
-              label: 'TAMPONS',
-              value: `${stampsCount} / ${stampsRequired}`,
-              ...(getStampsChangeMessage(action, remainingForReward) && {
-                changeMessage: getStampsChangeMessage(action, remainingForReward),
-              }),
-            },
-          ],
+          // primaryFields vide : la grille de tampons est rendue DANS le strip.
+          // Ajouter un primary ici afficherait du texte par-dessus le strip
+          // (illisible). Le "12/12 tampons" est dans le strip image directement.
+          primaryFields: [],
           secondaryFields: [
             { key: 'business', label: 'COMMERCE', value: business.business_name },
             ...(business.stamps_reward
@@ -307,16 +406,28 @@ export async function generatePkpass(
     barcode: { message: qrCodeId, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1' },
   }
 
+  // Generate stamps changeMessage si applicable (lock-screen notif).
+  if (isStamps && action) {
+    const msg = getStampsChangeMessage(action, remainingForReward)
+    if (msg) {
+      // On colle le changeMessage sur le headerField vu qu'il n'y a plus de primaryField stamps.
+      passJson.storeCard.headerFields[0] = {
+        ...passJson.storeCard.headerFields[0],
+        ...{ changeMessage: msg },
+      } as { key: string; label: string; value: string; changeMessage?: string }
+    }
+  }
+
   const passJsonBuf = Buffer.from(JSON.stringify(passJson))
 
-  // Generation paralelle des assets PNG.
+  // Generation parallele des assets PNG.
   const [icon, icon2x, logo, logo2x, strip, strip2x] = await Promise.all([
     generateIconPng(29),
     generateIconPng(58),
-    generateLogoPng(150, 44),
-    generateLogoPng(300, 88),
-    generateStripPng(stripImageUrl, 375, 144),
-    generateStripPng(stripImageUrl, 750, 288),
+    generateLogoPng(120, 35),
+    generateLogoPng(240, 70),
+    generateCompositeStrip(stripImageUrl, 375, 144, stampsRequired, stampsCount, isStamps),
+    generateCompositeStrip(stripImageUrl, 750, 288, stampsRequired, stampsCount, isStamps),
   ])
 
   const sha1 = (buf: Buffer | string) => createHash('sha1').update(buf).digest('hex')

@@ -21,7 +21,7 @@ import Image from 'next/image'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
 
-const DEFAULT_COLOR = '#0F172A' // Noir Izou — DA imposee sur tous les commerces
+const DEFAULT_COLOR = '#1E1E1E' // Noir DS Izou — DA imposee sur tous les commerces
 
 interface LoyaltyCardVisualProps {
   customerName: string

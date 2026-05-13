@@ -108,8 +108,10 @@ export default async function BusinessPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Coordonnées */}
-        {(business.address || business.phone || business.email) && (
+        {/* Coordonnées : adresse + téléphone + email + site internet + GMB,
+            tous regroupés ici (2026-05-12) pour éviter que le site web soit
+            isolé tout en bas où le user oubliait de le voir. */}
+        {(business.address || business.phone || business.email || business.website_url || (business.gmb_visible && business.gmb_url)) && (
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Coordonnées</h2>
@@ -146,6 +148,42 @@ export default async function BusinessPage({ params }: PageProps) {
                   </div>
                 </li>
               )}
+              {business.website_url && (
+                <li>
+                  <a
+                    href={business.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <Globe01 className="size-5 text-gray-400 shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">Site internet</p>
+                      <p className="text-sm text-brand-secondary mt-0.5 truncate">
+                        {business.website_url.replace(/^https?:\/\//, '')}
+                      </p>
+                    </div>
+                    <ArrowUpRight className="size-4 text-gray-400 shrink-0 mt-1" aria-hidden="true" />
+                  </a>
+                </li>
+              )}
+              {business.gmb_visible && business.gmb_url && (
+                <li>
+                  <a
+                    href={business.gmb_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <Building02 className="size-5 text-gray-400 shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">Voir sur Google</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Avis, photos et plus</p>
+                    </div>
+                    <ArrowUpRight className="size-4 text-gray-400 shrink-0 mt-1" aria-hidden="true" />
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
         )}
@@ -179,8 +217,9 @@ export default async function BusinessPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Lien réservation — CTA primary visible (priorité haute pour les
-            prestataires service qui veulent générer du booking) */}
+        {/* Lien réservation — seul CTA en bas, prominent (le site web et le
+            GMB ont été déplacés dans Coordonnées plus haut pour ne pas
+            disperser les liens externes). */}
         {business.booking_url && (
           <a
             href={business.booking_url}
@@ -191,50 +230,6 @@ export default async function BusinessPage({ params }: PageProps) {
             <Calendar className="size-5" aria-hidden="true" />
             Réserver en ligne
           </a>
-        )}
-
-        {/* Liens externes secondaires (site web, GMB) */}
-        {(business.website_url || (business.gmb_visible && business.gmb_url)) && (
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
-            {business.website_url && (
-              <a
-                href={business.website_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-                    <Globe01 className="size-5 text-gray-600" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">Site internet</p>
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">{business.website_url.replace(/^https?:\/\//, '')}</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="size-5 text-gray-400 shrink-0" aria-hidden="true" />
-              </a>
-            )}
-            {business.gmb_visible && business.gmb_url && (
-              <a
-                href={business.gmb_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-                    <Building02 className="size-5 text-gray-600" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">Voir sur Google</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Avis, photos et plus</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="size-5 text-gray-400 shrink-0" aria-hidden="true" />
-              </a>
-            )}
-          </div>
         )}
       </div>
 

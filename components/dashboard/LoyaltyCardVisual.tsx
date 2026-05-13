@@ -1,30 +1,27 @@
 'use client'
 
 /**
- * Visualisation de la carte fidelite (Figma F2 9951:586).
+ * Visualisation de la carte fidelite — refonte 2026-05-14 (user retour) :
+ * inspiree du pass Apple Wallet Carrefour Club.
  *
- * Refonte 2026-05-13 (user retour) :
- *   - Format vertical (ratio storeCard ~2:3) au lieu de horizontal carte
- *     bancaire. Raison : aligne la carte affichée dans l'app sur le format
- *     imposé par Apple Wallet et Google Wallet (pass `storeCard` vertical
- *     exclusivement, impossible d'avoir horizontal sur les wallets car réservé
- *     à Apple Pay/PAN tokenisation bancaire).
- *   - DA Izou uniformisée : la charte violet brand #7F56D9 prime sur tous
- *     les commerces. Pas de personnalisation couleur côté merchant pour le
- *     pilote (`businessPrimaryColor` reste accepté pour back-compat avec
- *     l'historique, mais la DB est forcée sur #7F56D9 pour tous).
+ * Layout vertical 4 bandes empilees :
+ *   1. Header clair : logo Izou (gauche) + "BONJOUR\n{PRENOM NOM}" (droite, caps bold)
+ *   2. Visuel commerce : image bandeau (business.card_image_url) + nom du commerce dessous
+ *   3. Body noir Izou : grille tampons centree (majeure partie)
+ *   4. Footer : compteur texte + logo commerce en bas a droite
  *
- * Layout vertical :
- *   - Top  : image carte custom merchant (banner-style) ou montgolfière par défaut
- *   - Mid  : nom client + grille tampons + compteur
- *   - Bot  : logo merchant en bas-droite (sur transparent)
+ * Couleur fond : NOIR Izou (#0F172A) sur tous les commerces. Le violet brand
+ * #7F56D9 reste pour les CTAs/banners/etats (DA Izou globale) mais la carte
+ * elle-meme est noire — alignement avec le pass Apple Wallet.
+ *
+ * Pas de personnalisation couleur cote merchant (cf. feedback_da_izou_uniforme).
  */
 
 import Image from 'next/image'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
 
-const DEFAULT_COLOR = '#7F56D9' // Brand Izou — DA imposée sur tous les commerces
+const DEFAULT_COLOR = '#0F172A' // Noir Izou — DA imposee sur tous les commerces
 
 interface LoyaltyCardVisualProps {
   customerName: string
@@ -32,14 +29,16 @@ interface LoyaltyCardVisualProps {
   currentStamps?: number
   stampsRequired?: number
   currentPoints?: number
-  /** Logo du commerce (depuis business.logo_url). Affiche en bas a droite, sans fond. */
+  /** Nom du commerce (business.business_name). Affiche sous l'image, centre. */
+  businessName?: string | null
+  /** Logo du commerce (business.logo_url). Affiche en bas a droite, sans fond. */
   businessLogoUrl?: string | null
-  /** Image custom haut de carte (depuis business.card_image_url). Remplace la montgolfiere par défaut. */
+  /** Image custom haut de carte (business.card_image_url). Fallback montgolfiere si absent. */
   cardImageUrl?: string | null
   /**
-   * Couleur principale du commerce (depuis business.primary_color). Maintenue
-   * pour back-compat mais en pratique uniformément #7F56D9 depuis le forçage
-   * DA Izou (migration 20260513). Fallback brand si absente.
+   * Couleur principale du commerce (business.primary_color). Maintenue pour
+   * back-compat mais en pratique uniformement #0F172A depuis la migration
+   * 20260514. Fallback noir Izou si absente.
    */
   businessPrimaryColor?: string | null
   /** Affiche un fond gradient brand autour de la carte, comme dans Figma F2/F3. Default: true. */
@@ -53,66 +52,74 @@ export default function LoyaltyCardVisual({
   currentStamps = 0,
   stampsRequired = 10,
   currentPoints = 0,
+  businessName,
   businessLogoUrl,
   cardImageUrl,
   businessPrimaryColor,
   withGradientBackground = true,
   className,
 }: LoyaltyCardVisualProps) {
-  const pointsLabel = loyaltyType === 'points'
-    ? `${currentPoints} pts`
-    : `${currentStamps}/${stampsRequired}`
-
   const bgColor = businessPrimaryColor || DEFAULT_COLOR
+  const greetingName = (customerName || 'Client').toUpperCase()
 
   const card = (
     <div
       className={cx(
-        // Format vertical type storeCard wallet : ratio ~2:3 = portrait,
-        // proche du rendu Apple Wallet pour limiter la surprise visuelle
-        // entre l'app et le wallet. max-w volontairement plus étroit que
-        // l'ancien horizontal.
+        // Format vertical type storeCard wallet (~2:3) pour aligner avec
+        // Apple/Google Wallet (storeCard portrait exclusif).
         'relative w-full max-w-[280px] sm:max-w-[320px] mx-auto rounded-2xl overflow-hidden shadow-2xl flex flex-col',
         'aspect-[2/3]',
         !withGradientBackground && className,
       )}
       style={{ backgroundColor: bgColor }}
     >
-      {/* Haut — image custom commerce (banner-style) ou montgolfière par défaut */}
-      <div className="relative w-full flex-[0.42] overflow-hidden">
+      {/* 1. Header clair — logo Izou + Bonjour {NOM} caps */}
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-white shrink-0">
         <Image
-          src={cardImageUrl || PUBLIC_ASSETS.cards.loyaltyDefault}
-          alt=""
-          fill
-          sizes="(min-width: 1024px) 320px, 280px"
-          className="object-cover object-center"
+          src={PUBLIC_ASSETS.branding.logoNoir}
+          alt="Izou"
+          width={48}
+          height={20}
+          className="h-5 w-auto shrink-0"
           priority
-          unoptimized={!!cardImageUrl}
         />
-
-        {/* Badge points/tampons (flottant top-right) */}
-        <div className="absolute top-2.5 right-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-900/90 text-white text-[11px] font-semibold shadow-lg backdrop-blur-sm">
-          {pointsLabel}
-          <svg className="size-2.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M10 3l1.5 4.5H16l-3.5 2.5L14 14l-4-3-4 3 1.5-4-3.5-2.5h4.5z" />
-          </svg>
+        <div className="text-right min-w-0">
+          <p className="text-[9px] font-semibold tracking-[0.12em] text-gray-500 leading-tight">
+            BONJOUR
+          </p>
+          <p className="text-[11px] sm:text-xs font-bold tracking-wide text-gray-900 leading-tight truncate uppercase">
+            {greetingName}
+          </p>
         </div>
       </div>
 
-      {/* Milieu — nom + grille tampons / compteur */}
-      <div className="relative flex-[0.58] flex flex-col justify-between p-4 sm:p-5">
-        <p className="text-lg sm:text-xl font-semibold tracking-tight truncate leading-tight text-white">
-          {customerName}
-        </p>
+      {/* 2. Visuel commerce — image bandeau + nom commerce dessous */}
+      <div className="shrink-0 px-3 pt-3 pb-2">
+        <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden bg-white/5">
+          <Image
+            src={cardImageUrl || PUBLIC_ASSETS.cards.loyaltyDefault}
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 320px, 280px"
+            className="object-cover object-center"
+            priority
+            unoptimized={!!cardImageUrl}
+          />
+        </div>
+        {businessName && (
+          <p className="mt-2 text-center text-sm font-semibold tracking-tight text-white truncate">
+            {businessName}
+          </p>
+        )}
+      </div>
 
-        {/* Grille tampons (mode stamps) — 5 colonnes max, wrap automatique en
-            2 rangées pour 8/10/12 tampons. `1fr` + justify-items-center répartit
-            uniformément dans la largeur (refonte 2026-05-12). */}
-        {loyaltyType === 'stamps' && (() => {
+      {/* 3. Body — grille tampons centree (occupe l'espace restant) */}
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-5">
+        {loyaltyType === 'stamps' ? (() => {
           const cols = stampsRequired <= 5 ? stampsRequired : Math.ceil(stampsRequired / 2)
           return (
             <div
-              className="grid gap-1.5 sm:gap-2 my-2 justify-items-center w-full"
+              className="grid gap-2 sm:gap-2.5 justify-items-center w-full"
               style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
               role="meter"
               aria-valuenow={currentStamps}
@@ -126,14 +133,14 @@ export default function LoyaltyCardVisual({
                   <div
                     key={i}
                     className={cx(
-                      'size-6 sm:size-7 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
+                      'size-7 sm:size-8 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
                       filled ? 'bg-white shadow-sm' : 'border border-white/25',
                     )}
                     aria-hidden="true"
                   >
                     {filled && (
                       <svg
-                        className="size-3.5 sm:size-4 text-gray-900"
+                        className="size-4 sm:size-[18px] text-gray-900"
                         viewBox="0 0 20 20"
                         fill="currentColor"
                       >
@@ -149,36 +156,41 @@ export default function LoyaltyCardVisual({
               })}
             </div>
           )
-        })()}
-
-        {/* Bottom : compteur texte + logo commerce bottom-right */}
-        <div className="flex items-end justify-between gap-3">
-          <p className="text-xs sm:text-sm font-medium text-white/85">
-            {loyaltyType === 'stamps'
-              ? `${currentStamps}/${stampsRequired} tampons`
-              : `${currentPoints} pts cumulés`}
+        })() : (
+          <p className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+            {currentPoints}
+            <span className="ml-1 text-base sm:text-lg font-medium text-white/70">pts</span>
           </p>
+        )}
+      </div>
 
-          {/* Logo commerce — container carre fixe pour eviter l'etirement */}
-          <div className="size-9 flex items-center justify-center shrink-0">
-            {businessLogoUrl ? (
-              <Image
-                src={businessLogoUrl}
-                alt="Logo commerce"
-                width={36}
-                height={36}
-                className="size-9 object-contain"
-              />
-            ) : (
-              <Image
-                src="/izou-logomark.svg"
-                alt=""
-                width={28}
-                height={28}
-                className="size-7 opacity-90"
-              />
-            )}
-          </div>
+      {/* 4. Footer — compteur texte + logo merchant bas-droite */}
+      <div className="shrink-0 flex items-end justify-between gap-3 px-4 pb-3 sm:px-5 sm:pb-4">
+        <p className="text-xs sm:text-sm font-medium text-white/85">
+          {loyaltyType === 'stamps'
+            ? `${currentStamps}/${stampsRequired} tampons`
+            : `${currentPoints} pts cumules`}
+        </p>
+
+        <div className="size-10 flex items-center justify-center shrink-0">
+          {businessLogoUrl ? (
+            <Image
+              src={businessLogoUrl}
+              alt="Logo commerce"
+              width={40}
+              height={40}
+              className="size-10 object-contain"
+              unoptimized
+            />
+          ) : (
+            <Image
+              src="/izou-logomark.svg"
+              alt=""
+              width={32}
+              height={32}
+              className="size-8 opacity-90"
+            />
+          )}
         </div>
       </div>
     </div>

@@ -344,6 +344,7 @@ export default function ClientDetailClient({ card, business, transactions, tiers
         currentStamps={currentStamps}
         stampsRequired={stampsRequired}
         currentPoints={currentPoints}
+        businessName={business.business_name}
         businessLogoUrl={business.logo_url}
         cardImageUrl={business.card_image_url}
       />

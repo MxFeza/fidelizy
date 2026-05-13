@@ -147,6 +147,7 @@ export default function CardTab({
         currentStamps={stampsCount}
         stampsRequired={stampsRequired}
         currentPoints={pointsBalance}
+        businessName={business.business_name}
         businessLogoUrl={business.logo_url}
         cardImageUrl={business.card_image_url}
         businessPrimaryColor={business.primary_color}

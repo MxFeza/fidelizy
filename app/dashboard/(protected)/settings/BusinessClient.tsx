@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation'
 import {
   Building07, MarkerPin01, Phone, Clock, Share04,
   CheckDone01, AlertCircle, Globe01, User01, LinkExternal01,
+  Download01, Copy01, X as XIcon,
 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
@@ -77,6 +78,10 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shareCopied, setShareCopied] = useState(false)
+  // Modal "Partager" : preview de la fiche image generee cote serveur
+  // (/api/share-card/[shortCode]) avec download + share file + copy lien.
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareCardBusting, setShareCardBusting] = useState(0) // force refresh de la preview apres save
 
   useEffect(() => {
     if (!savedAt) return
@@ -140,25 +145,73 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
     setOpeningHours(business.opening_hours ?? '')
   }
 
-  async function handleShare() {
-    // Le lien doit pointer vers la page d'inscription du commerce
-    // (preview riche OG avec banner + logo via generateMetadata dans
-    // app/join/[businessId]/page.tsx). Avant 2026-05-12 le lien tapait
-    // sur /?code=X qui n'avait pas de traitement spécial.
+  function handleShare() {
+    // Refonte 2026-05-13 : ouvre une modal avec PREVIEW de la fiche image
+    // partageable (genere via /api/share-card/[shortCode]). Le user peut
+    // ensuite telecharger l'image, la partager via navigator.share avec
+    // file (story Insta-friendly), ou copier le lien.
+    setShareCardBusting(Date.now())
+    setShowShareModal(true)
+  }
+
+  async function handleCopyShareLink() {
     const target = business.short_code || business.id
     const url = joinUrl(target)
-    const title = `Carte de fidélité ${businessName}`
-    const text = `Rejoignez le programme fidélité de ${businessName} sur Izou.`
     try {
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        await navigator.share({ title, text, url })
-      } else {
-        await navigator.clipboard.writeText(url)
-        setShareCopied(true)
-        setTimeout(() => setShareCopied(false), 2000)
-      }
+      await navigator.clipboard.writeText(url)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
     } catch {
-      // user dismissed share sheet
+      /* clipboard refuse */
+    }
+  }
+
+  async function handleDownloadShareCard() {
+    const target = business.short_code || business.id
+    try {
+      const res = await fetch(`/api/share-card/${target}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error('share-card fetch failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-izou.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1500)
+    } catch (e) {
+      console.error('[share] download failed', e)
+    }
+  }
+
+  async function handleShareFile() {
+    const target = business.short_code || business.id
+    try {
+      const res = await fetch(`/api/share-card/${target}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error('share-card fetch failed')
+      const blob = await res.blob()
+      const file = new File([blob], `${businessName}.png`, { type: 'image/png' })
+      const shareData: ShareData = {
+        title: businessName,
+        text: `Rejoignez le programme fidélité de ${businessName} sur Izou.`,
+        url: joinUrl(target),
+      }
+      // Web Share Level 2 (avec files) — iOS Safari 15+, Chrome Android, Edge
+      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+        shareData.files = [file]
+      }
+      if (navigator.share) {
+        await navigator.share(shareData)
+      } else {
+        // Fallback : download local
+        await handleDownloadShareCard()
+      }
+    } catch (e) {
+      // User dismissed ou erreur silencieuse
+      if (e instanceof Error && e.name !== 'AbortError') {
+        console.error('[share] file failed', e)
+      }
     }
   }
 
@@ -196,7 +249,12 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
     </Button>
   )
 
+  const shareCardUrl = business.short_code
+    ? `/api/share-card/${business.short_code}?v=${shareCardBusting}`
+    : null
+
   return (
+    <>
     <SettingsPage>
       {/* Hero pattern LinkedIn : bannière full-width + logo qui chevauche en
           bas-gauche. Bannière éditable via l'icône crayon flottante (variant
@@ -451,6 +509,84 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
         </div>
       </SettingsBody>
     </SettingsPage>
+
+    {/* Modal Partager — fiche image generee cote serveur, format Insta-friendly.
+        Permet au merchant de telecharger / partager en story sans devoir faire
+        de screenshot moche. */}
+    {showShareModal && shareCardUrl && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Partager ma fiche commerce"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-overlay/70 backdrop-blur-sm p-4"
+        onClick={() => setShowShareModal(false)}
+      >
+        <div
+          className="bg-primary rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <h2 className="text-lg font-bold text-primary">Partager mon commerce</h2>
+            <button
+              type="button"
+              onClick={() => setShowShareModal(false)}
+              aria-label="Fermer"
+              className="size-8 rounded-full flex items-center justify-center text-tertiary hover:bg-secondary"
+            >
+              <XIcon className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+
+          <p className="px-5 text-sm text-tertiary mb-4">
+            Image prête à partager en story ou message. Le QR code intégré redirige vers la page d&apos;inscription de votre commerce.
+          </p>
+
+          {/* Preview de la share card (4:5 ratio) */}
+          <div className="mx-5 mb-4 rounded-2xl overflow-hidden ring-1 ring-secondary bg-secondary">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={shareCardUrl}
+              alt="Aperçu fiche partage"
+              className="w-full h-auto block"
+            />
+          </div>
+
+          <div className="px-5 pb-5 space-y-2.5">
+            <Button
+              type="button"
+              size="md"
+              color="primary"
+              iconLeading={Share04}
+              className="w-full"
+              onClick={handleShareFile}
+            >
+              Partager l&apos;image
+            </Button>
+            <Button
+              type="button"
+              size="md"
+              color="secondary"
+              iconLeading={Download01}
+              className="w-full"
+              onClick={handleDownloadShareCard}
+            >
+              Télécharger l&apos;image
+            </Button>
+            <Button
+              type="button"
+              size="md"
+              color="tertiary"
+              iconLeading={shareCopied ? CheckDone01 : Copy01}
+              className="w-full"
+              onClick={handleCopyShareLink}
+            >
+              {shareCopied ? 'Lien copié' : 'Copier le lien'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

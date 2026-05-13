@@ -103,7 +103,7 @@ describe('notification.service', () => {
       errSpy.mockRestore()
     })
 
-    it('passes the correct URL to web push (https://fidelizy.vercel.app/card/{qrCodeId})', async () => {
+    it('passes the correct URL to web push (https://izou.fr/card/{qrCodeId})', async () => {
       await notifyClient('card-1', 'qr-abc-123', {
         title: 'Reward',
         body: 'You won!',
@@ -112,7 +112,7 @@ describe('notification.service', () => {
       expect(sendPushToCard).toHaveBeenCalledWith('card-1', {
         title: 'Reward',
         body: 'You won!',
-        url: 'https://fidelizy.vercel.app/card/qr-abc-123',
+        url: 'https://izou.fr/card/qr-abc-123',
       })
     })
   })

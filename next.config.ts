@@ -36,6 +36,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // `@resvg/resvg-js` a un binding natif (.node) que Turbopack ne sait pas
+  // bundler en ESM. On le marque comme external pour que Next.js l'expose
+  // via require() au runtime (Node native module loader).
+  serverExternalPackages: ['@resvg/resvg-js'],
   // Force Next.js a inclure les .ttf fonts dans la lambda Vercel — sans ca,
   // `fs.readFileSync('lib/fonts/Inter-*.ttf')` echoue en serverless car les
   // fichiers ne sont pas detectes par le tracing automatique (pas d'import

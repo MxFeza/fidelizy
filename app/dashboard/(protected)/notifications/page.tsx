@@ -1,20 +1,26 @@
 'use client'
 
 /**
- * Inbox commercant — notifications RECUES par le commercant.
- * Differente de /dashboard/marketing/push qui sert a EMETTRE des notifications aux clients.
+ * Inbox commerçant — notifications RECUES par le commercant.
+ * Différente de /dashboard/marketing/push qui sert à EMETTRE des notifications
+ * aux clients.
  *
- * Decision user 2026-04-26 : cette page est une PURE INBOX. Pas d'action d'envoi
- * affichee ici (le bouton "Envoyer une notification a mes clients" a ete retire) —
- * pour rester coherent avec le pattern des notifications d'autres apps.
+ * Decision user 2026-04-26 : cette page est une PURE INBOX. Pas d'action
+ * d'envoi affichee ici (le bouton "Envoyer une notification a mes clients"
+ * a ete retire) — pour rester coherent avec le pattern des notifications
+ * d'autres apps.
+ *
+ * 2026-05-13 : le widget PendingClaimRequests est désormais aussi affiché ici
+ * (en plus du dashboard home) pour que le merchant retrouve les demandes
+ * de récompense à valider depuis l'onglet Notifications attendu.
  */
 
-import { Bell01 } from '@untitledui/icons'
+import PendingClaimRequests from '@/components/dashboard/PendingClaimRequests'
 
 export default function NotificationsInboxPage() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
-      <div className="mb-6 lg:mb-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
+      <div>
         <h1 className="text-display-xs sm:text-display-sm font-semibold text-primary">
           Notifications
         </h1>
@@ -23,16 +29,10 @@ export default function NotificationsInboxPage() {
         </p>
       </div>
 
-      {/* Empty state */}
-      <div className="rounded-xl bg-primary border border-secondary p-10 text-center">
-        <div className="size-14 mx-auto mb-4 rounded-full bg-secondary flex items-center justify-center">
-          <Bell01 className="size-7 text-fg-quaternary" />
-        </div>
-        <p className="text-primary font-semibold mb-1">Aucune notification</p>
-        <p className="text-sm text-tertiary max-w-sm mx-auto">
-          Quand vos clients gagneront une récompense ou que vous recevrez un nouvel inscrit, les alertes apparaîtront ici.
-        </p>
-      </div>
+      {/* Toujours affiché ici (showEmptyState=true) : la page notifications
+          dédiée doit avoir un état même quand zéro demande, contrairement au
+          dashboard home qui masque le widget pour ne pas encombrer. */}
+      <PendingClaimRequests showEmptyState />
     </div>
   )
 }

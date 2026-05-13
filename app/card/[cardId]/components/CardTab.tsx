@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { CreditCard02, Gift01, Share04 } from '@untitledui/icons'
+import { CreditCard02, Share04 } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
@@ -152,32 +152,10 @@ export default function CardTab({
         businessPrimaryColor={business.primary_color}
       />
 
-      {/* Reward unlocked banner (stamps mode, single-tier) */}
-      {business.loyalty_type === 'stamps' && stampsCount >= stampsRequired && business.stamps_reward && (
-        <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center space-y-3">
-          <div>
-            <p className="text-sm font-semibold text-success-primary inline-flex items-center gap-1.5">
-              <Gift01 className="size-4" aria-hidden="true" />
-              <span>Récompense disponible : {business.stamps_reward}</span>
-            </p>
-            <p className="text-xs text-success-primary/80 mt-0.5">
-              Réclamez-la auprès de votre commerçant
-            </p>
-          </div>
-          <Button
-            type="button"
-            color="primary"
-            size="md"
-            isLoading={claiming}
-            className="w-full"
-            onClick={() => setShowClaimModal(true)}
-          >
-            Réclamer ma récompense
-          </Button>
-        </div>
-      )}
-
-      {/* Tier progress bar (BK-style — paliers JSONB ou palier virtuel single-tier) */}
+      {/* Tier progress bar (BK-style — paliers JSONB ou palier virtuel single-tier)
+          Le bouton "Réclamer ma récompense" est désormais INLINE dans ce
+          composant (sous les paliers) pour la continuité visuelle. L'ancien
+          banner externe "Récompense disponible" a été retiré 2026-05-13. */}
       {liveTiers.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm p-5">
           <TierProgressBar
@@ -185,6 +163,8 @@ export default function CardTab({
             currentValue={business.loyalty_type === 'stamps' ? stampsCount : pointsBalance}
             loyaltyType={business.loyalty_type}
             color={color}
+            onClaim={() => setShowClaimModal(true)}
+            isClaiming={claiming}
           />
 
           {/* Wheel button (points mode only). Eligible -> Button primary
@@ -238,7 +218,7 @@ export default function CardTab({
           role="dialog"
           aria-modal="true"
           aria-label="Votre code de fidélité"
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setShowQrModal(false)}
         >
           <div

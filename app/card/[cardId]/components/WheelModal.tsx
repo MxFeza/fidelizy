@@ -87,7 +87,7 @@ export default function WheelModal({ cardId, qrCodeId, businessId, color, cardTo
   const segAngle = segments.length > 0 ? 360 / segments.length : 360
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <style>{`
         @keyframes wheelSpin {
           from { transform: rotate(0deg); }

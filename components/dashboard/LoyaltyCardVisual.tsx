@@ -3,34 +3,28 @@
 /**
  * Visualisation de la carte fidelite (Figma F2 9951:586).
  *
- * Regle v1 (decision user 2026-04-26 — "on va revenir a la regle de base") :
- *   - Toutes les cartes utilisent la charte du commerce (business.primary_color
- *     ou noir #0F172A par défaut)
- *   - Cote droit : image custom du commerce si fournie, sinon image standard
- *     (paysage montgolfiere)
- *   - Logo du commerce en bas a droite, **sur transparent** (pas de pill blanche)
- *   - Logo se met automatiquement sur toutes les cartes des clients du commerce
+ * Refonte 2026-05-13 (user retour) :
+ *   - Format vertical (ratio storeCard ~2:3) au lieu de horizontal carte
+ *     bancaire. Raison : aligne la carte affichée dans l'app sur le format
+ *     imposé par Apple Wallet et Google Wallet (pass `storeCard` vertical
+ *     exclusivement, impossible d'avoir horizontal sur les wallets car réservé
+ *     à Apple Pay/PAN tokenisation bancaire).
+ *   - DA Izou uniformisée : la charte violet brand #7F56D9 prime sur tous
+ *     les commerces. Pas de personnalisation couleur côté merchant pour le
+ *     pilote (`businessPrimaryColor` reste accepté pour back-compat avec
+ *     l'historique, mais la DB est forcée sur #7F56D9 pour tous).
  *
- * Update 2026-04-26 (retour user) :
- *   - Wrapper gradient optionnel (purple→orange→rose) autour de la carte, comme F2/F3
- *   - Nom client agrandi (text-2xl) pour plus de presence
- *   - Logo fixe en aspect-ratio carre avec object-contain (evite l'etirement
- *     pour les logos non-carres uploades par les commercants)
- *
- * Update 2026-05-05 (retour user — feedback "tampons visuels") :
- *   - Mode stamps : grille de cercles (rappel des cartes de fidelite physique)
- *     a la place du simple texte "X/Y".
- *
- * Update 2026-05-11 :
- *   - Retrait de la personnalisation couleur client (`card_color`) : décision
- *     produit "charte merchant fixe" pour le pilote (cf. PLAN_PRE_PILOTE).
+ * Layout vertical :
+ *   - Top  : image carte custom merchant (banner-style) ou montgolfière par défaut
+ *   - Mid  : nom client + grille tampons + compteur
+ *   - Bot  : logo merchant en bas-droite (sur transparent)
  */
 
 import Image from 'next/image'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
 
-const DEFAULT_COLOR = '#0F172A'
+const DEFAULT_COLOR = '#7F56D9' // Brand Izou — DA imposée sur tous les commerces
 
 interface LoyaltyCardVisualProps {
   customerName: string
@@ -40,15 +34,15 @@ interface LoyaltyCardVisualProps {
   currentPoints?: number
   /** Logo du commerce (depuis business.logo_url). Affiche en bas a droite, sans fond. */
   businessLogoUrl?: string | null
-  /** Image custom cote droit (depuis business.card_image_url). Remplace la montgolfiere standard si fournie. */
+  /** Image custom haut de carte (depuis business.card_image_url). Remplace la montgolfiere par défaut. */
   cardImageUrl?: string | null
   /**
-   * Couleur principale du commerce (depuis business.primary_color). Fallback
-   * noir #0F172A si non configurée. La règle "charte merchant fixe" (2026-05-11)
-   * remplace la personnalisation côté client.
+   * Couleur principale du commerce (depuis business.primary_color). Maintenue
+   * pour back-compat mais en pratique uniformément #7F56D9 depuis le forçage
+   * DA Izou (migration 20260513). Fallback brand si absente.
    */
   businessPrimaryColor?: string | null
-  /** Affiche un fond gradient (purple→orange→rose) autour de la carte, comme dans Figma F2/F3. Default: true. */
+  /** Affiche un fond gradient brand autour de la carte, comme dans Figma F2/F3. Default: true. */
   withGradientBackground?: boolean
   className?: string
 }
@@ -74,29 +68,51 @@ export default function LoyaltyCardVisual({
   const card = (
     <div
       className={cx(
-        'relative w-full max-w-md mx-auto rounded-2xl overflow-hidden shadow-2xl flex',
-        'aspect-[1.585/1]',
+        // Format vertical type storeCard wallet : ratio ~2:3 = portrait,
+        // proche du rendu Apple Wallet pour limiter la surprise visuelle
+        // entre l'app et le wallet. max-w volontairement plus étroit que
+        // l'ancien horizontal.
+        'relative w-full max-w-[280px] sm:max-w-[320px] mx-auto rounded-2xl overflow-hidden shadow-2xl flex flex-col',
+        'aspect-[2/3]',
         !withGradientBackground && className,
       )}
       style={{ backgroundColor: bgColor }}
     >
-      {/* Cote gauche — fond charte + nom + grille tampons (mode stamps) ou compteur points */}
-      <div className="relative flex-[0.62] flex flex-col justify-between p-4 sm:p-5 lg:p-6">
-        <p className="text-lg sm:text-2xl lg:text-[26px] font-semibold tracking-tight truncate leading-tight text-white">
+      {/* Haut — image custom commerce (banner-style) ou montgolfière par défaut */}
+      <div className="relative w-full flex-[0.42] overflow-hidden">
+        <Image
+          src={cardImageUrl || PUBLIC_ASSETS.cards.loyaltyDefault}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 320px, 280px"
+          className="object-cover object-center"
+          priority
+          unoptimized={!!cardImageUrl}
+        />
+
+        {/* Badge points/tampons (flottant top-right) */}
+        <div className="absolute top-2.5 right-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-900/90 text-white text-[11px] font-semibold shadow-lg backdrop-blur-sm">
+          {pointsLabel}
+          <svg className="size-2.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 3l1.5 4.5H16l-3.5 2.5L14 14l-4-3-4 3 1.5-4-3.5-2.5h4.5z" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Milieu — nom + grille tampons / compteur */}
+      <div className="relative flex-[0.58] flex flex-col justify-between p-4 sm:p-5">
+        <p className="text-lg sm:text-xl font-semibold tracking-tight truncate leading-tight text-white">
           {customerName}
         </p>
 
-        {/* Grille tampons : visualisation type carte fidelite physique.
-            Story 9.2 v2 fix : grid avec colonnes adaptatives pour stacker en
-            2 rangées équilibrées (5+5 pour 10, 4+4 pour 8, etc.) au lieu de
-            squeezer en 1 longue ligne sur mobile. Cf retour user 2026-05-10.
-            2026-05-11 (B2): minmax(0, 1fr) + justify-items-center pour
-            répartir uniformément les cercles dans la largeur disponible. */}
+        {/* Grille tampons (mode stamps) — 5 colonnes max, wrap automatique en
+            2 rangées pour 8/10/12 tampons. `1fr` + justify-items-center répartit
+            uniformément dans la largeur (refonte 2026-05-12). */}
         {loyaltyType === 'stamps' && (() => {
           const cols = stampsRequired <= 5 ? stampsRequired : Math.ceil(stampsRequired / 2)
           return (
             <div
-              className="grid gap-1.5 sm:gap-2 my-1 sm:my-2 justify-items-center"
+              className="grid gap-1.5 sm:gap-2 my-2 justify-items-center w-full"
               style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
               role="meter"
               aria-valuenow={currentStamps}
@@ -110,14 +126,14 @@ export default function LoyaltyCardVisual({
                   <div
                     key={i}
                     className={cx(
-                      'size-5 sm:size-6 lg:size-7 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
+                      'size-6 sm:size-7 rounded-full transition-all duration-300 flex items-center justify-center shrink-0',
                       filled ? 'bg-white shadow-sm' : 'border border-white/25',
                     )}
                     aria-hidden="true"
                   >
                     {filled && (
                       <svg
-                        className="size-3 sm:size-3.5 lg:size-4 text-gray-900"
+                        className="size-3.5 sm:size-4 text-gray-900"
                         viewBox="0 0 20 20"
                         fill="currentColor"
                       >
@@ -135,52 +151,34 @@ export default function LoyaltyCardVisual({
           )
         })()}
 
-        <p className="text-xs sm:text-sm lg:text-base font-medium transition-all duration-300 text-white/85">
-          {loyaltyType === 'stamps'
-            ? `${currentStamps}/${stampsRequired} tampons`
-            : `${currentPoints} pts cumulés`}
-        </p>
-      </div>
+        {/* Bottom : compteur texte + logo commerce bottom-right */}
+        <div className="flex items-end justify-between gap-3">
+          <p className="text-xs sm:text-sm font-medium text-white/85">
+            {loyaltyType === 'stamps'
+              ? `${currentStamps}/${stampsRequired} tampons`
+              : `${currentPoints} pts cumulés`}
+          </p>
 
-      {/* Cote droit — image custom du commerce si presente, sinon image standard (paysage montgolfiere) */}
-      <div className="relative flex-[0.38] overflow-hidden">
-        <Image
-          src={cardImageUrl || PUBLIC_ASSETS.cards.loyaltyDefault}
-          alt=""
-          fill
-          sizes="(min-width: 1024px) 200px, 40vw"
-          className={cardImageUrl ? 'object-cover object-center' : 'object-cover object-top'}
-          priority
-          unoptimized={!!cardImageUrl}
-        />
-
-        {/* Badge points/tampons (flottant, toujours visible) */}
-        <div className="absolute top-2.5 right-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-900/90 text-white text-[11px] font-semibold shadow-lg backdrop-blur-sm transition-all duration-300">
-          {pointsLabel}
-          <svg className="size-2.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M10 3l1.5 4.5H16l-3.5 2.5L14 14l-4-3-4 3 1.5-4-3.5-2.5h4.5z" />
-          </svg>
-        </div>
-
-        {/* Logo commerce — container carre fixe pour eviter l'etirement quand le logo n'est pas carre */}
-        <div className="absolute bottom-2.5 right-2.5 size-9 flex items-center justify-center">
-          {businessLogoUrl ? (
-            <Image
-              src={businessLogoUrl}
-              alt="Logo commerce"
-              width={36}
-              height={36}
-              className="size-9 object-contain"
-            />
-          ) : (
-            <Image
-              src="/izou-logomark.svg"
-              alt=""
-              width={28}
-              height={28}
-              className="size-7 opacity-90"
-            />
-          )}
+          {/* Logo commerce — container carre fixe pour eviter l'etirement */}
+          <div className="size-9 flex items-center justify-center shrink-0">
+            {businessLogoUrl ? (
+              <Image
+                src={businessLogoUrl}
+                alt="Logo commerce"
+                width={36}
+                height={36}
+                className="size-9 object-contain"
+              />
+            ) : (
+              <Image
+                src="/izou-logomark.svg"
+                alt=""
+                width={28}
+                height={28}
+                className="size-7 opacity-90"
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

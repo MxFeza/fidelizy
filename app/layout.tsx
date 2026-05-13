@@ -38,16 +38,15 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Izou",
   },
-  icons: {
-    apple: "/icon.svg",
-  },
+  // icons : delegue a la file-convention Next.js 16 — app/icon.png (favicon)
+  // et app/apple-icon.png (apple-touch-icon). Pas besoin d'override ici.
   other: {
     "mobile-web-app-capable": "yes",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4f46e5",
+  themeColor: "#0F172A",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

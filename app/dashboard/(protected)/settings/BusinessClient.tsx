@@ -316,6 +316,7 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
                   currentStamps={Math.min(3, business.stamps_required ?? 10)}
                   stampsRequired={business.stamps_required ?? 10}
                   currentPoints={50}
+                  businessName={business.business_name}
                   businessLogoUrl={logoUrl}
                   cardImageUrl={cardImageUrl}
                   withGradientBackground={false}

@@ -291,6 +291,7 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
               currentStamps={Math.min(7, stampsRequired)}
               stampsRequired={stampsRequired}
               currentPoints={loyaltyType === 'points' ? Math.round(20 * pointsPerEuro) : 0}
+              businessName={business.business_name}
               businessLogoUrl={business.logo_url}
               cardImageUrl={business.card_image_url}
             />

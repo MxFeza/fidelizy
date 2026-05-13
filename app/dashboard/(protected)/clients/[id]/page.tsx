@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import ClientDetailClient from './ClientDetailClient'
-import type { Business, Customer, LoyaltyCard, Transaction, RewardTier } from '@/lib/types'
+import { resolveClientTiers } from '@/lib/services/loyalty.tiers'
+import type { Business, Customer, LoyaltyCard, Transaction } from '@/lib/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -39,18 +40,19 @@ export default async function ClientDetailPage({ params }: Props) {
     .eq('loyalty_card_id', card.id)
     .order('created_at', { ascending: false })
 
-  const { data: rewardTiers } = await supabase
-    .from('reward_tiers')
-    .select('*')
-    .eq('business_id', business.id)
-    .order('sort_order', { ascending: true })
+  // Les paliers viennent du JSONB businesses.reward_tiers (source unique
+  // depuis Story 4.4). La table legacy `reward_tiers` n'est plus consultée
+  // côté merchant non plus depuis 2026-05-12, sinon merchant et client
+  // voient des paliers différents (le merchant configure dans
+  // /marketing/loyalty qui écrit le JSONB, pas la table).
+  const tiers = resolveClientTiers(business)
 
   return (
     <ClientDetailClient
       card={card as LoyaltyCard & { customers: Customer }}
       business={business as Business}
       transactions={(transactions ?? []) as Transaction[]}
-      rewardTiers={(rewardTiers ?? []) as RewardTier[]}
+      tiers={tiers}
     />
   )
 }

@@ -195,14 +195,17 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
   const format: ShareCardFormat = opts.format === 'story' ? 'story' : 'post'
   const WIDTH = 1080
   const HEIGHT = format === 'story' ? 1920 : 1350
-  const BANNER_HEIGHT = format === 'story' ? 700 : 540
+  // Banner reduit en 'post' pour laisser plus de place au content + footer
+  // (sinon QR overlap le website en bas — retour user 2026-05-13).
+  const BANNER_HEIGHT = format === 'story' ? 700 : 480
+  const QR_SIZE = format === 'story' ? 320 : 220
 
   // QR url + content
   const qrUrl = opts.referralCode
     ? `${opts.inscriptionUrl}?ref=${encodeURIComponent(opts.referralCode)}`
     : opts.inscriptionUrl
   const qrDataUrl = await QRCode.toDataURL(qrUrl, {
-    width: 320,
+    width: QR_SIZE,
     margin: 0,
     color: { dark: '#1E1E1E', light: '#FFFFFF' },
     errorCorrectionLevel: 'M',
@@ -301,11 +304,8 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
           },
         },
 
-        // === CONTENT SECTION (flex 1 — prend l'espace restant entre banner et footer)
-        // NOTE Satori : tous les <div> qui contiennent du texte multiline DOIVENT
-        // avoir `display: flex` explicite, sinon le wrap est ignore et les
-        // enfants se chevauchent. On utilise `gap` au lieu de marginBottom
-        // pour un spacing reliable.
+        // === CONTENT SECTION (flex 1 — espace restant entre banner et footer)
+        // Tailles compactes pour eviter overlap content/footer dans 1350px.
         {
           type: 'div',
           props: {
@@ -313,8 +313,8 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
-              padding: hasLogo ? '140px 60px 30px 60px' : '70px 60px 30px 60px',
-              gap: 22,
+              padding: hasLogo ? '140px 60px 20px 60px' : '50px 60px 20px 60px',
+              gap: 18,
             },
             children: [
               {
@@ -322,11 +322,11 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
                 props: {
                   style: {
                     display: 'flex',
-                    fontSize: 60,
+                    fontSize: 54,
                     fontWeight: 700,
                     color: '#1E1E1E',
                     lineHeight: 1.1,
-                    width: WIDTH - 120, // explicite pour forcer le wrap calculation
+                    width: WIDTH - 120,
                     flexShrink: 0,
                   },
                   children: opts.businessName,
@@ -338,9 +338,9 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
                     props: {
                       style: {
                         display: 'flex',
-                        fontSize: 28,
+                        fontSize: 26,
                         color: '#666',
-                        lineHeight: 1.4,
+                        lineHeight: 1.35,
                         width: WIDTH - 120,
                         flexShrink: 0,
                       },
@@ -351,7 +351,7 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
               {
                 type: 'div',
                 props: {
-                  style: { display: 'flex', flexDirection: 'column', gap: 14, marginTop: 6, flexShrink: 0 },
+                  style: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4, flexShrink: 0 },
                   children: coordsItems,
                 },
               },
@@ -360,6 +360,7 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
         },
 
         // === FOOTER : QR + scan CTA + IZOU branding ===
+        // flexShrink: 0 pour garantir taille naturelle.
         {
           type: 'div',
           props: {
@@ -367,26 +368,27 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              padding: '0 60px 36px 60px',
-              gap: 14,
+              padding: '0 60px 30px 60px',
+              gap: 10,
+              flexShrink: 0,
             },
             children: [
               {
                 type: 'div',
                 props: {
-                  style: { fontSize: 24, fontWeight: 600, color: '#1E1E1E' },
+                  style: { display: 'flex', fontSize: 22, fontWeight: 600, color: '#1E1E1E' },
                   children: 'Scannez pour rejoindre le programme',
                 },
               },
               {
                 type: 'img',
-                props: { src: qrDataUrl, width: 280, height: 280, style: { width: 280, height: 280 } },
+                props: { src: qrDataUrl, width: QR_SIZE, height: QR_SIZE, style: { width: QR_SIZE, height: QR_SIZE } },
               },
               {
                 type: 'div',
                 props: {
-                  style: { display: 'flex', alignItems: 'center', marginTop: 6 },
-                  children: [IzouWordmarkBlack(96, 28)],
+                  style: { display: 'flex', alignItems: 'center', marginTop: 4 },
+                  children: [IzouWordmarkBlack(88, 24)],
                 },
               },
             ],

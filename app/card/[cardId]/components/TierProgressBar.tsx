@@ -44,7 +44,6 @@ export default function TierProgressBar({
   const unit = loyaltyType === 'stamps' ? 'tampon' : 'point'
   const sorted = [...tiers].sort((a, b) => a.threshold - b.threshold)
   const maxThreshold = sorted[sorted.length - 1].threshold || 1
-  const progressPct = Math.min(100, (currentValue / maxThreshold) * 100)
   const nextTier = sorted.find((t) => t.threshold > currentValue)
   const allReached = !nextTier && currentValue >= maxThreshold
   // Au moins un palier atteint = on peut réclamer (le merchant choisira le
@@ -130,36 +129,25 @@ export default function TierProgressBar({
         })}
       </div>
 
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${progressPct}%`, backgroundColor: color }}
-            role="progressbar"
-            aria-valuenow={currentValue}
-            aria-valuemin={0}
-            aria-valuemax={maxThreshold}
-          />
-        </div>
-
-        {nextTier && (
-          <p className="text-center text-sm text-tertiary">
-            Plus que{' '}
-            <span className="font-bold" style={{ color }}>
-              {nextTier.threshold - currentValue} {unit}
-              {nextTier.threshold - currentValue > 1 ? 's' : ''}
-            </span>{' '}
-            pour <span className="font-semibold text-primary">{nextTier.name}</span>
-          </p>
-        )}
-        {allReached && (
-          <p className="text-center text-sm font-semibold text-success-primary inline-flex items-center justify-center gap-1.5 w-full">
-            <Stars02 className="size-4" aria-hidden="true" />
-            <span>Tous les paliers débloqués !</span>
-          </p>
-        )}
-      </div>
+      {/* Hint sur le prochain palier (sans barre de progression lineaire :
+          retiree 2026-05-13, n'apportait pas de valeur visuelle au-dessus
+          du carrousel de paliers qui suffit a montrer la progression). */}
+      {nextTier && (
+        <p className="text-center text-sm text-tertiary">
+          Plus que{' '}
+          <span className="font-bold" style={{ color }}>
+            {nextTier.threshold - currentValue} {unit}
+            {nextTier.threshold - currentValue > 1 ? 's' : ''}
+          </span>{' '}
+          pour <span className="font-semibold text-primary">{nextTier.name}</span>
+        </p>
+      )}
+      {allReached && (
+        <p className="text-center text-sm font-semibold text-success-primary inline-flex items-center justify-center gap-1.5 w-full">
+          <Stars02 className="size-4" aria-hidden="true" />
+          <span>Tous les paliers débloqués !</span>
+        </p>
+      )}
 
       {/* CTA "Réclamer ma récompense" — inline ici (sous les paliers) plutôt
           qu'en banner séparé au-dessus, pour la continuité visuelle entre

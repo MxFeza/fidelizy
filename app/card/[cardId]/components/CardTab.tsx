@@ -59,14 +59,14 @@ export default function CardTab({
     expiresAt: string
   } | null>(null)
 
-  async function handleClaimConfirm() {
+  async function handleClaimConfirm(tierId: string | null) {
     setClaiming(true)
     setClaimError(null)
     try {
       const res = await fetch(`/api/card/${card.qr_code_id}/claim-request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tierId: null }),
+        body: JSON.stringify({ tierId }),
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error ?? `Erreur (${res.status})`)
@@ -94,14 +94,50 @@ export default function CardTab({
     }
   }
 
+  async function handleAddToWallet() {
+    // Telechargement programmatique via blob : evite target="_blank" qui
+    // sortait le user de la PWA et causait une "page blanche" au retour
+    // (signale 2026-05-13). iOS intercepte le MIME application/vnd.apple.pkpass
+    // et propose "Ajouter au Wallet" sans naviguer hors de la PWA.
+    try {
+      const res = await fetch(`/api/wallet/${card.qr_code_id}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error(`wallet fetch failed (${res.status})`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'izou-card.pkpass'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1500)
+    } catch (e) {
+      console.error('[wallet] add to wallet failed', e)
+    }
+  }
+
   async function handleShare() {
     // L'URL partagée pointe vers la page d'inscription du commerce, pas
     // vers le compte client : le destinataire qui clique doit pouvoir créer
     // sa propre carte, pas se retrouver sur la carte de quelqu'un d'autre.
+    //
+    // Refonte 2026-05-13 : on inclut le code de parrainage dans l'URL
+    // (format FIRST4-LAST4 derive du prenom + telephone — cf.
+    // lib/services/referral.service.ts generateReferralCode). Le destinataire
+    // qui s'inscrit via ce lien declenche un parrainage automatique a la fin
+    // de l'onboarding (cf. app/api/join et processReferral).
     const target = business.short_code || business.id
-    const url = joinUrl(target)
+    const firstName = card.customers?.first_name
+    const phone = card.customers?.phone
+    const referralCode = firstName && phone
+      ? `${firstName.substring(0, 4).toUpperCase().padEnd(4, 'X')}-${phone.slice(-4)}`
+      : null
+    const baseUrl = joinUrl(target)
+    const url = referralCode ? `${baseUrl}?ref=${encodeURIComponent(referralCode)}` : baseUrl
     const title = `Carte de fidélité ${business.business_name}`
-    const text = `Rejoignez le programme fidélité de ${business.business_name} sur Izou.`
+    const text = referralCode
+      ? `Rejoignez le programme fidélité de ${business.business_name} avec mon code ${referralCode} et recevez un bonus de bienvenue !`
+      : `Rejoignez le programme fidélité de ${business.business_name} sur Izou.`
     try {
       if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
         await navigator.share({ title, text, url })
@@ -187,27 +223,22 @@ export default function CardTab({
         </div>
       )}
 
-      {/* Add to Apple Wallet (iOS only — Google Wallet attendu en Epic 6).
-          target="_blank" force l'ouverture dans Safari standard meme en mode
-          PWA standalone — sinon le webview affiche le .pkpass en plain text
-          au lieu de le router vers PassKit (bug client signale 2026-05-04).
-          Epic 6 remplacera ce bouton par le badge officiel Apple "Add to Apple
-          Wallet" + variante Google Wallet detectee via userAgent. */}
-      {/* Bouton noir custom : matching branding officiel "Add to Apple Wallet"
-          (Apple impose ce style noir + texte blanc sur fond sombre).
-          Pas de Button Untitled UI ici — la couleur noire n'est pas dans les
-          variants standard, et c'est intentionnel (cf. Figma A6). */}
+      {/* Add to Apple Wallet — telechargement programmatique en blob plutot
+          que <a target="_blank"> (refonte 2026-05-13). Le precedent flow
+          ouvrait Safari standard et au retour le user voyait une page blanche
+          dans la PWA. Avec blob + download programmatique, iOS intercepte le
+          MIME application/vnd.apple.pkpass et propose "Ajouter au Wallet"
+          sans navigation, la PWA reste en place. */}
       {walletAvailable && (
-        <a
+        <button
+          type="button"
           data-tour="wallet-add"
-          href={`/api/wallet/${card.qr_code_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
+          onClick={handleAddToWallet}
           className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3.5 px-4 rounded-xl text-sm transition-colors shadow-xs-skeumorphic"
         >
           <CreditCard02 className="size-5" aria-hidden="true" />
           Ajouter à Apple Wallet
-        </a>
+        </button>
       )}
 
       {/* Activité récente (5 dernières transactions) */}
@@ -352,11 +383,19 @@ export default function CardTab({
         </div>
       )}
 
-      {/* Modal de confirmation Réclamer la récompense — Figma image 2 */}
+      {/* Modal de confirmation/selection Reclamer recompense.
+          reachedTiers : liste des paliers ATTEINTS (debloquables maintenant)
+          que le client peut choisir. Si > 1, mode selection ; sinon mode
+          confirmation simple (refonte 2026-05-13 — avant : prenait toujours
+          le plus grand palier automatiquement). */}
       <ClaimRewardModal
         isOpen={showClaimModal}
         loyaltyType={business.loyalty_type}
         rewardName={business.stamps_reward}
+        reachedTiers={liveTiers.filter((t) =>
+          (business.loyalty_type === 'stamps' ? stampsCount : pointsBalance) >= t.threshold,
+        )}
+        color={color}
         onConfirm={handleClaimConfirm}
         onCancel={() => setShowClaimModal(false)}
       />

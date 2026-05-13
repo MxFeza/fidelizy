@@ -41,6 +41,7 @@ import { Button } from '@/components/ui/base/buttons/button'
 import { Emoji, type EmojiName } from '@/lib/emojis'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
+import PendingClaimRequests from '@/components/dashboard/PendingClaimRequests'
 
 const TOP_RANK_EMOJIS: EmojiName[] = ['medal-gold', 'medal-silver', 'medal-bronze']
 
@@ -410,6 +411,12 @@ export default function DashboardClient({
             </Button>
           </div>
         </div>
+
+        {/* Demandes de récompenses en attente — widget interactif (1-clic
+            Accepter) qui remplace le besoin de scanner / taper le code 6 chars
+            à chaque récompense (refonte UX 2026-05-13 demandée par user).
+            Masqué automatiquement si aucune demande pending. */}
+        <PendingClaimRequests />
 
         {/* Section : Visites hebdo + Code commerce */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

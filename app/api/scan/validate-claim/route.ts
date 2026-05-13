@@ -25,7 +25,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   const body = await request.json().catch(() => ({}))
   const code = typeof body?.code === 'string' ? body.code.trim() : ''
-  if (!code) throw AppError.validation('Code requis')
+  const claimId = typeof body?.claimId === 'string' ? body.claimId.trim() : ''
+  if (!code && !claimId) throw AppError.validation('Code ou identifiant de demande requis')
 
   // Verifie que l'user est bien un commerce
   const { data: business } = await supabase
@@ -37,7 +38,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   // Toutes les opérations DB passent en service_role (RLS verrouillée)
   const service = createServiceClient()
-  const result = await validateClaim(service, { code, merchantId: business.id })
+  const result = await validateClaim(service, {
+    code: code || undefined,
+    claimId: claimId || undefined,
+    merchantId: business.id,
+  })
 
   return NextResponse.json(result)
 })

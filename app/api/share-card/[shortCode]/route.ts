@@ -40,6 +40,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ sho
     const id = parsed.data
 
     const refParam = request.nextUrl.searchParams.get('ref')
+    const formatParam = request.nextUrl.searchParams.get('format') === 'story' ? 'story' : 'post'
 
     const supabase = createServiceClient()
 
@@ -78,6 +79,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ sho
       website: business.website_url,
       inscriptionUrl,
       referralCode: refParam || null,
+      format: formatParam,
     })
 
     return new NextResponse(new Uint8Array(buf), {

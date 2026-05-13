@@ -18,6 +18,9 @@
  * avec Arial,sans-serif (font introuvable sur Vercel serverless Linux).
  */
 
+// IMPORTANT : fontconfig-setup DOIT etre importe avant sharp pour configurer
+// FONTCONFIG_PATH dans process.env avant que libvips/Pango n'initialise.
+import './fontconfig-setup'
 import sharp from 'sharp'
 import QRCode from 'qrcode'
 import { readFileSync } from 'node:fs'

@@ -76,7 +76,7 @@
     "postcss": "^8.5.8",
     "repomix": "^1.14.0",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "typescript": "^6",
     "vitest": "^4.1.4"
   }
 }

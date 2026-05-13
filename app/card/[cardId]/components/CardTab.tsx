@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { CreditCard02, Gift01 } from '@untitledui/icons'
+import { CreditCard02, Gift01, Share04 } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
@@ -10,6 +10,7 @@ import Toast from '@/components/client/Toast'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Emoji } from '@/lib/emojis'
 import { PUBLIC_ASSETS } from '@/lib/assets'
+import { joinUrl } from '@/lib/config'
 import TierProgressBar from './TierProgressBar'
 import RecentActivity from './RecentActivity'
 import ClaimRewardModal from './ClaimRewardModal'
@@ -48,6 +49,7 @@ export default function CardTab({
 }: CardTabProps) {
   const [showQrModal, setShowQrModal] = useState(false)
   const [showCopyToast, setShowCopyToast] = useState(false)
+  const [showShareCopiedToast, setShowShareCopiedToast] = useState(false)
   const [showClaimModal, setShowClaimModal] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimError, setClaimError] = useState<string | null>(null)
@@ -89,6 +91,27 @@ export default function CardTab({
       setTimeout(() => setShowCopyToast(false), 3000)
     } catch {
       /* ignore — clipboard refusé (Safari sans HTTPS, perms) */
+    }
+  }
+
+  async function handleShare() {
+    // L'URL partagée pointe vers la page d'inscription du commerce, pas
+    // vers le compte client : le destinataire qui clique doit pouvoir créer
+    // sa propre carte, pas se retrouver sur la carte de quelqu'un d'autre.
+    const target = business.short_code || business.id
+    const url = joinUrl(target)
+    const title = `Carte de fidélité ${business.business_name}`
+    const text = `Rejoignez le programme fidélité de ${business.business_name} sur Izou.`
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({ title, text, url })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      setShowShareCopiedToast(true)
+      setTimeout(() => setShowShareCopiedToast(false), 3000)
+    } catch {
+      /* user dismissed share sheet — silent */
     }
   }
 
@@ -256,6 +279,16 @@ export default function CardTab({
                   type="button"
                   color="primary"
                   size="md"
+                  iconLeading={Share04}
+                  className="w-full"
+                  onClick={handleShare}
+                >
+                  Partager
+                </Button>
+                <Button
+                  type="button"
+                  color="secondary"
+                  size="md"
                   className="w-full"
                   onClick={handleCopyCode}
                 >
@@ -263,7 +296,7 @@ export default function CardTab({
                 </Button>
                 <Button
                   type="button"
-                  color="secondary"
+                  color="tertiary"
                   size="md"
                   className="w-full"
                   onClick={() => setShowQrModal(false)}
@@ -283,6 +316,17 @@ export default function CardTab({
             variant="info"
             title="Code copié"
             message={`${shortCode} · dans le presse-papier`}
+          />
+        </div>
+      )}
+
+      {/* Toast "Lien copié" — fallback si Web Share API indisponible (desktop). */}
+      {showShareCopiedToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[60] px-4 w-full max-w-md" style={{ top: '4.5rem' }}>
+          <Toast
+            variant="info"
+            title="Lien copié"
+            message="Le lien d'inscription est dans votre presse-papier."
           />
         </div>
       )}

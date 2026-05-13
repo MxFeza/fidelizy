@@ -153,7 +153,10 @@ export async function createClaimRequest(
 }
 
 interface ValidateClaimInput {
-  code: string
+  /** Soit le code 6 chars (flow scan/saisie comptoir), soit le claim_id direct
+   *  (flow 1-clic depuis le centre notifications merchant — 2026-05-13). */
+  code?: string
+  claimId?: string
   merchantId: string
 }
 
@@ -175,19 +178,32 @@ interface ValidateClaimResult {
  */
 export async function validateClaim(
   supabase: SupabaseClient,
-  { code, merchantId }: ValidateClaimInput,
+  { code, claimId, merchantId }: ValidateClaimInput,
 ): Promise<ValidateClaimResult> {
-  // Charge le claim + verrouille le scope merchant
-  const { data: request } = await supabase
+  if (!code && !claimId) {
+    throw new AppError('Code ou identifiant de demande requis', 400)
+  }
+
+  // Charge le claim + verrouille le scope merchant. On accepte deux points
+  // d'entrée : par code 6 chars (scan/saisie) OU par id direct (notification
+  // dashboard 1-clic). Dans les deux cas la propriété business_id = merchantId
+  // garantit qu'on ne valide pas un claim d'un autre commerce.
+  let query = supabase
     .from('claim_requests')
     .select(`
       id, loyalty_card_id, business_id, tier_id, reward_name, points_cost,
       loyalty_type, status, expires_at,
       loyalty_cards!inner(qr_code_id, customers(first_name))
     `)
-    .eq('code', code.toUpperCase())
     .eq('business_id', merchantId)
-    .maybeSingle()
+
+  if (claimId) {
+    query = query.eq('id', claimId)
+  } else {
+    query = query.eq('code', code!.toUpperCase())
+  }
+
+  const { data: request } = await query.maybeSingle()
 
   if (!request) throw new AppError('Code introuvable ou non lié à votre commerce', 404)
 

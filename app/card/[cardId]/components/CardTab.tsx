@@ -213,7 +213,10 @@ export default function CardTab({
       {/* Activité récente (5 dernières transactions) */}
       <RecentActivity transactions={transactions} cardId={card.qr_code_id} />
 
-      {/* QR code fullscreen modal — Figma image 1 */}
+      {/* QR code fullscreen modal — style pass Apple Wallet Carrefour Club :
+          header Bonjour + bandeau image edge-to-edge + nom commerce + QR code.
+          Aligne visuellement avec LoyaltyCardVisual (4 bandes) mais en blanc
+          car la modal est un container distinct de la carte loyalty. */}
       {showQrModal && (
         <div
           role="dialog"
@@ -226,7 +229,28 @@ export default function CardTab({
             className="bg-white rounded-3xl max-w-sm w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative aspect-[4/3] bg-gray-100">
+            {/* 1. Header — Logo Izou + BONJOUR PRENOM (caps) */}
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
+              <Image
+                src={PUBLIC_ASSETS.branding.logoNoir}
+                alt="Izou"
+                width={56}
+                height={24}
+                className="h-6 w-auto shrink-0"
+              />
+              <div className="text-right min-w-0">
+                <p className="text-[10px] font-semibold tracking-[0.12em] text-gray-500 leading-tight">
+                  BONJOUR
+                </p>
+                <p className="text-xs font-bold tracking-wide text-gray-900 leading-tight uppercase truncate">
+                  {(card.customers?.first_name?.trim() || 'Client').toUpperCase()}
+                </p>
+              </div>
+            </div>
+
+            {/* 2. Image bandeau EDGE-TO-EDGE (clip uniquement par le rounded-3xl
+                parent qui a overflow-hidden) */}
+            <div className="relative w-full aspect-[2/1]">
               <Image
                 src={business.card_image_url || PUBLIC_ASSETS.cards.loyaltyDefault}
                 alt=""
@@ -237,54 +261,63 @@ export default function CardTab({
               />
             </div>
 
-            <div className="p-6 text-center">
-              <p className="text-base font-bold text-gray-900">Votre code de fidélité</p>
-              <p className="text-sm text-gray-500 mt-1">
+            {/* 3. Nom du commerce (centre, sous l'image) */}
+            <p className="px-4 pt-3 text-center text-base font-bold text-gray-900 truncate">
+              {business.business_name}
+            </p>
+
+            {/* 4. Titre + sous-titre */}
+            <div className="px-6 pt-2 text-center">
+              <p className="text-sm font-semibold text-gray-700">Votre code de fidélité</p>
+              <p className="text-xs text-gray-500 mt-1">
                 {business.loyalty_type === 'stamps'
                   ? 'Scannez au comptoir pour obtenir un tampon'
                   : 'Scannez au comptoir pour cumuler des points'}
               </p>
+            </div>
 
-              <div className="flex justify-center my-5">
-                <div className="p-3 bg-gray-50 rounded-xl">
-                  <QrCodeDisplay value={card.qr_code_id} size={180} />
-                </div>
+            {/* 5. QR code centre */}
+            <div className="flex justify-center my-4">
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <QrCodeDisplay value={card.qr_code_id} size={180} />
               </div>
+            </div>
 
-              <p className="text-sm font-mono font-semibold text-gray-700 tracking-wider mb-5">
-                {shortCode}
-              </p>
+            {/* 6. Code court */}
+            <p className="text-sm font-mono font-semibold text-gray-700 tracking-wider text-center mb-5">
+              {shortCode}
+            </p>
 
-              <div className="space-y-2.5">
-                <Button
-                  type="button"
-                  color="primary"
-                  size="md"
-                  iconLeading={Share04}
-                  className="w-full"
-                  onClick={handleShare}
-                >
-                  Partager
-                </Button>
-                <Button
-                  type="button"
-                  color="secondary"
-                  size="md"
-                  className="w-full"
-                  onClick={handleCopyCode}
-                >
-                  Copier le code
-                </Button>
-                <Button
-                  type="button"
-                  color="tertiary"
-                  size="md"
-                  className="w-full"
-                  onClick={() => setShowQrModal(false)}
-                >
-                  Fermer
-                </Button>
-              </div>
+            {/* 7. Boutons */}
+            <div className="px-6 pb-6 space-y-2.5">
+              <Button
+                type="button"
+                color="primary"
+                size="md"
+                iconLeading={Share04}
+                className="w-full"
+                onClick={handleShare}
+              >
+                Partager
+              </Button>
+              <Button
+                type="button"
+                color="secondary"
+                size="md"
+                className="w-full"
+                onClick={handleCopyCode}
+              >
+                Copier le code
+              </Button>
+              <Button
+                type="button"
+                color="tertiary"
+                size="md"
+                className="w-full"
+                onClick={() => setShowQrModal(false)}
+              >
+                Fermer
+              </Button>
             </div>
           </div>
         </div>

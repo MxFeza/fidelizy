@@ -14,7 +14,6 @@
  */
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   ChevronDown,
   Mail01,
@@ -24,6 +23,7 @@ import {
   CheckDone01,
   LifeBuoy01,
   Rocket01,
+  Compass01,
 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import {
@@ -68,20 +68,20 @@ const FAQ: Array<{ question: string; answer: string }> = [
 ]
 
 export default function HelpClient() {
-  const router = useRouter()
   const [openIndex, setOpenIndex] = useState<number | null>(null)
-  const [tourResetLoading, setTourResetLoading] = useState(false)
-  const [tourResetMsg, setTourResetMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [resetLoading, setResetLoading] = useState<'onboarding' | 'tour' | null>(null)
+  const [resetMsg, setResetMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  async function handleReplayTour() {
-    setTourResetLoading(true)
-    setTourResetMsg(null)
-    // Bug fix 2026-05-14 : avant, router.push + router.refresh laissait un delai
-    // ~3s pendant lequel l'user pouvait cliquer ailleurs et rater la welcome modal.
-    // Maintenant : feedback immediat via tourResetMsg "Redirection en cours..." +
-    // hard navigation via window.location (force le reload server + welcome modal
-    // garantie au prochain mount).
-    setTourResetMsg({ type: 'success', text: 'Redirection vers le tableau de bord…' })
+  /**
+   * Reset complet onboarding (wizard 5 etapes) + redirect.
+   * Refonte 2026-05-15 : POST { reset: true } reset onboarding_completed_at →
+   * le layout protected redirige automatiquement vers /dashboard/onboarding au
+   * mount, ce qui relance le wizard.
+   */
+  async function handleReplayOnboarding() {
+    setResetLoading('onboarding')
+    setResetMsg(null)
+    setResetMsg({ type: 'success', text: 'Redirection vers l\'onboarding…' })
     try {
       const res = await fetch('/api/business/onboarding/complete', {
         method: 'POST',
@@ -92,14 +92,27 @@ export default function HelpClient() {
         const data: { error?: string } = await res.json().catch(() => ({}))
         throw new Error(data.error ?? `Erreur ${res.status}`)
       }
-      // Hard navigation : garantit reload complet + welcome modal au mount.
+      // Hard navigation : layout protected redirige vers /dashboard/onboarding.
       window.location.href = '/dashboard'
     } catch (err) {
-      setTourResetMsg({
+      setResetMsg({
         type: 'error',
-        text: err instanceof Error ? err.message : "Impossible de relancer la visite. Réessayez plus tard.",
+        text: err instanceof Error ? err.message : "Impossible de relancer l'onboarding. Réessayez plus tard.",
       })
-      setTourResetLoading(false)
+      setResetLoading(null)
+    }
+  }
+
+  /**
+   * Relance uniquement la mini-tour post-onboarding (5 coachmarks) sans
+   * refaire le wizard. Set le sessionStorage trigger + hard navigation.
+   */
+  function handleReplayTour() {
+    setResetLoading('tour')
+    setResetMsg({ type: 'success', text: 'Lancement de la visite guidée…' })
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('izou.post-onboarding-tour', '1')
+      window.location.href = '/dashboard?tour=welcome'
     }
   }
 
@@ -167,36 +180,52 @@ export default function HelpClient() {
           </ul>
         </SettingsSection>
 
-        {/* 3. Refaire la visite — déplacé depuis Sécurité */}
+        {/* 3. Refaire l'onboarding ou la mini-tour */}
         <SettingsSection
           icon={Rocket01}
-          title="Refaire la visite"
-          subtitle="Relancez le tutoriel pas-à-pas depuis le début pour redécouvrir Izou."
+          title="Refaire l'onboarding ou la visite"
+          subtitle="Refaites l'onboarding complet pour reconfigurer ta carte, ou relance juste la mini-tour du dashboard."
         >
-          <div className="flex flex-col gap-2">
-            <Button
-              size="sm"
-              color="secondary"
-              iconLeading={RefreshCw01}
-              onClick={handleReplayTour}
-              isDisabled={tourResetLoading}
-              isLoading={tourResetLoading}
-            >
-              Relancer la visite guidée
-            </Button>
-            {tourResetMsg && (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                size="sm"
+                color="secondary"
+                iconLeading={RefreshCw01}
+                onClick={handleReplayOnboarding}
+                isDisabled={resetLoading !== null}
+                isLoading={resetLoading === 'onboarding'}
+              >
+                Refaire l&apos;onboarding (5 étapes)
+              </Button>
+              <Button
+                size="sm"
+                color="tertiary"
+                iconLeading={Compass01}
+                onClick={handleReplayTour}
+                isDisabled={resetLoading !== null}
+                isLoading={resetLoading === 'tour'}
+              >
+                Relancer la mini-tour
+              </Button>
+            </div>
+            <p className="text-xs text-tertiary">
+              L&apos;onboarding complet te re-fait passer par les 5 étapes (Intro → Métier → Carte → Paliers → Aperçu).
+              La mini-tour affiche juste les 5 coachmarks d&apos;orientation sur ton dashboard.
+            </p>
+            {resetMsg && (
               <p
                 className={cx(
                   'flex items-center gap-2 text-sm font-medium',
-                  tourResetMsg.type === 'success' ? 'text-success-primary' : 'text-error-primary',
+                  resetMsg.type === 'success' ? 'text-success-primary' : 'text-error-primary',
                 )}
               >
-                {tourResetMsg.type === 'success' ? (
+                {resetMsg.type === 'success' ? (
                   <CheckDone01 className="size-4 shrink-0" />
                 ) : (
                   <AlertCircle className="size-4 shrink-0" />
                 )}
-                <span>{tourResetMsg.text}</span>
+                <span>{resetMsg.text}</span>
               </p>
             )}
           </div>

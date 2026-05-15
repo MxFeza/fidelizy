@@ -21,7 +21,6 @@ import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import {
   Bell01,
   Download01,
@@ -47,6 +46,16 @@ const TOP_RANK_EMOJIS: EmojiName[] = ['medal-gold', 'medal-silver', 'medal-bronz
 
 const QrScanner = dynamic(() => import('@/app/components/QrScanner'), { ssr: false })
 const WelcomeModal = dynamic(() => import('@/components/dashboard/WelcomeModal'), { ssr: false })
+// Recharts pese ~80KB gz — lazy-load pour alleger le bundle initial dashboard
+// (cf. AUDIT_FLUIDITE_2026-05-13 reco 3, mergee 2026-05-15).
+const WeeklyVisitsChart = dynamic(() => import('@/components/dashboard/WeeklyVisitsChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[260px] flex items-center justify-center text-quaternary text-sm">
+      Chargement du graphique…
+    </div>
+  ),
+})
 
 type RecentScan = {
   id: string
@@ -425,19 +434,7 @@ export default function DashboardClient({
               <h2 className="text-lg font-semibold text-primary">Visites hebdomadaires</h2>
             </div>
             {weekData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={weekData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAECF0" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#667085' }} tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#667085' }} tickLine={false} axisLine={false} width={40} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #EAECF0', fontSize: '13px' }}
-                    labelStyle={{ fontWeight: 600 }}
-                    formatter={(v) => [v, 'Visites']}
-                  />
-                  <Bar dataKey="count" fill="#7F56D9" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <WeeklyVisitsChart data={weekData} />
             ) : (
               <div className="h-[260px] flex items-center justify-center text-quaternary text-sm">
                 Aucune donnée de visite cette semaine.

@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
 import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
 import { isIOS } from './components/utils'
 import CardTab from './components/CardTab'
-import WheelModal from './components/WheelModal'
+// Lazy-load WheelModal : ouvert uniquement quand showWheel=true (cf. AUDIT_FLUIDITE
+// reco 3, mergee 2026-05-15). Reduit le bundle initial de /card/[cardId].
+const WheelModal = dynamic(() => import('./components/WheelModal'), { ssr: false })
 import PushBanner from './components/PushBanner'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'

@@ -27,6 +27,13 @@ const csp = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  // View Transitions API (Next 16 + React 19) — lissage perceptuel des
+  // navigations cross-page via le browser API natif. Fallback automatique
+  // sur les navigateurs sans support (iOS Safari partiel). Audit fluidite
+  // reco 2 (2026-05-13). Activable globalement, sans wrapper specifique.
+  experimental: {
+    viewTransition: true,
+  },
   images: {
     remotePatterns: [
       {

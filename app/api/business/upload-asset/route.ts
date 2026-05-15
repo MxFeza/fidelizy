@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { AppError, withErrorHandler } from '@/lib/errors'
@@ -6,6 +7,10 @@ import { getBusinessAssetUrl } from '@/lib/assets'
 
 const ALLOWED_KINDS = ['logo', 'banner', 'card'] as const
 type AssetKind = (typeof ALLOWED_KINDS)[number]
+
+const assetKindSchema = z.object({
+  kind: z.enum(ALLOWED_KINDS),
+})
 
 const KIND_CONFIG: Record<AssetKind, { bucket: 'business-logos' | 'business-banners'; maxBytes: number }> = {
   logo: { bucket: 'business-logos', maxBytes: 5 * 1024 * 1024 }, // 5 MB
@@ -128,11 +133,11 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
   if (!user || authError) throw AppError.auth('Non autorisé')
 
   const body = await request.json().catch(() => null)
-  const kindRaw = body?.kind
-  if (typeof kindRaw !== 'string' || !ALLOWED_KINDS.includes(kindRaw as AssetKind)) {
+  const parsed = assetKindSchema.safeParse(body)
+  if (!parsed.success) {
     throw AppError.validation('Type d\'asset invalide.')
   }
-  const kind = kindRaw as AssetKind
+  const { kind } = parsed.data
   const { bucket } = KIND_CONFIG[kind]
 
   const service = createServiceClient()

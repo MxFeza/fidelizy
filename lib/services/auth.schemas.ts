@@ -37,3 +37,14 @@ export const addEmailSchema = z.object({
   email: z.string().trim().email().toLowerCase(),
 })
 export type AddEmailInput = z.infer<typeof addEmailSchema>
+
+/**
+ * Inscription client directe (sans QR commercant scanne).
+ * Cf. /api/auth/register-direct.
+ */
+export const registerDirectSchema = z.object({
+  first_name: z.string().trim().min(1, 'Prénom requis.').max(100),
+  phone: z.string().trim().min(6, 'Numéro de téléphone requis.').max(20),
+  email: z.string().trim().toLowerCase().email('Email valide requis.'),
+})
+export type RegisterDirectInput = z.infer<typeof registerDirectSchema>

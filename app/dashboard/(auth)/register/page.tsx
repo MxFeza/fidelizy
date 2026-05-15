@@ -56,7 +56,7 @@ export default function RegisterPage() {
       id: data.user.id,
       email: email.trim().toLowerCase(),
       business_name: businessName.trim(),
-      primary_color: '#7F56D9',
+      primary_color: '#1E1E1E', // Noir DS Izou (uniforme sur tous les commerces — cf. feedback_da_izou_uniforme)
       loyalty_type: 'stamps',
       stamps_required: 10,
       stamps_reward: 'Cadeau au choix',

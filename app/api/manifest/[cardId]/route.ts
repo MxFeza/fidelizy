@@ -26,7 +26,7 @@ export async function GET(
 
     if (business) {
       businessName = business.business_name
-      themeColor = business.primary_color || '#4f46e5'
+      themeColor = business.primary_color || '#1E1E1E'
     }
   }
 

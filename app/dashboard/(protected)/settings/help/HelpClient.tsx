@@ -76,6 +76,12 @@ export default function HelpClient() {
   async function handleReplayTour() {
     setTourResetLoading(true)
     setTourResetMsg(null)
+    // Bug fix 2026-05-14 : avant, router.push + router.refresh laissait un delai
+    // ~3s pendant lequel l'user pouvait cliquer ailleurs et rater la welcome modal.
+    // Maintenant : feedback immediat via tourResetMsg "Redirection en cours..." +
+    // hard navigation via window.location (force le reload server + welcome modal
+    // garantie au prochain mount).
+    setTourResetMsg({ type: 'success', text: 'Redirection vers le tableau de bord…' })
     try {
       const res = await fetch('/api/business/onboarding/complete', {
         method: 'POST',
@@ -86,10 +92,8 @@ export default function HelpClient() {
         const data: { error?: string } = await res.json().catch(() => ({}))
         throw new Error(data.error ?? `Erreur ${res.status}`)
       }
-      // Navigation + refresh : la modal Welcome se ré-affiche automatiquement
-      // au prochain mount du dashboard puisqu'onboarding_started_at est null.
-      router.push('/dashboard')
-      router.refresh()
+      // Hard navigation : garantit reload complet + welcome modal au mount.
+      window.location.href = '/dashboard'
     } catch (err) {
       setTourResetMsg({
         type: 'error',

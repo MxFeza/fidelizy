@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { CreditCard02, Share04 } from '@untitledui/icons'
+import { CreditCard02, Share04, InfoCircle, X as XIcon } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
@@ -50,6 +50,7 @@ export default function CardTab({
   const [showCopyToast, setShowCopyToast] = useState(false)
   const [showShareCopiedToast, setShowShareCopiedToast] = useState(false)
   const [showClaimModal, setShowClaimModal] = useState(false)
+  const [showInstallPwaForWalletModal, setShowInstallPwaForWalletModal] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimError, setClaimError] = useState<string | null>(null)
   const [claimResult, setClaimResult] = useState<{
@@ -94,10 +95,23 @@ export default function CardTab({
   }
 
   async function handleAddToWallet() {
-    // Telechargement programmatique via blob : evite target="_blank" qui
-    // sortait le user de la PWA et causait une "page blanche" au retour
-    // (signale 2026-05-13). iOS intercepte le MIME application/vnd.apple.pkpass
-    // et propose "Ajouter au Wallet" sans naviguer hors de la PWA.
+    // Bug fix 2026-05-14 : detecter si la PWA est installee (standalone mode).
+    // Si NON, ouvrir un modal explicatif au lieu de telecharger le pkpass —
+    // sinon iOS Safari telecharge le .pkpass comme un PDF (cas signale par le
+    // testeur, n'avait pas compris qu'il fallait installer la PWA d'abord).
+    const isStandalone =
+      typeof window !== 'undefined' &&
+      (window.matchMedia('(display-mode: standalone)').matches ||
+        // iOS Safari property (non-standard)
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true)
+
+    if (!isStandalone) {
+      setShowInstallPwaForWalletModal(true)
+      return
+    }
+
+    // PWA installee : flow normal — blob download programmatique. iOS intercepte
+    // le MIME application/vnd.apple.pkpass et propose "Ajouter au Wallet".
     try {
       const res = await fetch(`/api/wallet/${card.qr_code_id}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`wallet fetch failed (${res.status})`)
@@ -407,6 +421,65 @@ export default function CardTab({
         expiresAt={claimResult?.expiresAt ?? new Date().toISOString()}
         onClose={() => setClaimResult(null)}
       />
+
+      {/* Modal "Installe Izou pour ajouter au Wallet" — bug user 2026-05-14 :
+          quand le client clique "Ajouter au Wallet" depuis Safari (pas la PWA),
+          iOS telecharge le .pkpass comme un PDF (le user du testeur n'avait
+          pas compris qu'il fallait installer Izou d'abord). */}
+      {showInstallPwaForWalletModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="install-pwa-wallet-title"
+          className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setShowInstallPwaForWalletModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => setShowInstallPwaForWalletModal(false)}
+                className="size-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
+                aria-label="Fermer"
+              >
+                <XIcon className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="flex justify-center mb-4">
+              <div className="size-14 rounded-full bg-brand-50 flex items-center justify-center ring-8 ring-brand-50/40">
+                <InfoCircle className="size-7 text-brand-secondary" aria-hidden="true" />
+              </div>
+            </div>
+            <h2 id="install-pwa-wallet-title" className="text-lg font-bold text-gray-900 text-center mb-2">
+              Installez Izou pour ajouter au Wallet
+            </h2>
+            <p className="text-sm text-gray-600 text-center leading-relaxed mb-5">
+              Pour ajouter ta carte de fidélité à Apple Wallet, tu dois d&apos;abord
+              installer Izou sur ton écran d&apos;accueil. Sinon iOS télécharge la carte
+              comme un fichier au lieu de l&apos;ajouter à ton Wallet.
+            </p>
+            <div className="bg-gray-50 rounded-2xl p-4 mb-5 space-y-2 text-sm text-gray-700">
+              <p className="font-semibold text-gray-900">Comment installer :</p>
+              <ol className="list-decimal list-inside space-y-1 leading-relaxed">
+                <li>Appuie sur le bouton <strong>Partager</strong> en bas de Safari</li>
+                <li>Choisis <strong>Sur l&apos;écran d&apos;accueil</strong></li>
+                <li>Confirme avec <strong>Ajouter</strong></li>
+              </ol>
+            </div>
+            <Button
+              type="button"
+              color="primary"
+              size="md"
+              className="w-full"
+              onClick={() => setShowInstallPwaForWalletModal(false)}
+            >
+              J&apos;ai compris
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -59,7 +59,7 @@ export default function CardPageClient({
   const [coachFlowToStart, setCoachFlowToStart] = useState<OnboardingTaskId | null>(null)
   const completeSentRef = useRef(false)
 
-  const color = business.primary_color || '#7F56D9'
+  const color = business.primary_color || '#1E1E1E'
   const stampsRequired = business.stamps_required ?? 10
   const [stampsCount, setStampsCount] = useState(Math.min(card.current_stamps ?? 0, stampsRequired))
   const [pointsBalance, setPointsBalance] = useState(card.current_points ?? 0)

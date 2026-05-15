@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Gift01, Stars02, CheckDone01, Loading01, AlertCircle, Plus, Trash01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
+import NumberFieldDraft from '@/components/ui/NumberFieldDraft'
 import { createClient } from '@/lib/supabase/client'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import { EmojiPicker } from '@/lib/emojis'
@@ -57,6 +58,11 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
   const [stampsReward, setStampsReward] = useState<string>(business.stamps_reward ?? 'Un produit offert')
   const [pointsPerEuro, setPointsPerEuro] = useState<number>(business.points_per_euro ?? 1)
   const [scanCooldownHours, setScanCooldownHours] = useState<number>(business.scan_cooldown_hours ?? 4)
+  // Draft strings — permettent la saisie libre (vider le champ pour passer
+  // de 5 a 15 sans devoir faire 5→55→15). Bug user 2026-05-14.
+  const [stampsRequiredDraft, setStampsRequiredDraft] = useState(String(business.stamps_required ?? 10))
+  const [pointsPerEuroDraft, setPointsPerEuroDraft] = useState(String(business.points_per_euro ?? 1))
+  const [scanCooldownDraft, setScanCooldownDraft] = useState(String(business.scan_cooldown_hours ?? 4))
   const [tiers, setTiers] = useState<LoyaltyTier[]>(business.reward_tiers ?? [])
 
   const [saving, setSaving] = useState(false)
@@ -213,11 +219,18 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                   ))}
                 </div>
                 <Input
-                  type="number"
-                  value={String(stampsRequired)}
+                  type="text"
+                  inputMode="numeric"
+                  value={stampsRequiredDraft}
                   onChange={(v) => {
+                    if (!/^[0-9]*$/.test(v)) return
+                    setStampsRequiredDraft(v)
                     const n = parseInt(v, 10)
                     if (!isNaN(n) && n >= 3 && n <= 30) setStampsRequired(n)
+                  }}
+                  onBlur={() => {
+                    const n = parseInt(stampsRequiredDraft, 10)
+                    if (isNaN(n) || n < 3 || n > 30) setStampsRequiredDraft(String(stampsRequired))
                   }}
                   hint="Entre 3 et 30 tampons. Les récompenses sont définies par paliers ci-dessous."
                 />
@@ -228,11 +241,18 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                   Points par euro dépensé
                 </label>
                 <Input
-                  type="number"
-                  value={String(pointsPerEuro)}
+                  type="text"
+                  inputMode="decimal"
+                  value={pointsPerEuroDraft}
                   onChange={(v) => {
-                    const n = parseFloat(v)
+                    if (!/^[0-9]*[.,]?[0-9]*$/.test(v)) return
+                    setPointsPerEuroDraft(v)
+                    const n = parseFloat(v.replace(',', '.'))
                     if (!isNaN(n) && n > 0 && n <= 100) setPointsPerEuro(n)
+                  }}
+                  onBlur={() => {
+                    const n = parseFloat(pointsPerEuroDraft.replace(',', '.'))
+                    if (isNaN(n) || n <= 0 || n > 100) setPointsPerEuroDraft(String(pointsPerEuro))
                   }}
                   hint={`${pointsPerEuro} point${pointsPerEuro > 1 ? 's' : ''} par € dépensé. Les récompenses sont définies par paliers ci-dessous.`}
                 />
@@ -267,11 +287,18 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                 Délai minimum entre deux scans pour le même client. Évite qu&apos;un client ne scanne plusieurs fois d&apos;affilée pour gagner des {loyaltyType === 'stamps' ? 'tampons' : 'points'} sans repasser à la caisse.
               </p>
               <Input
-                type="number"
-                value={String(scanCooldownHours)}
+                type="text"
+                inputMode="numeric"
+                value={scanCooldownDraft}
                 onChange={(v) => {
+                  if (!/^[0-9]*$/.test(v)) return
+                  setScanCooldownDraft(v)
                   const n = parseInt(v, 10)
                   if (!isNaN(n) && n >= 0 && n <= 72) setScanCooldownHours(n)
+                }}
+                onBlur={() => {
+                  const n = parseInt(scanCooldownDraft, 10)
+                  if (isNaN(n) || n < 0 || n > 72) setScanCooldownDraft(String(scanCooldownHours))
                 }}
                 hint={scanCooldownHours === 0 ? 'Aucun délai (scans illimités).' : `${scanCooldownHours} h entre deux scans pour le même client`}
               />
@@ -499,14 +526,15 @@ function TierRow({
             className="w-full text-base sm:text-lg font-semibold text-primary bg-transparent border-0 outline-none focus:ring-0 placeholder:text-quaternary placeholder:font-normal px-0"
           />
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={String(tier.threshold)}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10)
-                if (!isNaN(n) && n >= 1 && n <= 9999) onUpdate({ threshold: n })
+            <NumberFieldDraft
+              value={tier.threshold}
+              onChange={(n) => onUpdate({ threshold: n })}
+              min={1}
+              max={9999}
+              inputProps={{
+                className:
+                  'w-16 sm:w-20 px-2 py-1 rounded-md bg-secondary/40 border border-secondary text-sm text-primary text-center focus:outline-none focus:ring-2 focus:ring-brand',
               }}
-              className="w-16 sm:w-20 px-2 py-1 rounded-md bg-secondary/40 border border-secondary text-sm text-primary text-center focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-sm text-tertiary">{unit}</span>
           </div>

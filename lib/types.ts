@@ -40,6 +40,9 @@ export interface Business {
   booking_url: string | null
   description: string | null
   opening_hours: string | null
+  // Onboarding tracking (Story 9.1 + refonte 2026-05-15)
+  onboarding_started_at: string | null
+  onboarding_completed_at: string | null
   created_at: string
 }
 

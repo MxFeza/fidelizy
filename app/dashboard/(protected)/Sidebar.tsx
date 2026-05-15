@@ -106,7 +106,7 @@ export default function Sidebar({ businessName, businessEmail, businessLogoUrl }
   }
 
   return (
-    <aside className="hidden md:flex w-[280px] bg-primary border-r border-secondary flex-col h-full">
+    <aside data-tour="sidebar" className="hidden md:flex w-[280px] bg-primary border-r border-secondary flex-col h-full">
       {/* Header — Logo (Figma: pt-32px pl-24px, logo 139x32) */}
       <div className="flex flex-col gap-5 px-4 pt-4 lg:px-5 lg:pt-5">
         <Image

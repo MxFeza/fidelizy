@@ -8,6 +8,7 @@ import FeedbackBubble from '@/components/dashboard/FeedbackBubble'
 // directement (pas via next/dynamic) — Next 16 ne permet plus ssr:false dans
 // un Server Component, et l'isomorphisme est géré par le composant lui-même.
 import OnboardingCoach from '@/components/dashboard/onboarding/OnboardingCoach'
+import PostOnboardingTour from '@/components/dashboard/onboarding/PostOnboardingTour'
 
 export default async function ProtectedLayout({
   children,
@@ -32,11 +33,15 @@ export default async function ProtectedLayout({
     .eq('id', user.id)
     .single()
 
-  // Bug fix 2026-05-14 : si business_type est null (onboarding metier interrompu
-  // pendant l'inscription — user signale qu'il s'est retrouve avec template
-  // 'cafe' alors qu'il etait coiffeur), forcer le retour a /dashboard/onboarding.
-  // L'utilisateur peut aussi changer son metier plus tard via "Mon entreprise".
-  if (business && !business.business_type) {
+  // Refonte 2026-05-14 — onboarding 5 etapes obligatoire (Intro → Metier →
+  // Carte → Paliers → Apercu). Tant que `onboarding_completed_at` est NULL,
+  // on force le retour a /dashboard/onboarding pour garantir un commercant
+  // qui sort de l'onboarding avec un programme fideleite operationnel.
+  //
+  // Pour les comptes legacy crees avant la refonte, la migration
+  // 20260515_seed_onboarding_completed_at backfill ce flag a partir de la
+  // presence de business_type (ils ont deja passe l'ancien flow simplifie).
+  if (business && (!business.business_type || !business.onboarding_completed_at)) {
     redirect('/dashboard/onboarding')
   }
 
@@ -65,8 +70,11 @@ export default async function ProtectedLayout({
       <BottomNav businessName={businessName} />
       <FeedbackBubble />
 
-      {/* Story 9.1 — Coach onboarding commerçant. Mounted seulement si la 1ʳᵉ
-          étape (welcome) n'est pas faite OU si la checklist n'est pas à 100%. */}
+      {/* Story 9.1 — Coach onboarding commerçant. Depuis la refonte 2026-05-15
+          de l'onboarding 5 etapes, cette checklist est obsolete (l'onboarding
+          configure deja tout). Conservee defensivement pour les comptes
+          legacy qui n'auraient pas onboarding_completed_at — mais en pratique
+          la migration 20260515_seed_onboarding_completed_at backfill ce flag. */}
       {!onboardingCompleted && (
         <OnboardingCoach
           firstName={firstName}
@@ -74,6 +82,10 @@ export default async function ProtectedLayout({
           showChecklist={onboardingStarted}
         />
       )}
+
+      {/* Mini-tour post-onboarding 5 etapes (refonte 2026-05-15). Self-gated
+          via sessionStorage / query param ?tour=welcome. */}
+      <PostOnboardingTour />
     </div>
   )
 }

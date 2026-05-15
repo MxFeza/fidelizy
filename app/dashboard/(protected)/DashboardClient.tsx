@@ -490,7 +490,7 @@ export default function DashboardClient({
         </div>
 
         {/* KPIs principaux row 1 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div data-tour="dashboard-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Clients inscrits" value={clientsTotal} />
           <StatCard label="Visites du mois" value={visitsCount} />
           <StatCard label={distributedLabel} value={kpis?.distributedMonth ?? 0} />

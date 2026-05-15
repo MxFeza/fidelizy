@@ -62,16 +62,19 @@ const HINT: Record<Kind, { title: string; specs: string[]; help: string }> = {
     title: 'Image de carte',
     specs: [
       'JPG, PNG ou WebP',
-      'Recadrage carré 1:1 — recommandé : 800×800 pixels',
+      'Recadrage paysage 2:1 — recommandé : 1200×600 pixels',
       'Une photo de votre commerce ou produit phare fonctionne bien',
     ],
-    help: 'Remplace l\'illustration par défaut sur le côté droit de la carte fidélité de vos clients.',
+    help: 'Affichée en bandeau sur la carte de fidélité de vos clients.',
   },
 }
 
 const CROP_RATIO: Partial<Record<Kind, number>> = {
   banner: 3 / 1,
-  card: 1,
+  // Aligne sur la zone d'affichage `aspect-[2/1]` de LoyaltyCardVisual
+  // (refonte carte 2026-05-13). Avant : 1, ce qui causait un crop centre
+  // imprevisible quand l'image carree etait stretch en 2:1 via object-cover.
+  card: 2 / 1,
 }
 
 async function fileToDataUrl(file: File): Promise<string> {
@@ -256,8 +259,8 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
       <div className="bg-white rounded-2xl p-5 w-full max-w-lg">
         <p className="text-sm font-semibold text-primary mb-1">Recadrez votre image</p>
         <p className="text-xs text-tertiary mb-3">Glissez pour repositionner, utilisez le slider pour zoomer.</p>
-        <div className="relative w-full aspect-[3/1] bg-gray-900 rounded-lg overflow-hidden"
-             style={{ aspectRatio: kind === 'card' ? '1 / 1' : '3 / 1' }}>
+        <div className="relative w-full bg-gray-900 rounded-lg overflow-hidden"
+             style={{ aspectRatio: kind === 'card' ? '2 / 1' : '3 / 1' }}>
           <Cropper
             image={pendingSrc}
             crop={crop}

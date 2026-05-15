@@ -167,7 +167,7 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
             {cards.map((card) => {
               const biz = card.businesses
               if (!biz) return null
-              const color = biz.primary_color || '#7F56D9'
+              const color = biz.primary_color || '#1E1E1E'
               const isStamps = biz.loyalty_type === 'stamps'
               const stampsRequired = biz.stamps_required ?? 10
               const progress = isStamps

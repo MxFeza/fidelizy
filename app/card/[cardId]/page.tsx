@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const data = await fetchCardAndBusiness(cardId)
 
   const title = data ? `Carte ${data.business.business_name}` : 'Ma carte de fidélité'
-  const themeColor = data?.business.primary_color || '#4f46e5'
+  const themeColor = data?.business.primary_color || '#1E1E1E'
 
   return {
     title,

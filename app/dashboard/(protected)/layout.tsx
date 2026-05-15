@@ -27,10 +27,18 @@ export default async function ProtectedLayout({
   const { data: business } = await supabase
     .from('businesses')
     .select(
-      'id, business_name, primary_color, logo_url, first_name, onboarding_started_at, onboarding_completed_at',
+      'id, business_name, primary_color, logo_url, first_name, business_type, onboarding_started_at, onboarding_completed_at',
     )
     .eq('id', user.id)
     .single()
+
+  // Bug fix 2026-05-14 : si business_type est null (onboarding metier interrompu
+  // pendant l'inscription — user signale qu'il s'est retrouve avec template
+  // 'cafe' alors qu'il etait coiffeur), forcer le retour a /dashboard/onboarding.
+  // L'utilisateur peut aussi changer son metier plus tard via "Mon entreprise".
+  if (business && !business.business_type) {
+    redirect('/dashboard/onboarding')
+  }
 
   const businessName = business?.business_name ?? 'Mon Commerce'
 

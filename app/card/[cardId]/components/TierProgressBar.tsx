@@ -1,5 +1,8 @@
 'use client'
 
+import { Gift01, Lock01, Stars02 } from '@untitledui/icons'
+import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji } from '@/lib/emojis'
 import type { LoyaltyTier } from '@/lib/types'
 import { cx } from '@/utils/cx'
 
@@ -9,6 +12,14 @@ interface TierProgressBarProps {
   loyaltyType: 'stamps' | 'points'
   /** Couleur brand du commerce */
   color: string
+  /**
+   * Au moins un palier est atteint et le client peut réclamer la récompense.
+   * Si défini, on affiche un CTA "Réclamer ma récompense" inline sous le
+   * carousel (continuité visuelle avec les paliers, retour user 2026-05-13).
+   * Si null/undefined, aucun CTA — le composant reste purement informatif.
+   */
+  onClaim?: () => void
+  isClaiming?: boolean
 }
 
 /**
@@ -25,15 +36,19 @@ export default function TierProgressBar({
   currentValue,
   loyaltyType,
   color,
+  onClaim,
+  isClaiming = false,
 }: TierProgressBarProps) {
   if (tiers.length === 0) return null
 
   const unit = loyaltyType === 'stamps' ? 'tampon' : 'point'
   const sorted = [...tiers].sort((a, b) => a.threshold - b.threshold)
   const maxThreshold = sorted[sorted.length - 1].threshold || 1
-  const progressPct = Math.min(100, (currentValue / maxThreshold) * 100)
   const nextTier = sorted.find((t) => t.threshold > currentValue)
   const allReached = !nextTier && currentValue >= maxThreshold
+  // Au moins un palier atteint = on peut réclamer (le merchant choisira le
+  // palier exact si plusieurs sont débloqués, via la modal côté CardTab).
+  const someReached = sorted.some((t) => currentValue >= t.threshold)
 
   return (
     <div className="space-y-4">
@@ -77,11 +92,11 @@ export default function TierProgressBar({
               {/* Emoji */}
               <div
                 className={cx(
-                  'size-14 rounded-full flex items-center justify-center text-3xl mb-2 transition-all',
+                  'size-14 rounded-full flex items-center justify-center mb-2 transition-all',
                   reached ? 'bg-white shadow-sm' : 'bg-white/60 grayscale opacity-60'
                 )}
               >
-                <span aria-hidden="true">{tier.emoji || '🎁'}</span>
+                {tier.emoji ? <Emoji unicode={tier.emoji} size={36} /> : <Emoji name="gift" size={36} />}
               </div>
 
               {/* Name */}
@@ -105,7 +120,7 @@ export default function TierProgressBar({
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-tertiary">
-                  🔒 {remaining} {unit}
+                  <Lock01 className="size-3" aria-hidden="true" /> {remaining} {unit}
                   {remaining > 1 ? 's' : ''}
                 </span>
               )}
@@ -114,35 +129,44 @@ export default function TierProgressBar({
         })}
       </div>
 
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${progressPct}%`, backgroundColor: color }}
-            role="progressbar"
-            aria-valuenow={currentValue}
-            aria-valuemin={0}
-            aria-valuemax={maxThreshold}
-          />
-        </div>
+      {/* Hint sur le prochain palier (sans barre de progression lineaire :
+          retiree 2026-05-13, n'apportait pas de valeur visuelle au-dessus
+          du carrousel de paliers qui suffit a montrer la progression). */}
+      {nextTier && (
+        <p className="text-center text-sm text-tertiary">
+          Plus que{' '}
+          <span className="font-bold" style={{ color }}>
+            {nextTier.threshold - currentValue} {unit}
+            {nextTier.threshold - currentValue > 1 ? 's' : ''}
+          </span>{' '}
+          pour <span className="font-semibold text-primary">{nextTier.name}</span>
+        </p>
+      )}
+      {allReached && (
+        <p className="text-center text-sm font-semibold text-success-primary inline-flex items-center justify-center gap-1.5 w-full">
+          <Stars02 className="size-4" aria-hidden="true" />
+          <span>Tous les paliers débloqués !</span>
+        </p>
+      )}
 
-        {nextTier && (
-          <p className="text-center text-sm text-tertiary">
-            Plus que{' '}
-            <span className="font-bold" style={{ color }}>
-              {nextTier.threshold - currentValue} {unit}
-              {nextTier.threshold - currentValue > 1 ? 's' : ''}
-            </span>{' '}
-            pour <span className="font-semibold text-primary">{nextTier.name}</span>
-          </p>
-        )}
-        {allReached && (
-          <p className="text-center text-sm font-semibold text-success-primary">
-            🎉 Tous les paliers débloqués !
-          </p>
-        )}
-      </div>
+      {/* CTA "Réclamer ma récompense" — inline ici (sous les paliers) plutôt
+          qu'en banner séparé au-dessus, pour la continuité visuelle entre
+          la liste des récompenses et l'action de réclamation
+          (refonte UX 2026-05-13 demandée par user). */}
+      {someReached && onClaim && (
+        <Button
+          type="button"
+          color="primary"
+          size="md"
+          iconLeading={Gift01}
+          isLoading={isClaiming}
+          isDisabled={isClaiming}
+          className="w-full"
+          onClick={onClaim}
+        >
+          Réclamer ma récompense
+        </Button>
+      )}
     </div>
   )
 }

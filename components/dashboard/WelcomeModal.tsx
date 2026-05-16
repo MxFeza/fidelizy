@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { Dialog, Modal, ModalOverlay } from '@/components/ui/application/modals/modal'
 import { Lightning01, X as XIcon } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji } from '@/lib/emojis'
 import { downloadQRCode } from '@/lib/qr-download'
 import { createClient } from '@/lib/supabase/client'
 
@@ -71,8 +72,9 @@ export default function WelcomeModal({ businessId, businessName, shortCode, open
                   <Lightning01 className="size-7 text-fg-brand-primary" />
                 </div>
 
-                <h2 className="text-display-xs font-semibold text-primary mb-2">
-                  Bienvenue chez Izou{firstName && `, ${firstName}`} ! 🎉
+                <h2 className="text-display-xs font-semibold text-primary mb-2 inline-flex items-center justify-center gap-2 w-full">
+                  <span>Bienvenue chez Izou{firstName && `, ${firstName}`} !</span>
+                  <Emoji name="confetti" size={26} />
                 </h2>
                 <p className="text-md text-tertiary mb-6">
                   Votre programme de fidélité est configuré. Vous pouvez dès maintenant accueillir vos premiers clients
@@ -85,15 +87,15 @@ export default function WelcomeModal({ businessId, businessName, shortCode, open
                   </p>
                   <ul className="space-y-2 text-sm text-primary">
                     <li className="flex items-start gap-2">
-                      <span aria-hidden="true">🖨️</span>
+                      <Emoji name="printer" size={18} className="mt-0.5 shrink-0" />
                       <span>Téléchargez et imprimez votre QR code</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span aria-hidden="true">🏠</span>
+                      <Emoji name="home" size={18} className="mt-0.5 shrink-0" />
                       <span>Collez-le à côté de votre caisse</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span aria-hidden="true">🤝</span>
+                      <Emoji name="handshake" size={18} className="mt-0.5 shrink-0" />
                       <span>Présentez le programme à vos premiers clients</span>
                     </li>
                   </ul>

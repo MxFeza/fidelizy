@@ -1,12 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { CreditCard02 } from '@untitledui/icons'
+import Image from 'next/image'
+import { CreditCard02, Share04, InfoCircle, X as XIcon } from '@untitledui/icons'
 import QrCodeDisplay from '@/app/components/QrCodeDisplay'
 import ShortCodeDisplay from '@/app/components/ShortCodeDisplay'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
+import Toast from '@/components/client/Toast'
+import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji } from '@/lib/emojis'
+import { PUBLIC_ASSETS } from '@/lib/assets'
+import { joinUrl } from '@/lib/config'
 import TierProgressBar from './TierProgressBar'
 import RecentActivity from './RecentActivity'
+import ClaimRewardModal from './ClaimRewardModal'
+import ClaimCodeModal from './ClaimCodeModal'
 import type { Business, LoyaltyCard, Customer, LoyaltyTier, Transaction } from '@/lib/types'
 
 interface CardTabProps {
@@ -22,7 +30,6 @@ interface CardTabProps {
   stampsRequired: number
   walletAvailable: boolean
   onShowWheel: () => void
-  onShowConfetti: () => void
 }
 
 export default function CardTab({
@@ -40,6 +47,122 @@ export default function CardTab({
   onShowWheel,
 }: CardTabProps) {
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showCopyToast, setShowCopyToast] = useState(false)
+  const [showShareCopiedToast, setShowShareCopiedToast] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [showInstallPwaForWalletModal, setShowInstallPwaForWalletModal] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [claimError, setClaimError] = useState<string | null>(null)
+  const [claimResult, setClaimResult] = useState<{
+    code: string
+    rewardName: string
+    expiresAt: string
+  } | null>(null)
+
+  async function handleClaimConfirm(tierId: string | null) {
+    setClaiming(true)
+    setClaimError(null)
+    try {
+      const res = await fetch(`/api/card/${card.qr_code_id}/claim-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tierId }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error ?? `Erreur (${res.status})`)
+      setClaimResult({
+        code: data.code,
+        rewardName: data.rewardName,
+        expiresAt: data.expiresAt,
+      })
+      setShowClaimModal(false)
+    } catch (e) {
+      setClaimError(e instanceof Error ? e.message : 'Erreur lors de la réclamation.')
+      setTimeout(() => setClaimError(null), 5000)
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  async function handleCopyCode() {
+    try {
+      await navigator.clipboard.writeText(shortCode)
+      setShowCopyToast(true)
+      setTimeout(() => setShowCopyToast(false), 3000)
+    } catch {
+      /* ignore — clipboard refusé (Safari sans HTTPS, perms) */
+    }
+  }
+
+  async function handleAddToWallet() {
+    // Bug fix 2026-05-14 : detecter si la PWA est installee (standalone mode).
+    // Si NON, ouvrir un modal explicatif au lieu de telecharger le pkpass —
+    // sinon iOS Safari telecharge le .pkpass comme un PDF (cas signale par le
+    // testeur, n'avait pas compris qu'il fallait installer la PWA d'abord).
+    const isStandalone =
+      typeof window !== 'undefined' &&
+      (window.matchMedia('(display-mode: standalone)').matches ||
+        // iOS Safari property (non-standard)
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true)
+
+    if (!isStandalone) {
+      setShowInstallPwaForWalletModal(true)
+      return
+    }
+
+    // PWA installee : flow normal — blob download programmatique. iOS intercepte
+    // le MIME application/vnd.apple.pkpass et propose "Ajouter au Wallet".
+    try {
+      const res = await fetch(`/api/wallet/${card.qr_code_id}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error(`wallet fetch failed (${res.status})`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'izou-card.pkpass'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1500)
+    } catch (e) {
+      console.error('[wallet] add to wallet failed', e)
+    }
+  }
+
+  async function handleShare() {
+    // L'URL partagée pointe vers la page d'inscription du commerce, pas
+    // vers le compte client : le destinataire qui clique doit pouvoir créer
+    // sa propre carte, pas se retrouver sur la carte de quelqu'un d'autre.
+    //
+    // Refonte 2026-05-13 : on inclut le code de parrainage dans l'URL
+    // (format FIRST4-LAST4 derive du prenom + telephone — cf.
+    // lib/services/referral.service.ts generateReferralCode). Le destinataire
+    // qui s'inscrit via ce lien declenche un parrainage automatique a la fin
+    // de l'onboarding (cf. app/api/join et processReferral).
+    const target = business.short_code || business.id
+    const firstName = card.customers?.first_name
+    const phone = card.customers?.phone
+    const referralCode = firstName && phone
+      ? `${firstName.substring(0, 4).toUpperCase().padEnd(4, 'X')}-${phone.slice(-4)}`
+      : null
+    const baseUrl = joinUrl(target)
+    const url = referralCode ? `${baseUrl}?ref=${encodeURIComponent(referralCode)}` : baseUrl
+    const title = `Carte de fidélité ${business.business_name}`
+    const text = referralCode
+      ? `Rejoignez le programme fidélité de ${business.business_name} avec mon code ${referralCode} et recevez un bonus de bienvenue !`
+      : `Rejoignez le programme fidélité de ${business.business_name} sur Izou.`
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({ title, text, url })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      setShowShareCopiedToast(true)
+      setTimeout(() => setShowShareCopiedToast(false), 3000)
+    } catch {
+      /* user dismissed share sheet — silent */
+    }
+  }
 
   return (
     <>
@@ -52,40 +175,37 @@ export default function CardTab({
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Mon QR code</p>
             <ShortCodeDisplay code={shortCode} />
-            <button
+            <Button
+              size="sm"
+              color="secondary"
+              className="mt-2"
               onClick={() => setShowQrModal(true)}
-              className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-              style={{ borderColor: color, color }}
             >
               Agrandir
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Loyalty card visual (Figma B4 — carte v1 noire + image standard + logo transparent) */}
+      {/* Loyalty card visual — image carte custom merchant (Story 4.3.f) sinon standard.
+          Charte couleur = business.primary_color (décision 2026-05-11 : retrait
+          de la personnalisation couleur client, fixe côté merchant). */}
       <LoyaltyCardVisual
         customerName={card.customers?.first_name?.trim() || 'Client'}
         loyaltyType={business.loyalty_type}
         currentStamps={stampsCount}
         stampsRequired={stampsRequired}
         currentPoints={pointsBalance}
+        businessName={business.business_name}
         businessLogoUrl={business.logo_url}
+        cardImageUrl={business.card_image_url}
+        businessPrimaryColor={business.primary_color}
       />
 
-      {/* Reward unlocked banner (stamps mode, single-tier) */}
-      {business.loyalty_type === 'stamps' && stampsCount >= stampsRequired && business.stamps_reward && (
-        <div className="rounded-2xl bg-success-secondary border border-success px-4 py-3 text-center">
-          <p className="text-sm font-semibold text-success-primary">
-            🎁 Récompense disponible : {business.stamps_reward}
-          </p>
-          <p className="text-xs text-success-primary/80 mt-0.5">
-            Présentez votre carte au commerçant pour en profiter
-          </p>
-        </div>
-      )}
-
-      {/* Tier progress bar (BK-style — paliers JSONB ou palier virtuel single-tier) */}
+      {/* Tier progress bar (BK-style — paliers JSONB ou palier virtuel single-tier)
+          Le bouton "Réclamer ma récompense" est désormais INLINE dans ce
+          composant (sous les paliers) pour la continuité visuelle. L'ancien
+          banner externe "Récompense disponible" a été retiré 2026-05-13. */}
       {liveTiers.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm p-5">
           <TierProgressBar
@@ -93,77 +213,270 @@ export default function CardTab({
             currentValue={business.loyalty_type === 'stamps' ? stampsCount : pointsBalance}
             loyaltyType={business.loyalty_type}
             color={color}
+            onClaim={() => setShowClaimModal(true)}
+            isClaiming={claiming}
           />
 
-          {/* Wheel button (points mode only) */}
+          {/* Wheel button (points mode only). Eligible -> Button primary
+              violet, sinon Button secondary (gris) pour indiquer "pas encore". */}
           {business.loyalty_type === 'points' && wheelStatus?.enabled && (
-            <button
+            <Button
+              size="md"
+              color={wheelStatus.eligible ? 'primary' : 'secondary'}
+              isDisabled={!wheelStatus.eligible}
+              className="w-full mt-4"
+              iconLeading={<Emoji name="wheel" size={18} />}
               onClick={onShowWheel}
-              disabled={!wheelStatus.eligible}
-              className="w-full mt-4 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: wheelStatus.eligible ? color : `${color}15`,
-                color: wheelStatus.eligible ? 'white' : color,
-              }}
             >
-              <span className="text-lg">🎡</span>
               {wheelStatus.eligible
                 ? `Tourner la roue (${wheelStatus.cost} pts)`
                 : `Roue de la fortune (${wheelStatus.cost} pts requis)`}
-            </button>
+            </Button>
           )}
         </div>
       )}
 
-      {/* Add to Apple Wallet (iOS only — Google Wallet attendu en Epic 6).
-          target="_blank" force l'ouverture dans Safari standard meme en mode
-          PWA standalone — sinon le webview affiche le .pkpass en plain text
-          au lieu de le router vers PassKit (bug client signale 2026-05-04).
-          Epic 6 remplacera ce bouton par le badge officiel Apple "Add to Apple
-          Wallet" + variante Google Wallet detectee via userAgent. */}
+      {/* Add to Apple Wallet — telechargement programmatique en blob plutot
+          que <a target="_blank"> (refonte 2026-05-13). Le precedent flow
+          ouvrait Safari standard et au retour le user voyait une page blanche
+          dans la PWA. Avec blob + download programmatique, iOS intercepte le
+          MIME application/vnd.apple.pkpass et propose "Ajouter au Wallet"
+          sans navigation, la PWA reste en place. */}
       {walletAvailable && (
-        <a
-          href={`/api/wallet/${card.qr_code_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-2 bg-brand-solid hover:bg-brand-solid_hover text-white font-semibold py-3.5 px-4 rounded-2xl text-sm transition-colors shadow-sm"
+        <button
+          type="button"
+          data-tour="wallet-add"
+          onClick={handleAddToWallet}
+          className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3.5 px-4 rounded-xl text-sm transition-colors shadow-xs-skeumorphic"
         >
           <CreditCard02 className="size-5" aria-hidden="true" />
           Ajouter à Apple Wallet
-        </a>
+        </button>
       )}
 
       {/* Activité récente (5 dernières transactions) */}
       <RecentActivity transactions={transactions} cardId={card.qr_code_id} />
 
-      {/* QR code fullscreen modal */}
+      {/* QR code fullscreen modal — style pass Apple Wallet Carrefour Club :
+          header Bonjour + bandeau image edge-to-edge + nom commerce + QR code.
+          Aligne visuellement avec LoyaltyCardVisual (4 bandes) mais en blanc
+          car la modal est un container distinct de la carte loyalty. */}
       {showQrModal && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Votre code de fidélité"
+          className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setShowQrModal(false)}
         >
           <div
-            className="bg-white rounded-3xl p-8 text-center max-w-sm w-full"
+            className="bg-white rounded-3xl max-w-sm w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-              Mon QR code
-            </p>
-            <div className="flex justify-center">
-              <div className="p-4 bg-gray-50 rounded-xl inline-block">
-                <QrCodeDisplay value={card.qr_code_id} size={220} />
+            {/* 1. Header — Logo Izou + BONJOUR PRENOM (caps) */}
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
+              <Image
+                src={PUBLIC_ASSETS.branding.logoNoir}
+                alt="Izou"
+                width={56}
+                height={24}
+                className="h-6 w-auto shrink-0"
+              />
+              <div className="text-right min-w-0">
+                <p className="text-[10px] font-semibold tracking-[0.12em] text-gray-500 leading-tight">
+                  BONJOUR
+                </p>
+                <p className="text-xs font-bold tracking-wide text-gray-900 leading-tight uppercase truncate">
+                  {(card.customers?.first_name?.trim() || 'Client').toUpperCase()}
+                </p>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              Présentez ce code au commerçant à chaque visite
+
+            {/* 2. Image bandeau EDGE-TO-EDGE (clip uniquement par le rounded-3xl
+                parent qui a overflow-hidden) */}
+            <div className="relative w-full aspect-[2/1]">
+              <Image
+                src={business.card_image_url || PUBLIC_ASSETS.cards.loyaltyDefault}
+                alt=""
+                fill
+                sizes="(max-width: 640px) 100vw, 384px"
+                className="object-cover object-center"
+                unoptimized={!!business.card_image_url}
+              />
+            </div>
+
+            {/* 3. Nom du commerce (centre, sous l'image) */}
+            <p className="px-4 pt-3 text-center text-base font-bold text-gray-900 truncate">
+              {business.business_name}
             </p>
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="mt-4 text-sm font-semibold px-6 py-2.5 rounded-xl text-white"
-              style={{ backgroundColor: color }}
+
+            {/* 4. Titre + sous-titre */}
+            <div className="px-6 pt-2 text-center">
+              <p className="text-sm font-semibold text-gray-700">Votre code de fidélité</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {business.loyalty_type === 'stamps'
+                  ? 'Scannez au comptoir pour obtenir un tampon'
+                  : 'Scannez au comptoir pour cumuler des points'}
+              </p>
+            </div>
+
+            {/* 5. QR code centre */}
+            <div className="flex justify-center my-4">
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <QrCodeDisplay value={card.qr_code_id} size={180} />
+              </div>
+            </div>
+
+            {/* 6. Code court */}
+            <p className="text-sm font-mono font-semibold text-gray-700 tracking-wider text-center mb-5">
+              {shortCode}
+            </p>
+
+            {/* 7. Boutons */}
+            <div className="px-6 pb-6 space-y-2.5">
+              <Button
+                type="button"
+                color="primary"
+                size="md"
+                iconLeading={Share04}
+                className="w-full"
+                onClick={handleShare}
+              >
+                Partager
+              </Button>
+              <Button
+                type="button"
+                color="secondary"
+                size="md"
+                className="w-full"
+                onClick={handleCopyCode}
+              >
+                Copier le code
+              </Button>
+              <Button
+                type="button"
+                color="tertiary"
+                size="md"
+                className="w-full"
+                onClick={() => setShowQrModal(false)}
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast "Code copié" — confirme l'action clipboard */}
+      {showCopyToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[60] px-4 w-full max-w-md" style={{ top: '4.5rem' }}>
+          <Toast
+            variant="info"
+            title="Code copié"
+            message={`${shortCode} · dans le presse-papier`}
+          />
+        </div>
+      )}
+
+      {/* Toast "Lien copié" — fallback si Web Share API indisponible (desktop). */}
+      {showShareCopiedToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[60] px-4 w-full max-w-md" style={{ top: '4.5rem' }}>
+          <Toast
+            variant="info"
+            title="Lien copié"
+            message="Le lien d'inscription est dans votre presse-papier."
+          />
+        </div>
+      )}
+
+      {/* Toast erreur réclamation (rate-limit / expired card / etc.) */}
+      {claimError && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[60] px-4 w-full max-w-md" style={{ top: '4.5rem' }}>
+          <Toast variant="error" title="Réclamation impossible" message={claimError} />
+        </div>
+      )}
+
+      {/* Modal de confirmation/selection Reclamer recompense.
+          reachedTiers : liste des paliers ATTEINTS (debloquables maintenant)
+          que le client peut choisir. Si > 1, mode selection ; sinon mode
+          confirmation simple (refonte 2026-05-13 — avant : prenait toujours
+          le plus grand palier automatiquement). */}
+      <ClaimRewardModal
+        isOpen={showClaimModal}
+        loyaltyType={business.loyalty_type}
+        rewardName={business.stamps_reward}
+        reachedTiers={liveTiers.filter((t) =>
+          (business.loyalty_type === 'stamps' ? stampsCount : pointsBalance) >= t.threshold,
+        )}
+        color={color}
+        onConfirm={handleClaimConfirm}
+        onCancel={() => setShowClaimModal(false)}
+      />
+
+      {/* Modal "Demande envoyée" avec le code à présenter au merchant — C3 */}
+      <ClaimCodeModal
+        isOpen={!!claimResult}
+        code={claimResult?.code ?? ''}
+        rewardName={claimResult?.rewardName ?? ''}
+        expiresAt={claimResult?.expiresAt ?? new Date().toISOString()}
+        onClose={() => setClaimResult(null)}
+      />
+
+      {/* Modal "Installe Izou pour ajouter au Wallet" — bug user 2026-05-14 :
+          quand le client clique "Ajouter au Wallet" depuis Safari (pas la PWA),
+          iOS telecharge le .pkpass comme un PDF (le user du testeur n'avait
+          pas compris qu'il fallait installer Izou d'abord). */}
+      {showInstallPwaForWalletModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="install-pwa-wallet-title"
+          className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setShowInstallPwaForWalletModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => setShowInstallPwaForWalletModal(false)}
+                className="size-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
+                aria-label="Fermer"
+              >
+                <XIcon className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="flex justify-center mb-4">
+              <div className="size-14 rounded-full bg-brand-50 flex items-center justify-center ring-8 ring-brand-50/40">
+                <InfoCircle className="size-7 text-brand-secondary" aria-hidden="true" />
+              </div>
+            </div>
+            <h2 id="install-pwa-wallet-title" className="text-lg font-bold text-gray-900 text-center mb-2">
+              Installez Izou pour ajouter au Wallet
+            </h2>
+            <p className="text-sm text-gray-600 text-center leading-relaxed mb-5">
+              Pour ajouter ta carte de fidélité à Apple Wallet, tu dois d&apos;abord
+              installer Izou sur ton écran d&apos;accueil. Sinon iOS télécharge la carte
+              comme un fichier au lieu de l&apos;ajouter à ton Wallet.
+            </p>
+            <div className="bg-gray-50 rounded-2xl p-4 mb-5 space-y-2 text-sm text-gray-700">
+              <p className="font-semibold text-gray-900">Comment installer :</p>
+              <ol className="list-decimal list-inside space-y-1 leading-relaxed">
+                <li>Appuie sur le bouton <strong>Partager</strong> en bas de Safari</li>
+                <li>Choisis <strong>Sur l&apos;écran d&apos;accueil</strong></li>
+                <li>Confirme avec <strong>Ajouter</strong></li>
+              </ol>
+            </div>
+            <Button
+              type="button"
+              color="primary"
+              size="md"
+              className="w-full"
+              onClick={() => setShowInstallPwaForWalletModal(false)}
             >
-              Fermer
-            </button>
+              J&apos;ai compris
+            </Button>
           </div>
         </div>
       )}

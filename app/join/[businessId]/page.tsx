@@ -1,69 +1,87 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
-import JoinForm from './JoinForm'
+import type { Metadata } from 'next'
+import JoinFlow from './JoinFlow'
+import { joinUrl } from '@/lib/config'
 
 interface PageProps {
   params: Promise<{ businessId: string }>
   searchParams: Promise<{ ref?: string }>
 }
 
+const SELECT_COLUMNS =
+  'id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro, logo_url, banner_url, gamification, short_code, description'
+
+async function fetchBusiness(businessId: string) {
+  const supabase = createServiceClient()
+  const { data: byId } = await supabase
+    .from('businesses')
+    .select(SELECT_COLUMNS)
+    .eq('id', businessId)
+    .maybeSingle()
+  if (byId) return byId
+  const { data: byShortCode } = await supabase
+    .from('businesses')
+    .select(SELECT_COLUMNS)
+    .eq('short_code', businessId)
+    .maybeSingle()
+  return byShortCode
+}
+
+/**
+ * Open Graph metadata dynamique par commerce.
+ *
+ * Lien partagé → preview riche avec banner/logo du commerce au lieu du
+ * fallback root Izou "montgolfière". Boost l'acquisition virale en rendant
+ * le partage WhatsApp/SMS/Instagram immédiatement reconnaissable comme
+ * la marque du commerce, pas Izou.
+ */
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { businessId } = await params
+  const business = await fetchBusiness(businessId)
+
+  if (!business) {
+    return {
+      title: 'Carte de fidélité — Izou',
+      description: 'Rejoignez le programme de fidélité de votre commerce.',
+    }
+  }
+
+  const title = `Rejoignez le programme fidélité de ${business.business_name}`
+  const description =
+    business.description?.trim() ||
+    `Recevez vos ${business.loyalty_type === 'stamps' ? 'tampons' : 'points'} et débloquez vos récompenses chez ${business.business_name}.`
+
+  // Préférence : banner_url (1584×396 LinkedIn-style) > logo_url > rien
+  const ogImage = business.banner_url || business.logo_url || undefined
+  const canonical = joinUrl(business.short_code || business.id)
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: 'Izou',
+      type: 'website',
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    },
+    twitter: {
+      card: ogImage ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+  }
+}
+
 export default async function JoinPage({ params, searchParams }: PageProps) {
   const { businessId } = await params
   const { ref: referralCode } = await searchParams
-  const supabase = createServiceClient()
-
-  // Try by ID first, then by short_code
-  let business
-  const { data: byId } = await supabase
-    .from('businesses')
-    .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro')
-    .eq('id', businessId)
-    .single()
-
-  if (byId) {
-    business = byId
-  } else {
-    const { data: byShortCode } = await supabase
-      .from('businesses')
-      .select('id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro')
-      .eq('short_code', businessId)
-      .single()
-    business = byShortCode
-  }
+  const business = await fetchBusiness(businessId)
 
   if (!business) notFound()
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
-            style={{ backgroundColor: business.primary_color || '#4f46e5' }}
-          >
-            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">{business.business_name}</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {business.loyalty_type === 'stamps'
-              ? `Obtenez ${business.stamps_required} tampons et gagnez : ${business.stamps_reward}`
-              : `Gagnez ${business.points_per_euro} point(s) par euro dépensé`}
-          </p>
-        </div>
-
-        <JoinForm business={business} initialReferralCode={referralCode} />
-
-        <footer className="mt-8 pb-6 text-center text-xs text-gray-400 space-x-3">
-          <a href="/privacy" className="hover:text-gray-600 underline">Confidentialité</a>
-          <span>·</span>
-          <a href="/terms" className="hover:text-gray-600 underline">CGU</a>
-          <span>·</span>
-          <a href="/legal" className="hover:text-gray-600 underline">Mentions légales</a>
-        </footer>
-      </div>
-    </div>
-  )
+  return <JoinFlow business={business} initialReferralCode={referralCode} />
 }

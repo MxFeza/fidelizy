@@ -14,11 +14,12 @@ Document vivant. Une entrée = une dette identifiée. Triée par sévérité, da
 
 ### TD-001 — RPC SECURITY DEFINER sans check d'ownership
 **Identifié** : 2026-05-02 (audit advisors Supabase)
-**Statut** : PARTIAL 2026-05-02
+**Statut** : RESOLVED 2026-05-08 (Option C)
 **Détail** : voir [SECURITY-ADVISORS-2026-05-01.md](./SECURITY-ADVISORS-2026-05-01.md) section CRITIQUE
 **Option A (anon revoke)** : RESOLVED 2026-05-04 — migration `20260502_revoke_anon_loyalty_rpcs.sql` appliquée en prod via `mcp__claude_ai_Supabase__apply_migration` (project `ggzgffwykthufieeikzb`). Commit local : `e51ee8c` (rebased).
-**Option B (ownership check)** : OPEN — nécessite `/ultrareview` Loyalty pour valider l'approche avant écriture
-**Impact résiduel post-Option A** : un user authenticated qui devine un card_id peut toujours appeler la RPC en direct. Mitigation app : `business_id` filter dans `lib/services/loyalty.service.ts`.
+**Option B (ownership check)** : ABANDONNÉE 2026-05-08 — complexité conditionnelle (service_role vs authenticated, merchants vs customers, customer↔auth.users via email) trop fragile pour le pilote.
+**Option C (RETENUE)** : RESOLVED 2026-05-08 — les 5 endpoints API qui appellent les RPCs (`/api/scan`, `/api/card/{add,deduct,claim-reward,reset}`) ont été migrés pour utiliser `createServiceClient()` après auth check merchant. Migration SQL `20260508_revoke_authenticated_loyalty_rpcs.sql` : REVOKE EXECUTE FROM authenticated sur les 6 RPCs. Commit `4359099`. À appliquer en prod via Supabase MCP/dashboard.
+**Impact résiduel** : aucun. Les RPCs sont inaccessibles par tout user authentifié direct (anon + authenticated revoked). Seul `service_role` conserve EXECUTE.
 
 ---
 

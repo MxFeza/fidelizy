@@ -1,0 +1,28 @@
+# Empêche Claude Code d'indexer/auto-sélectionner ces chemins.
+# Cible principale : le bundle repomix de 4MB qui se faisait épingler au démarrage.
+
+.tmp/
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+dist/
+build/
+.turbo/
+
+# Lockfiles (lourds, peu utiles à l'édition)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Migrations archivées (historique)
+supabase/migrations/.archive/
+
+# Assets binaires
+public/**/*.png
+public/**/*.jpg
+public/**/*.jpeg
+public/**/*.webp
+public/**/*.gif
+public/**/*.ico

@@ -11,8 +11,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01 } from '@untitledui/icons'
+import { Plus, LogOut01, Building02, CreditCard02, X as XIcon, AlertCircle, CheckDone01, QrCode02, User01 } from '@untitledui/icons'
+import { Emoji } from '@/lib/emojis'
 import { createClient } from '@/lib/supabase/client'
+import FeedbackBubbleClient from '@/components/client/FeedbackBubbleClient'
 
 interface Customer {
   id: string
@@ -113,20 +115,32 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-100">
         <div className="max-w-md mx-auto h-14 px-4 flex items-center justify-between">
           <Image src="/izou-logo.svg" alt="Izou" width={84} height={20} priority />
-          <button
-            onClick={handleLogout}
-            aria-label="Se déconnecter"
-            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <LogOut01 className="size-5" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/me/profile"
+              aria-label="Mon profil"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <User01 className="size-5" aria-hidden="true" />
+            </Link>
+            <button
+              onClick={handleLogout}
+              aria-label="Se déconnecter"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <LogOut01 className="size-5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-md mx-auto px-5 py-6">
         {/* Greeting */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Bonjour {customer.first_name} 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900 inline-flex items-center gap-2">
+            <span>Bonjour {customer.first_name}</span>
+            <Emoji name="wave" size={26} />
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
             {cards.length === 0
               ? 'Aucune carte pour l\'instant. Ajoutez votre première carte fidélité.'
@@ -153,7 +167,7 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
             {cards.map((card) => {
               const biz = card.businesses
               if (!biz) return null
-              const color = biz.primary_color || '#7F56D9'
+              const color = biz.primary_color || '#1E1E1E'
               const isStamps = biz.loyalty_type === 'stamps'
               const stampsRequired = biz.stamps_required ?? 10
               const progress = isStamps
@@ -201,15 +215,24 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
           </ul>
         )}
 
-        {/* Add card CTA */}
-        <button
-          type="button"
-          onClick={openAddSheet}
-          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl border-2 border-dashed border-gray-300 text-brand-secondary hover:border-brand-secondary hover:bg-brand-secondary/5 transition-colors text-sm font-semibold"
-        >
-          <Plus className="size-5" aria-hidden="true" />
-          Ajouter une carte
-        </button>
+        {/* CTAs — Scanner (primaire) + Ajouter via code court (secondaire) */}
+        <div className="mt-4 space-y-2">
+          <Link
+            href="/scan"
+            className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-brand-solid hover:bg-brand-solid_hover text-white transition-colors text-sm font-semibold"
+          >
+            <QrCode02 className="size-5" aria-hidden="true" />
+            Scanner un QR code
+          </Link>
+          <button
+            type="button"
+            onClick={openAddSheet}
+            className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl border-2 border-dashed border-gray-300 text-brand-secondary hover:border-brand-secondary hover:bg-brand-secondary/5 transition-colors text-sm font-semibold"
+          >
+            <Plus className="size-5" aria-hidden="true" />
+            Ajouter via un code commerçant
+          </button>
+        </div>
 
         <footer className="mt-8 text-center text-[11px] text-gray-400 space-x-2">
           <Link href="/privacy" className="hover:text-gray-600 underline">Confidentialité</Link>
@@ -305,11 +328,13 @@ export default function MeListClient({ customer, cards }: MeListClientProps) {
             </form>
 
             <p className="text-xs text-gray-400 mt-4 text-center">
-              Le scan du QR code sera bientôt disponible directement depuis votre appareil photo.
+              Vous pouvez aussi <Link href="/scan" className="text-brand-secondary font-semibold underline">scanner directement le QR code</Link> du commerçant.
             </p>
           </div>
         </div>
       )}
+
+      <FeedbackBubbleClient />
     </div>
   )
 }

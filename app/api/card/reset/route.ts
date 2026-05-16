@@ -1,15 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 import { resetCard } from '@/lib/services/loyalty.service'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
+
+const resetInputSchema = z.object({
+  card_id: z.string().uuid(),
+})
 
 export const POST = withErrorHandler(async (request) => {
   const { success } = await cardWriteLimiter.limit(getIP(request))
   if (!success) throw AppError.rateLimit('Trop de requêtes. Réessaie dans quelques secondes.')
 
-  const { card_id } = await request.json()
-  if (!card_id) throw AppError.validation('card_id requis')
+  const parsed = resetInputSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) throw AppError.validation('card_id invalide')
 
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -23,7 +29,9 @@ export const POST = withErrorHandler(async (request) => {
 
   if (!business) throw AppError.notFound('Commerce introuvable')
 
-  await resetCard(supabase, { cardId: card_id, businessId: business.id })
+  // RPCs loyalty en service_role (TD-001 Option C 2026-05-08).
+  const service = createServiceClient()
+  await resetCard(service, { cardId: parsed.data.card_id, businessId: business.id })
 
   return NextResponse.json({ success: true })
 })

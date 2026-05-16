@@ -20,11 +20,9 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Gift01,
-  Minus,
   Plus,
   RefreshCcw01,
   Trash01,
-  Download01,
   SearchLg,
   Calendar,
   FilterLines,
@@ -33,7 +31,7 @@ import {
   AlertCircle,
   X as XIcon,
 } from '@untitledui/icons'
-import type { Business, Customer, LoyaltyCard, Transaction, RewardTier } from '@/lib/types'
+import type { Business, Customer, LoyaltyCard, LoyaltyTier, Transaction } from '@/lib/types'
 import { Button } from '@/components/ui/base/buttons/button'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
 import { cx } from '@/utils/cx'
@@ -44,7 +42,8 @@ interface Props {
   card: ClientCard
   business: Business
   transactions: Transaction[]
-  rewardTiers: RewardTier[]
+  /** Paliers JSONB depuis businesses.reward_tiers (source unique). */
+  tiers: LoyaltyTier[]
 }
 
 const PAGE_SIZE = 6
@@ -75,7 +74,7 @@ function StatusBadge({ status }: { status: ReturnType<typeof getStatus> }) {
   )
 }
 
-export default function ClientDetailClient({ card, business, transactions, rewardTiers }: Props) {
+export default function ClientDetailClient({ card, business, transactions, tiers }: Props) {
   const router = useRouter()
   const isStamps = business.loyalty_type === 'stamps'
   const stampsRequired = business.stamps_required ?? 10
@@ -243,18 +242,15 @@ export default function ClientDetailClient({ card, business, transactions, rewar
   // ── Quick actions (toolbar) ─────────────────────────────────────────
 
   function handleQuickReward() {
-    if (rewardTiers.length === 0) {
+    if (tiers.length === 0) {
       setFeedback({ type: 'error', message: 'Aucune récompense configurée. Allez dans Réglages pour en créer.' })
       return
     }
     setShowClaimReward(true)
   }
 
-  function handleQuickDeduct() {
-    if (isStamps && currentStamps === 0) return
-    if (!isStamps && currentPoints === 0) return
-    handleDeduct(1)
-  }
+  // handleQuickDeduct retiré 2026-05-12 — doublon avec l'input adjust
+  // ci-dessous qui couvre ajouter ET retirer N unités précises.
 
   // ── Transactions filtering ──────────────────────────────────────────
 
@@ -348,10 +344,21 @@ export default function ClientDetailClient({ card, business, transactions, rewar
         currentStamps={currentStamps}
         stampsRequired={stampsRequired}
         currentPoints={currentPoints}
+        businessName={business.business_name}
         businessLogoUrl={business.logo_url}
+        cardImageUrl={business.card_image_url}
       />
 
-      {/* Action toolbar */}
+      {/* Action toolbar — simplifié 2026-05-12.
+          Avant : 5 boutons (Offrir récompense, Retirer tampon, Réinitialiser,
+          Supprimer client, Export). Retours user :
+            - "Retirer tampon" doublon avec l'input adjust ci-dessous (qui
+              gère ajouter ET retirer N unités). Retiré.
+            - "Export" n'avait pas d'onClick (bouton mort). Retiré jusqu'à
+              implémentation réelle.
+            - "Réinitialiser" et "Supprimer" déplacés en bas de page dans
+              une zone "Actions sensibles" séparée pour éviter le clic
+              accidentel à côté de "Offrir récompense". */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -361,40 +368,6 @@ export default function ClientDetailClient({ card, business, transactions, rewar
         >
           <Plus className="size-4" />
           Offrir récompense
-        </button>
-        <button
-          type="button"
-          onClick={handleQuickDeduct}
-          disabled={busy !== null || (isStamps && currentStamps === 0) || (!isStamps && currentPoints === 0)}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-warning-secondary border border-warning text-warning-primary text-sm font-semibold hover:bg-warning-secondary_hover disabled:opacity-60 transition-colors"
-        >
-          <Minus className="size-4" />
-          Retirer {isStamps ? 'tampon' : 'point'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirmReset(true)}
-          disabled={busy !== null}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-tertiary text-sm font-semibold hover:bg-primary_hover disabled:opacity-60 transition-colors"
-        >
-          <RefreshCcw01 className="size-4" />
-          Réinitialiser la carte
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirmDelete(true)}
-          disabled={busy !== null}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-error-secondary border border-error text-error-primary text-sm font-semibold hover:bg-error-secondary_hover disabled:opacity-60 transition-colors"
-        >
-          <Trash01 className="size-4" />
-          Supprimer les données client
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-primary border border-secondary text-secondary text-sm font-semibold hover:bg-primary_hover transition-colors ml-auto"
-        >
-          <Download01 className="size-4" />
-          Export
         </button>
       </div>
 
@@ -430,14 +403,20 @@ export default function ClientDetailClient({ card, business, transactions, rewar
             </div>
             <input
               type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
               min={1}
-              max={isStamps ? stampsRequired : 9999}
               value={adjustAmount === '' ? '' : adjustAmount}
               onChange={(e) => {
                 const v = e.target.value
-                setAdjustAmount(v === '' ? '' : Math.max(1, Number(v)))
+                if (v === '') {
+                  setAdjustAmount('')
+                  return
+                }
+                const n = Number(v)
+                if (Number.isNaN(n) || n < 0) return
+                setAdjustAmount(n)
               }}
-              onBlur={() => { if (adjustAmount === '') setAdjustAmount(1) }}
               className="w-20 px-3 py-1.5 border border-primary rounded-md text-sm text-center bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-sm text-tertiary">
@@ -637,28 +616,27 @@ export default function ClientDetailClient({ card, business, transactions, rewar
         // Rewards tab
         <div className="rounded-xl bg-primary border border-secondary p-6">
           <h2 className="text-lg font-semibold text-primary mb-4">Récompenses disponibles</h2>
-          {rewardTiers.length === 0 ? (
+          {tiers.length === 0 ? (
             <p className="text-sm text-tertiary">
               Aucune récompense configurée. Allez dans <a href="/dashboard/marketing/loyalty" className="text-brand-secondary font-semibold hover:underline">Réglages</a> pour en créer.
             </p>
           ) : (
             <ul className="space-y-3">
-              {rewardTiers.map((r) => {
+              {tiers.map((r) => {
                 const reachable = isStamps
-                  ? currentStamps >= stampsRequired
-                  : currentPoints >= r.points_required
+                  ? currentStamps >= r.threshold
+                  : currentPoints >= r.threshold
                 return (
                   <li key={r.id} className={cx(
                     'rounded-lg border p-4 flex items-center justify-between gap-4',
                     reachable ? 'border-success bg-success-secondary' : 'border-secondary bg-primary',
                   )}>
                     <div className="flex items-center gap-3">
-                      <Gift01 className={cx('size-6', reachable ? 'text-success-primary' : 'text-tertiary')} />
+                      <span className="text-2xl shrink-0" aria-hidden="true">{r.emoji || '🎁'}</span>
                       <div>
-                        <p className="font-semibold text-primary">{r.reward_name}</p>
-                        {r.reward_description && <p className="text-xs text-tertiary mt-0.5">{r.reward_description}</p>}
+                        <p className="font-semibold text-primary">{r.name}</p>
                         <p className="text-xs text-tertiary mt-1">
-                          {isStamps ? `Carte complète (${stampsRequired} tampons)` : `${r.points_required} points`}
+                          {isStamps ? `À ${r.threshold} tampon${r.threshold > 1 ? 's' : ''}` : `${r.threshold} points`}
                         </p>
                       </div>
                     </div>
@@ -677,6 +655,36 @@ export default function ClientDetailClient({ card, business, transactions, rewar
           )}
         </div>
       )}
+
+      {/* Zone sensible — actions destructives séparées de la toolbar
+          principale pour éviter le clic accidentel (refonte 2026-05-12).
+          Visuellement discrète (border subtile, label) mais accessible. */}
+      <section className="mt-10 rounded-xl border border-error_subtle bg-error-secondary/40 p-5">
+        <h3 className="text-sm font-semibold text-error-primary mb-1">Actions sensibles</h3>
+        <p className="text-xs text-tertiary mb-4">
+          Ces opérations sont irréversibles. À utiliser avec parcimonie.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg ring-1 ring-secondary bg-primary text-secondary text-sm font-semibold hover:bg-primary_hover disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw01 className="size-4" />
+            Réinitialiser la carte
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-error-secondary border border-error text-error-primary text-sm font-semibold hover:bg-error-secondary_hover disabled:opacity-60 transition-colors"
+          >
+            <Trash01 className="size-4" />
+            Supprimer les données client
+          </button>
+        </div>
+      </section>
 
       {/* Confirm reset modal */}
       {confirmReset && (
@@ -726,8 +734,10 @@ export default function ClientDetailClient({ card, business, transactions, rewar
               </button>
             </div>
             <ul className="space-y-2">
-              {rewardTiers.map((r) => {
-                const reachable = isStamps ? currentStamps >= stampsRequired : currentPoints >= r.points_required
+              {tiers.map((r) => {
+                const reachable = isStamps
+                  ? currentStamps >= r.threshold
+                  : currentPoints >= r.threshold
                 return (
                   <li key={r.id}>
                     <button
@@ -739,11 +749,14 @@ export default function ClientDetailClient({ card, business, transactions, rewar
                         reachable ? 'border-success bg-success-secondary hover:bg-success-secondary_hover' : 'border-secondary opacity-50 cursor-not-allowed',
                       )}
                     >
-                      <div>
-                        <p className="font-semibold text-primary">{r.reward_name}</p>
-                        <p className="text-xs text-tertiary">
-                          {isStamps ? `Carte complète` : `${r.points_required} points`}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl" aria-hidden="true">{r.emoji || '🎁'}</span>
+                        <div>
+                          <p className="font-semibold text-primary">{r.name}</p>
+                          <p className="text-xs text-tertiary">
+                            {isStamps ? `À ${r.threshold} tampon${r.threshold > 1 ? 's' : ''}` : `${r.threshold} points`}
+                          </p>
+                        </div>
                       </div>
                       {reachable && <Gift01 className="size-5 text-success-primary" />}
                     </button>

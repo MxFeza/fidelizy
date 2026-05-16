@@ -39,9 +39,18 @@ export default function HistoryClient({ cardId, businessName, transactions }: Pr
         </div>
 
         <div className="max-w-md mx-auto px-5 pt-5">
-          <div className="bg-white rounded-2xl shadow-sm p-5">
-            <ActivityList transactions={transactions} />
-          </div>
+          {transactions.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
+              <p className="text-sm text-tertiary leading-relaxed">
+                Vos visites et récompenses apparaîtront ici dès votre premier passage
+                {businessName ? ` chez ${businessName}` : ' chez un commerçant Izou'}.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm p-5">
+              <ActivityList transactions={transactions} />
+            </div>
+          )}
         </div>
       </div>
 

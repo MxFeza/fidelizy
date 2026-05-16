@@ -1,18 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
-import { type Tab, isIOS, isInStandaloneMode, type BeforeInstallPromptEvent } from './components/utils'
-import ConfettiEffect from './components/ConfettiEffect'
+import { isIOS } from './components/utils'
 import CardTab from './components/CardTab'
-import WheelModal from './components/WheelModal'
+// Lazy-load WheelModal : ouvert uniquement quand showWheel=true (cf. AUDIT_FLUIDITE
+// reco 3, mergee 2026-05-15). Reduit le bundle initial de /card/[cardId].
+const WheelModal = dynamic(() => import('./components/WheelModal'), { ssr: false })
 import PushBanner from './components/PushBanner'
-import ProfileTab from './components/ProfileTab'
 import TopBarClient from '@/components/client/TopBarClient'
 import BottomTabBarClient from '@/components/client/BottomTabBarClient'
+import FeedbackBubbleClient from '@/components/client/FeedbackBubbleClient'
+import Toast from '@/components/client/Toast'
+import { Emoji } from '@/lib/emojis'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import OnboardingWelcomeSheet from '@/components/client/onboarding/OnboardingWelcomeSheet'
+import OnboardingProgressBanner from '@/components/client/onboarding/OnboardingProgressBanner'
+import PwaInstallPrompt from '@/components/client/onboarding/PwaInstallPrompt'
+import CustomerCoach from '@/components/client/onboarding/CustomerCoach'
+import { requestRunCustomerFlow } from '@/components/client/onboarding/customerOnboardingFlows'
+import type { OnboardingStatus, OnboardingTaskId } from '@/lib/onboarding/getCustomerTaskStatus'
 
 interface Props {
   card: LoyaltyCard & { customers: Customer | null }
@@ -20,28 +30,39 @@ interface Props {
   transactions: Transaction[]
   tiers: LoyaltyTier[]
   cardToken: string
+  /**
+   * Status d'onboarding fourni en SSR pour eviter le flash auth client-side.
+   * null = utilisateur non-connecte ou carte != customer connecte (mode preview).
+   */
+  initialOnboardingStatus: OnboardingStatus | null
 }
 
-export default function CardPageClient({ card, business, transactions, tiers, cardToken }: Props) {
-  const searchParams = useSearchParams()
-  const initialTab = (() => {
-    const t = searchParams.get('tab')
-    if (t === 'profile') return t
-    return 'card' as const
-  })()
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
-  const [installEvent, setInstallEvent] = useState<Event | null>(null)
-  const [showInstallBanner, setShowInstallBanner] = useState(false)
-  const [showIOSBanner, setShowIOSBanner] = useState(false)
+export default function CardPageClient({
+  card,
+  business,
+  transactions,
+  tiers,
+  cardToken,
+  initialOnboardingStatus,
+}: Props) {
   const [notification, setNotification] = useState<string | null>(null)
-  const [showConfetti, setShowConfetti] = useState(false)
   const [walletAvailable, setWalletAvailable] = useState(false)
   const [showPushBanner, setShowPushBanner] = useState(false)
   const [liveTiers, setLiveTiers] = useState(tiers)
   const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
   const [showWheel, setShowWheel] = useState(false)
+  const isOnline = useOnlineStatus()
 
-  const color = business.primary_color || '#7F56D9'
+  // Onboarding state — initialise depuis SSR, refresh via /status au mount.
+  const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus | null>(initialOnboardingStatus)
+  const [showWelcomeSheet, setShowWelcomeSheet] = useState(
+    initialOnboardingStatus ? !initialOnboardingStatus.started : false,
+  )
+  const [showInstallModal, setShowInstallModal] = useState(false)
+  const [coachFlowToStart, setCoachFlowToStart] = useState<OnboardingTaskId | null>(null)
+  const completeSentRef = useRef(false)
+
+  const color = business.primary_color || '#1E1E1E'
   const stampsRequired = business.stamps_required ?? 10
   const [stampsCount, setStampsCount] = useState(Math.min(card.current_stamps ?? 0, stampsRequired))
   const [pointsBalance, setPointsBalance] = useState(card.current_points ?? 0)
@@ -59,32 +80,20 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     return `${pointsBalance} pts cumulés chez ${business.business_name}`
   })()
 
-  // Android/Chrome install prompt
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setInstallEvent(e)
-      if (!isInStandaloneMode()) setShowInstallBanner(true)
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  // iOS install suggestion + wallet availability
-  // En dev, on force walletAvailable=true pour pouvoir verifier le rendu desktop.
+  // Wallet availability — iOS uniquement (Android = Epic 6 a venir)
+  // SSR-safe init via effect.
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWalletAvailable(true)
     }
     if (isIOS()) {
+       
       setWalletAvailable(true)
-      if (!isInStandaloneMode() && !sessionStorage.getItem('ios_install_dismissed')) {
-        setShowIOSBanner(true)
-      }
     }
   }, [])
 
-  // Push notification permission
+  // Push notification permission — SSR-safe init via effect
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!('PushManager' in window)) return
@@ -92,6 +101,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     if (Notification.permission === 'granted') return
     if (Notification.permission === 'denied') return
     if (localStorage.getItem('fidelizy_push_dismissed')) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowPushBanner(true)
   }, [])
 
@@ -135,16 +145,10 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
           const diff = data.stamps - prev
           setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
           setTimeout(() => setNotification(null), 4000)
-          if (data.stamps >= stampsRequired && prev < stampsRequired) {
-            setShowConfetti(true)
-            setTimeout(() => setShowConfetti(false), 3500)
-          }
           localStorage.setItem(`fidelizy_stamps_${card.id}`, String(capped))
         } else if (data.stamps === 0 && prev > 0) {
           setNotification('🎉 Récompense obtenue ! Carte remise à zéro.')
           setTimeout(() => setNotification(null), 5000)
-          setShowConfetti(true)
-          setTimeout(() => setShowConfetti(false), 3500)
           localStorage.setItem(`fidelizy_stamps_${card.id}`, '0')
         }
 
@@ -161,7 +165,7 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
     return () => clearInterval(interval)
   }, [card.qr_code_id, card.id, stampsRequired])
 
-  // Stamp notification + confetti on reward unlock
+  // Stamp notification on increment (confetti retire 2026-05-13 — retour user).
   useEffect(() => {
     const storageKey = `fidelizy_stamps_${card.id}`
     const lastStr = localStorage.getItem(storageKey)
@@ -169,31 +173,104 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
 
     if (lastStamps !== null && stampsCount > lastStamps) {
       const diff = stampsCount - lastStamps
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
       setTimeout(() => setNotification(null), 4000)
-    }
-
-    if (
-      business.loyalty_type === 'stamps' &&
-      stampsCount >= stampsRequired &&
-      (lastStamps === null || lastStamps < stampsRequired)
-    ) {
-      setTimeout(() => {
-        setShowConfetti(true)
-        setTimeout(() => setShowConfetti(false), 3500)
-      }, 400)
     }
 
     localStorage.setItem(storageKey, String(stampsCount))
   }, [card.id, stampsCount, stampsRequired, business.loyalty_type])
 
-  async function handleInstall() {
-    if (!installEvent) return
-    ;(installEvent as BeforeInstallPromptEvent).prompt()
-    const { outcome } = await (installEvent as BeforeInstallPromptEvent).userChoice
-    if (outcome === 'accepted') setShowInstallBanner(false)
-    setInstallEvent(null)
-  }
+  // Refresh onboarding status au mount client (pour capter changements depuis SSR).
+  useEffect(() => {
+    if (!initialOnboardingStatus) return
+    let cancelled = false
+    fetch('/api/me/onboarding/status', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (cancelled || !s) return
+        setOnboardingStatus(s as OnboardingStatus)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [initialOnboardingStatus])
+
+  // Refresh onboarding status (utilise apres une action qui change l'etat — ex: wallet ajoute).
+  const refreshOnboarding = useCallback(async () => {
+    try {
+      const res = await fetch('/api/me/onboarding/status', { cache: 'no-store' })
+      if (!res.ok) return
+      const s = (await res.json()) as OnboardingStatus
+      setOnboardingStatus(s)
+    } catch {
+      // silent
+    }
+  }, [])
+
+  // Si 3/3 atteint, marque completed_at (idempotent) + toast + masquage banner.
+  useEffect(() => {
+    if (!onboardingStatus) return
+    const allDone = onboardingStatus.tasks.every((t) => t.done)
+    if (!allDone) return
+    if (onboardingStatus.completed) return
+    if (completeSentRef.current) return
+    completeSentRef.current = true
+    fetch('/api/me/onboarding/complete', { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(() => {
+         
+        setOnboardingStatus((prev) => (prev ? { ...prev, completed: true } : prev))
+         
+        setNotification('Bravo, vous êtes prêt à fidéliser ! 🎉')
+        setTimeout(() => setNotification(null), 4000)
+      })
+      .catch(() => {})
+  }, [onboardingStatus])
+
+  // Mark wallet ajoute (idempotent) + refresh status.
+  // Story 9.2 v2 : depuis le banner, on déclenche un coachmark qui highlight
+  // le bouton Wallet du CardTab plutôt que de download directement. Le user
+  // voit "où cliquer" puis fait l'action lui-même. Au clic du bouton, le
+  // coachmark se ferme + le download s'effectue + tracking.
+  const handleWalletClick = useCallback(() => {
+    const flow = requestRunCustomerFlow('wallet_added')
+    if (flow) {
+      setCoachFlowToStart('wallet_added')
+    } else {
+      // Fallback (sessionStorage indispo, ou autre) → fallback à l'ancien
+      // comportement de download direct.
+      if (typeof window !== 'undefined') {
+        window.open(`/api/wallet/${card.qr_code_id}`, '_blank', 'noopener,noreferrer')
+      }
+      fetch('/api/me/onboarding/wallet-added', { method: 'POST' })
+        .then(() => refreshOnboarding())
+        .catch(() => {})
+    }
+  }, [card.qr_code_id, refreshOnboarding])
+
+  // PWA install — declenche depuis sheet ou banner progress.
+  const handleInstallClick = useCallback(() => {
+    setShowInstallModal(true)
+  }, [])
+
+  const handleCoachFlowEnded = useCallback(() => {
+    setCoachFlowToStart(null)
+    refreshOnboarding()
+  }, [refreshOnboarding])
+
+  // Quand l'install PWA est confirme (display-mode standalone ou Android prompt accepted),
+  // refresh le banner progress.
+  const handlePwaInstalled = useCallback(() => {
+    refreshOnboarding()
+  }, [refreshOnboarding])
+
+  // Quand le sheet welcome se ferme, on refresh status (started_at vient d'etre marque).
+  const handleWelcomeClose = useCallback(() => {
+    setShowWelcomeSheet(false)
+    refreshOnboarding()
+  }, [refreshOnboarding])
 
   return (
     <>
@@ -206,8 +283,6 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
         }
       `}</style>
 
-      {showConfetti && <ConfettiEffect color={color} />}
-
       {/* Stamp notification toast */}
       {notification && (
         <div
@@ -217,11 +292,23 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
             left: '50%',
             zIndex: 60,
             animation: 'slideDownNotif 4s ease-in-out forwards',
-            whiteSpace: 'nowrap',
           }}
-          className="bg-green-600 text-white px-5 py-3 rounded-2xl shadow-lg text-sm font-semibold"
         >
-          {notification}
+          <Toast variant="success" title={notification} />
+        </div>
+      )}
+
+      {/* Offline status — toast persistant tant que navigator.onLine === false */}
+      {!isOnline && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-md"
+          style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
+        >
+          <Toast
+            variant="error"
+            title="Hors ligne"
+            message="Vos tampons se synchroniseront à la reconnexion"
+          />
         </div>
       )}
 
@@ -233,58 +320,28 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
         color={color}
       />
 
-      {/* iOS install banner */}
-      {showIOSBanner && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-start gap-3">
-          <span className="text-2xl shrink-0">📱</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold mb-0.5">Installer l&apos;application</p>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Appuyez sur{' '}
-              <span className="inline-flex items-center align-middle mx-0.5">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3v12M8 7l4-4 4 4" />
-                  <path d="M20 16v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3" />
-                </svg>
-              </span>{' '}
-              en bas, puis{' '}
-              <span className="font-bold">Ajouter à l&apos;écran d&apos;accueil</span>
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              sessionStorage.setItem('ios_install_dismissed', '1')
-              setShowIOSBanner(false)
-            }}
-            className="text-gray-400 hover:text-white text-xl leading-none shrink-0 mt-0.5"
-          >
-            ×
-          </button>
-        </div>
-      )}
+      {/* PWA install prompt (banner sticky-bottom auto-display + modal IOS tutorial)
+          Story 9.2 §10 — remplace les anciens banners iOS/Android (cf. critere §11.8). */}
+      <PwaInstallPrompt color={color} onInstalled={handlePwaInstalled} />
 
-      {/* Android install banner */}
-      {showInstallBanner && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 bg-gray-900 text-white rounded-2xl p-4 shadow-2xl flex items-center gap-3">
-          <span className="text-2xl shrink-0">📲</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">Installer Izou</p>
-            <p className="text-xs text-gray-400">Accédez à votre carte en un tap</p>
-          </div>
-          <button
-            onClick={handleInstall}
-            className="shrink-0 text-white text-sm font-semibold px-3 py-1.5 rounded-xl"
-            style={{ backgroundColor: color }}
-          >
-            Installer
-          </button>
-          <button
-            onClick={() => setShowInstallBanner(false)}
-            className="text-gray-400 hover:text-white text-xl leading-none shrink-0"
-          >
-            ×
-          </button>
-        </div>
+      {/* Modal install declenche depuis le sheet welcome ou le banner progress */}
+      <PwaInstallPrompt
+        mode="modal"
+        open={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+        color={color}
+        onInstalled={handlePwaInstalled}
+      />
+
+      {/* Onboarding welcome sheet (1er acces uniquement) — Story 9.2 §4 */}
+      {showWelcomeSheet && (
+        <OnboardingWelcomeSheet
+          firstName={firstName}
+          businessName={business.business_name}
+          onInstallClick={handleInstallClick}
+          onWalletClick={handleWalletClick}
+          onClose={handleWelcomeClose}
+        />
       )}
 
       <div className="min-h-screen bg-gray-50 pb-24">
@@ -313,45 +370,42 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
         {/* Greeting header (Figma B2) */}
         <div className="bg-white border-b border-gray-100">
           <div className="max-w-md mx-auto px-5 py-5">
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-              Bienvenue {firstName} 👋
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight inline-flex items-center gap-2">
+              <span>Bienvenue {firstName}</span>
+              <Emoji name="wave" size={26} />
             </h1>
             <p className="text-sm text-gray-500 mt-1">{statusLine}</p>
           </div>
         </div>
 
+        {/* Onboarding progress banner — mobile only, masque a 3/3 (cf. spec §5 + §11.7) */}
+        {onboardingStatus && !onboardingStatus.completed && (
+          <div className="max-w-md mx-auto">
+            <OnboardingProgressBanner
+              status={onboardingStatus}
+              color={color}
+              onInstallClick={handleInstallClick}
+              onWalletClick={handleWalletClick}
+            />
+          </div>
+        )}
+
         {/* Tab content */}
         <div className="max-w-md mx-auto px-5 pt-5 space-y-5">
-          {activeTab === 'card' && (
-            <CardTab
-              card={card}
-              business={business}
-              transactions={transactions}
-              stampsCount={stampsCount}
-              pointsBalance={pointsBalance}
-              liveTiers={liveTiers}
-              wheelStatus={wheelStatus}
-              color={color}
-              shortCode={shortCode}
-              stampsRequired={stampsRequired}
-              walletAvailable={walletAvailable}
-              onShowWheel={() => setShowWheel(true)}
-              onShowConfetti={() => {
-                setShowConfetti(true)
-                setTimeout(() => setShowConfetti(false), 3500)
-              }}
-            />
-          )}
-
-
-          {activeTab === 'profile' && (
-            <ProfileTab
-              card={card}
-              business={business}
-              cardToken={cardToken}
-              color={color}
-            />
-          )}
+          <CardTab
+            card={card}
+            business={business}
+            transactions={transactions}
+            stampsCount={stampsCount}
+            pointsBalance={pointsBalance}
+            liveTiers={liveTiers}
+            wheelStatus={wheelStatus}
+            color={color}
+            shortCode={shortCode}
+            stampsRequired={stampsRequired}
+            walletAvailable={walletAvailable}
+            onShowWheel={() => setShowWheel(true)}
+          />
         </div>
 
         <footer className="max-w-md mx-auto px-5 pt-8 pb-4 text-center text-[11px] text-gray-400 space-x-2">
@@ -374,16 +428,23 @@ export default function CardPageClient({ card, business, transactions, tiers, ca
           onClose={() => setShowWheel(false)}
           onResult={(newPoints) => {
             setPointsBalance(newPoints)
-            setShowConfetti(true)
-            setTimeout(() => setShowConfetti(false), 3500)
           }}
         />
       )}
 
-      <BottomTabBarClient
-        cardId={card.qr_code_id}
-        activeLocal={activeTab}
-        onLocalChange={(tab) => setActiveTab(tab)}
+      <BottomTabBarClient cardId={card.qr_code_id} />
+
+      {/* Bulle "Envoyer un feedback" — mobile uniquement (md:hidden interne).
+          Story 9.2 v2 : ajoutée sur la card page suite au retour user qui ne
+          la trouvait que sur /me alors qu'il passait l'essentiel de son temps
+          ici. Pattern miroir du dashboard merchant. */}
+      <FeedbackBubbleClient />
+
+      {/* Coachmark interactif client (wallet, customize). Story 9.2 v2.
+          PWA reste géré via PwaInstallPrompt en modal — pas de coachmark. */}
+      <CustomerCoach
+        flowToStart={coachFlowToStart}
+        onFlowEnded={handleCoachFlowEnded}
       />
     </>
   )

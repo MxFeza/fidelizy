@@ -1,3 +1,5 @@
+import Image from 'next/image'
+import Link from 'next/link'
 import RecoverForm from './RecoverForm'
 
 export const metadata = {
@@ -6,15 +8,28 @@ export const metadata = {
 
 export default function RecoverPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col items-center justify-center p-5">
-      <RecoverForm />
+    <div className="min-h-screen flex flex-col bg-primary">
+      <header className="px-5 py-4 border-b border-secondary">
+        <Image
+          src="/izou-logo.svg"
+          alt="Izou"
+          width={80}
+          height={24}
+          priority
+          className="h-6 w-auto"
+        />
+      </header>
 
-      <footer className="mt-8 pb-6 text-center text-xs text-gray-400 space-x-3">
-        <a href="/privacy" className="hover:text-gray-600 underline">Confidentialité</a>
+      <main className="flex-1 flex flex-col px-5 py-8">
+        <RecoverForm />
+      </main>
+
+      <footer className="py-6 text-center text-xs text-quaternary space-x-2">
+        <Link href="/privacy" className="hover:text-tertiary underline">Confidentialité</Link>
         <span>·</span>
-        <a href="/terms" className="hover:text-gray-600 underline">CGU</a>
+        <Link href="/terms" className="hover:text-tertiary underline">CGU</Link>
         <span>·</span>
-        <a href="/legal" className="hover:text-gray-600 underline">Mentions légales</a>
+        <Link href="/legal" className="hover:text-tertiary underline">Mentions légales</Link>
       </footer>
     </div>
   )

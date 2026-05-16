@@ -29,12 +29,33 @@ export async function registerCustomer(
     throw new AppError('Commerce introuvable', 404)
   }
 
-  // Check if customer with this phone already exists
-  const { data: existingCustomer } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('phone', phone)
-    .maybeSingle()
+  // Lookup priority : email d'abord (4.2.b' Netflix multi-cartes), puis phone.
+  //
+  // Si l'email fourni correspond a un compte existant -> on attache la nouvelle
+  // carte a ce compte (peu importe le phone tape sur le formulaire). Le user
+  // verra toutes ses cartes consolidees dans son /me apres login.
+  //
+  // Sinon, fallback sur le lookup par phone (comportement historique : un
+  // meme numero recoit toutes les cartes du meme appareil).
+  let existingCustomer: { id: string } | null = null
+
+  if (email) {
+    const { data } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle()
+    if (data) existingCustomer = data
+  }
+
+  if (!existingCustomer) {
+    const { data } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('phone', phone)
+      .maybeSingle()
+    if (data) existingCustomer = data
+  }
 
   let customerId: string
 

@@ -231,6 +231,7 @@ export default function SecurityClient({ email }: SecurityClientProps) {
             </Button>
           </div>
         </SettingsSection>
+
       </SettingsBody>
     </SettingsPage>
   )

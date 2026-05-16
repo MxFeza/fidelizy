@@ -1,5 +1,6 @@
 import { sendPushToCard, sendPushToAllBusinessClients } from '@/lib/push/sendPush'
 import { notifyWalletDevices } from '@/lib/wallet/push'
+import { BASE_URL } from '@/lib/config'
 import type { NotificationPayload } from './notification.schemas'
 
 /**
@@ -19,7 +20,7 @@ export async function notifyClient(
     await sendPushToCard(cardId, {
       title: payload.title,
       body: payload.body,
-      url: `https://fidelizy.vercel.app/card/${qrCodeId}`,
+      url: `${BASE_URL}/card/${qrCodeId}`,
     })
     sent.push('web_push')
   } catch (err) {

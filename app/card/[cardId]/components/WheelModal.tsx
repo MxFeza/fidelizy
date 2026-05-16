@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji } from '@/lib/emojis'
 
 interface WheelSegment {
   id: string
@@ -85,7 +87,7 @@ export default function WheelModal({ cardId, qrCodeId, businessId, color, cardTo
   const segAngle = segments.length > 0 ? 360 / segments.length : 360
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-overlay/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <style>{`
         @keyframes wheelSpin {
           from { transform: rotate(0deg); }
@@ -99,7 +101,10 @@ export default function WheelModal({ cardId, qrCodeId, businessId, color, cardTo
         >
           ×
         </button>
-        <h2 className="text-lg font-bold text-center mb-4">🎡 Roue de la fortune</h2>
+        <h2 className="text-lg font-bold text-center mb-4 inline-flex items-center justify-center gap-2 w-full">
+          <Emoji name="wheel" size={20} />
+          <span>Roue de la fortune</span>
+        </h2>
 
         {loading && <p className="text-center text-gray-400 py-8">Chargement...</p>}
 
@@ -172,24 +177,26 @@ export default function WheelModal({ cardId, qrCodeId, businessId, color, cardTo
             )}
 
             {!result && (
-              <button
+              <Button
+                size="md"
+                color="primary"
+                isLoading={spinning}
+                className="w-full"
                 onClick={handleSpin}
-                disabled={spinning}
-                className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-60"
-                style={{ backgroundColor: color }}
               >
                 {spinning ? 'La roue tourne...' : 'Tourner !'}
-              </button>
+              </Button>
             )}
 
             {result && (
-              <button
+              <Button
+                size="md"
+                color="secondary"
+                className="w-full"
                 onClick={onClose}
-                className="w-full py-3 rounded-xl text-sm font-semibold border-2 transition-all"
-                style={{ borderColor: color, color }}
               >
                 Fermer
-              </button>
+              </Button>
             )}
           </div>
         )}

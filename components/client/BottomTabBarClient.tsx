@@ -6,14 +6,15 @@ import { CreditCard02, Building02, Scan, Gift01, User01 } from '@untitledui/icon
 import type { FC, HTMLAttributes } from 'react'
 import { cx } from '@/utils/cx'
 
-type LocalTabId = 'card' | 'profile'
+type LocalTabId = 'card'
 
 interface BottomTabBarClientProps {
   cardId: string
   /**
-   * Quand fourni : Carte / Profil sont des boutons qui appellent onLocalChange
+   * Quand fourni : Carte est un bouton qui appelle onLocalChange
    * (utilise sur la page principale /card/[cardId]).
-   * Sinon (sur /business, /scan, /referral) : ils sont des Link qui retournent vers la home.
+   * Sinon (sur /business, /scan, /referral, /me/profile) : c'est un Link qui retourne vers la home.
+   * Profil route toujours vers /me/profile.
    */
   onLocalChange?: (tab: LocalTabId) => void
   activeLocal?: LocalTabId
@@ -42,16 +43,19 @@ export default function BottomTabBarClient({
   const base = `/card/${cardId}`
 
   const cardTab: LocalTab = { id: 'card', href: base, label: 'Carte', icon: CreditCard02 }
-  const profileTab: LocalTab = { id: 'profile', href: `${base}?tab=profile`, label: 'Profil', icon: User01 }
+  const profileHref = '/me/profile'
 
   const businessTab: RouteTab = { id: 'business', href: `${base}/business`, label: 'Entreprise', icon: Building02 }
-  const scanTab: RouteTab = { id: 'scan', href: `${base}/scan`, label: 'Scanner', icon: Scan }
+  // Story 4.2.e (Agent #2) : la page /scan racine gère le scan QR pour
+  // ajouter une carte d'un autre commerce. Pas de page dédiée par carte.
+  const scanTab: RouteTab = { id: 'scan', href: '/scan', label: 'Scanner', icon: Scan }
   const referralTab: RouteTab = { id: 'referral', href: `${base}/referral`, label: 'Parrainage', icon: Gift01 }
 
   // Active states
   const onBusiness = pathname.startsWith(`${base}/business`)
-  const onScan = pathname.startsWith(`${base}/scan`)
+  const onScan = pathname.startsWith('/scan')
   const onReferral = pathname.startsWith(`${base}/referral`)
+  const onProfile = pathname.startsWith('/me/profile')
   const onHome = pathname === base
 
   const isLocalActive = (id: LocalTabId) => {
@@ -146,24 +150,16 @@ export default function BottomTabBarClient({
           </Link>
         </li>
 
-        {/* Profil (local) */}
+        {/* Profil (route) */}
         <li className="flex-1">
-          {onLocalChange ? (
-            <button
-              type="button"
-              onClick={() => onLocalChange('profile')}
-              aria-current={isLocalActive('profile') ? 'page' : undefined}
-              className={itemClass}
-            >
-              {renderIcon(profileTab.icon, isLocalActive('profile'))}
-              {renderLabel(profileTab.label, isLocalActive('profile'))}
-            </button>
-          ) : (
-            <Link href={profileTab.href} className={itemClass}>
-              {renderIcon(profileTab.icon, false)}
-              {renderLabel(profileTab.label, false)}
-            </Link>
-          )}
+          <Link
+            href={profileHref}
+            aria-current={onProfile ? 'page' : undefined}
+            className={itemClass}
+          >
+            {renderIcon(User01, onProfile)}
+            {renderLabel('Profil', onProfile)}
+          </Link>
         </li>
       </ul>
     </nav>

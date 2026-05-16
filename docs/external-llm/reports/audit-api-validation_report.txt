@@ -1,0 +1,114 @@
+
+
+
+Voici le rapport complet formaté exactement selon les spécifications du brief d'audit.
+
+***
+
+# Audit sécurité Izou — 2026-05-08
+
+## TL;DR
+L'architecture globale de l'API est saine (absence d'injections SQL via le client Supabase, authentification bien séparée, utilisation consistante du wrapper `withErrorHandler`). Cependant, **le manque de rate-limiting sur des endpoints sensibles (OTP, création de compte, exports lourds)** expose le système à des attaques de force brute et de déni de service (DoS). La validation Zod doit également être uniformisée.
+
+## Tier 1 — Critique (fix immédiat avant pilote)
+
+| # | Item | Path | CVSS estimé | Recommandation |
+|---|------|------|-------------|----------------|
+| T1.1 | Vulnérabilité Brute-Force OTP | `app/api/auth/verify-otp/route.ts`<br>`app/api/auth/merchant-verify-otp/route.ts` | Critical | Ajouter un `otpVerifyLimiter` (ex: 5 requêtes / 10 min par IP) au tout début du handler. |
+| T1.2 | Déni de service/Spam sur l'inscription | `app/api/auth/register-direct/route.ts` | High | Appliquer `otpLimiter.limit(getIP(request))` avant l'insertion en BDD et l'envoi d'email via Supabase Auth. |
+
+## Tier 2 — Important (planifier sous 2 semaines)
+
+| # | Item | Path | CVSS estimé | Recommandation |
+|---|------|------|-------------|----------------|
+| T2.1 | DoS sur endpoints lourds (Exports/Wallet) | `app/api/account/export/route.ts`<br>`app/api/me/export/route.ts`<br>`app/api/wallet/[cardId]/route.ts` | Medium | Créer et appliquer un `resourceHeavyLimiter` (ex: 5 appels / heure par utilisateur). |
+| T2.2 | Fuite d'informations (Error Disclosure) | `app/api/push/broadcast/route.ts` | Medium | Remplacer `if (insertErr) throw insertErr;` par une erreur métier générique `AppError` pour ne pas leaker le schéma BDD. |
+| T2.3 | Risque de bannissement API Notion | `app/api/feedback/route.ts` | Medium | Ajouter un `feedbackLimiter` côté route commerçant (similaire à ce qui est fait côté client). |
+
+## Tier 3 — Hardening (backlog)
+
+- **Standardisation Zod :** Plusieurs routes valident les payloads "à la main" (`typeof body.code === 'string'`). Il faut tout migrer vers `zod.safeParse()`.
+- **Limitation sur lectures publiques et Dashboards :** Les endpoints `/api/card/[cardId]/live/route.ts` et `/api/dashboard/*` n'ont pas de rate-limiting. Ajouter un limiteur permissif (ex: 30-60 req/min) pour éviter le scraping et la surcharge DB.
+
+---
+
+## Détail par section
+
+### 1. RLS Supabase
+**Verdict global : Saine. Les accès cross-tenant sont bien gérés.**
+- **`businesses` :** OK. Récupération basée sur `user.id` authentifié.
+- **`customers` :** OK. Accès correctement encapsulé via le `service_role` (ex: `app/api/auth/register-direct/route.ts`).
+- **`loyalty_cards` / `transactions` :** OK. Le service `createServiceClient` est utilisé judicieusement pour les opérations publiques/scan, vérifiant d'abord la validité du `qr_code_id`.
+- **`claim_requests` :** RLS verrouillée (confirmée). Seul l'API y accède via service_role.
+- **`customer_feedback` :** Inséré via service_role de manière sécurisée en associant l'ID récupéré via le token d'auth du client.
+
+### 2. Secrets management
+**Verdict : Très bon.**
+- Aucun secret (`sk_`, `eyJ...`) n'est hardcodé dans les fichiers audités.
+- L'utilisation de `process.env.NEXT_PUBLIC_SUPABASE_URL`, `CRON_SECRET`, etc., est systématique et propre.
+
+### 3. Headers HTTP sécurité
+**Verdict : À vérifier / renforcer au niveau framework.**
+- Les fichiers fournis ne montrent pas de configuration `next.config.ts` ou `middleware.ts`.
+- **Recommandation :** S'assurer que les CSP (Content Security Policy), HSTS, et X-Frame-Options sont bien définis dans `next.config.ts` (cf. checklist).
+
+### 4. Validation Zod sur les routes API
+**Verdict : Hétérogène.**
+- ✅ **OK :** `/api/scan`, `/api/join`, `/api/me/card-color`, `/api/me/notification-prefs` utilisent proprement `.safeParse()`.
+- ❌ **FAIBLE :** 
+  - `/api/auth/register-direct` (validation manuelle par `.trim().length < 1`)
+  - `/api/card/[cardId]/claim-request`
+  - `/api/scan/validate-claim`
+  - `/api/me/add-card`
+- **Recommandation :** Migrer les payloads des routes "FAIBLES" vers les fichiers `*.schemas.ts`.
+
+### 5. Rate-limiting exhaustif
+**Verdict : Incomplet, faille majeure sur Auth.**
+- `lib/ratelimit.ts` est très bien conçu (gestion `gracefulLimit` pour le dev).
+- **Manquant sur l'écriture :** `/api/auth/verify-otp`, `/api/auth/merchant-verify-otp`, `/api/auth/register-direct`.
+- **Manquant sur le lourd :** Exports ZIP, génération Apple Wallet, Upload d'assets S3.
+
+### 6. Auth boundaries
+**Verdict : Solide.**
+- La séparation entre le client classique (`createClient` qui lit le cookie session) et le client service_role (`createServiceClient`) est respectée.
+- Les endpoints `/api/business/*` vérifient toujours `const { data: { user } } = await supabase.auth.getUser()`.
+- IDOR prévenu : Lorsqu'un commerçant agit sur une carte, la requête SQL vérifie systématiquement `.eq('business_id', user.id)`.
+
+### 7. SQL injection / RPC safety
+**Verdict : Sûr.**
+- L'utilisation du SDK JS Supabase (`.eq()`, `.in()`, `.insert()`) paramètre automatiquement les requêtes.
+- Aucune exécution de SQL brut ou de concaténation dangereuse n'a été détectée dans les appels d'API.
+
+### 8. Anti-fraude scan (cooldown)
+**Verdict : Mécanique présente, implémentation déléguée.**
+- La route `/api/scan/route.ts` récupère bien la propriété `scan_cooldown_hours` du commerce.
+- Le contrôle effectif se fait dans `lib/services/loyalty.service.ts` (fonction `scanCard`). S'assurer que le service renvoie bien un message métier (ex: `"Patience, vous avez déjà scanné récemment"`) et non une erreur 500 si le délai n'est pas écoulé.
+
+### 9. Sentry & logging
+**Verdict : Attention aux throws bruts.**
+- Le fait de lancer `throw insertErr;` (`/api/push/broadcast/route.ts`) peut propager une `PostgrestError` jusqu'au client si `withErrorHandler` ne nettoie pas spécifiquement l'objet d'erreur. Préférer jeter une `AppError.validation()` ou `.internal()`.
+
+### 10. Apple Wallet pkpass
+**Verdict : Correct, mais vulnérable au DoS.**
+- La vérification du token HMAC est bien implémentée : `verifyAuthToken(token, serialNumber)` dans `app/api/wallet/v1/passes/[passTypeId]/[serialNumber]/route.ts`.
+- Manque de Rate-Limit sur le téléchargement manuel via `/api/wallet/[cardId]/route.ts`.
+
+---
+
+## Checklist actionnable
+
+- [ ] **T1.1** : Créer `otpVerifyLimiter` dans `lib/ratelimit.ts` et l'ajouter dans `verify-otp/route.ts` et `merchant-verify-otp/route.ts`.
+- [ ] **T1.2** : Ajouter `await otpLimiter.limit(...)` dans `register-direct/route.ts`.
+- [ ] **T2.1** : Créer `resourceHeavyLimiter` dans `lib/ratelimit.ts` et l'ajouter aux routes d'export (`account/export`, `me/export`) et d'upload (`upload-asset`).
+- [ ] **T2.2** : Dans `push/broadcast/route.ts`, remplacer `throw insertErr` par `throw new AppError("Erreur...", 500)`.
+- [ ] **T2.3** : Ajouter un rate-limit sur `app/api/feedback/route.ts`.
+- [ ] **T3.1** : Créer des schémas Zod pour `register-direct`, `validate-claim` et `claim-request`, et supprimer la validation manuelle (`typeof`).
+- [ ] **T3.2** : Vérifier / Ajouter les Headers de sécurité (`CSP`, `HSTS`) dans `next.config.ts`.
+
+---
+
+## Questions ouvertes pour Francis (humain)
+
+1. **Rate limit en production :** Confirmez-vous que la variable `NODE_ENV === 'production'` est bien évaluée correctement sur Vercel (et pas bypassée sur les environnements de "Preview") ?
+2. **Gestion des exports :** Les exports ZIP sont générés de manière synchrone (en mémoire via `JSZip`). Si un commerce a des milliers de clients/transactions, cela risque de faire un timeout (limite de 10s à 60s max sur Vercel serverless) ou un Out-Of-Memory. Souhaitez-vous planifier un passage à un job asynchrone (upload sur bucket temporaire puis envoi d'un lien par mail) si le pilote grossit ?
+3. **Cooldown Scan :** Le comportement actuel de la fonction `scanCard` (service) lors d'un scan frauduleux renvoie-t-il bien une erreur "métier" ou une exception qui serait loggée dans Sentry ? L'idéal pour le pilote est de renvoyer silencieusement un `success: false, message: "Trop tôt"`.

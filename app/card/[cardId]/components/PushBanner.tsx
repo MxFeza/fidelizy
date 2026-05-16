@@ -1,15 +1,18 @@
 'use client'
 
+import { Bell01 } from '@untitledui/icons'
+import { Button } from '@/components/ui/base/buttons/button'
 import { urlBase64ToUint8Array } from './utils'
 
 interface PushBannerProps {
   cardId: string
   showPushBanner: boolean
   onDismiss: () => void
-  color: string
+  /** @deprecated couleur business, plus utilisée depuis l'audit CTA. */
+  color?: string
 }
 
-export default function PushBanner({ cardId, showPushBanner, onDismiss, color }: PushBannerProps) {
+export default function PushBanner({ cardId, showPushBanner, onDismiss }: PushBannerProps) {
   if (!showPushBanner) return null
 
   async function handleEnablePush() {
@@ -56,7 +59,7 @@ export default function PushBanner({ cardId, showPushBanner, onDismiss, color }:
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 bg-white rounded-2xl p-4 shadow-2xl border border-gray-100 flex items-start gap-3">
-      <span className="text-2xl shrink-0">🔔</span>
+      <Bell01 className="size-7 shrink-0 text-gray-700" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-900 mb-0.5">Notifications</p>
         <p className="text-xs text-gray-500 leading-relaxed">
@@ -64,19 +67,12 @@ export default function PushBanner({ cardId, showPushBanner, onDismiss, color }:
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={handleDismissPush}
-          className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1.5"
-        >
+        <Button size="sm" color="link-gray" onClick={handleDismissPush}>
           Plus tard
-        </button>
-        <button
-          onClick={handleEnablePush}
-          className="text-xs text-white font-semibold px-3 py-1.5 rounded-lg"
-          style={{ backgroundColor: color }}
-        >
+        </Button>
+        <Button size="sm" color="primary" onClick={handleEnablePush}>
           Activer
-        </button>
+        </Button>
       </div>
     </div>
   )

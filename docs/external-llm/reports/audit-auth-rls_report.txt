@@ -1,0 +1,106 @@
+
+
+
+Voici le rapport d'audit de sécurité complet et formaté selon vos instructions strictes.
+
+***
+
+# Audit sécurité Izou — 8 Mai 2026
+
+## TL;DR
+La base architecturale d'Izou est saine (headers HTTP stricts, secrets bien isolés, crypto solide pour l'Apple Wallet), ce qui est excellent pour un lancement de pilote. Cependant, **3 vulnérabilités critiques** doivent être corrigées impérativement : une faille permettant aux clients de gonfler artificiellement leurs points via les RPC, une fuite de données personnelles à l'inscription (PII Leak), et des absences localisées mais dangereuses de rate-limiting. Le projet souffre également de l'absence du fichier `middleware.ts` qui risque de compromettre la fiabilité des sessions.
+
+## Tier 1 — Critique (fix immédiat avant pilote)
+
+| # | Item | Path | CVSS estimé | Recommandation |
+|---|------|------|-------------|----------------|
+| T1.1 | **Escalade de privilèges sur les RPCs de fidélité** | `supabase/migrations/20260502_revoke_anon_loyalty_rpcs.sql:32` | Critical | Les fonctions `increment_stamps`, `increment_points`, etc. sont encore accessibles par le rôle `authenticated`. Un client (qui se logue via OTP) peut appeler l'API REST Supabase pour ajouter des points sur n'importe quelle carte. **Action :** Implémenter l'Option B (check `auth.uid()` interne) ou révoquer `authenticated` et passer 100% par l'API `service_role`. |
+| T1.2 | **Fuite de données personnelles (PII Leak)** | `app/api/auth/register-direct/route.ts:67` | High | Si un attaquant tente de s'inscrire avec l'email d'une victime, la route retourne le vrai numéro de téléphone de la victime (`phone: existing.phone`). **Action :** Supprimer la donnée en clair de la réponse et ne retourner que l'email masqué (comme c'est déjà bien fait ligne 66). |
+| T1.3 | **Absence de Rate-Limiting sur la route d'inscription** | `app/api/auth/register-direct/route.ts:16` | High | L'endpoint effectue des INSERTs DB et déclenche des envois d'emails OTP sans appeler Upstash. Risque d'épuisement des quotas d'emails Supabase et de spam massif. **Action :** Ajouter `await joinLimiter.limit(getIP(request))` au début du route handler. |
+| T1.4 | **Absence critique du middleware (Sessions SSR instables)** | `middleware.ts` (fichier manquant) | High | Le fichier `middleware.ts` est manquant. Or, les clients SSR Supabase (`lib/supabase/server.ts`) s'attendent à ce que le middleware rafraîchisse les tokens expirés. Sans cela, les utilisateurs seront déconnectés silencieusement. **Action :** Créer le `middleware.ts` standard SSR au niveau de la racine. |
+
+## Tier 2 — Important (planifier sous 2 semaines)
+
+| # | Item | Path | CVSS estimé | Recommandation |
+|---|------|------|-------------|----------------|
+| T2.1 | **Brute-force OTP (Manque de rate-limiting applicatif)** | `app/api/auth/verify-otp/route.ts:13` | Medium | Pas de `otpLimiter` appelé avant de vérifier le code à 6 chiffres. Bien que Supabase ait des limites internes, l'ajout d'Upstash est indispensable pour bloquer le brute-force localisé d'OTP sur votre domaine. **Action :** Implémenter une limite stricte (ex: 5 essais / 10 minutes) sur les routes `verify-otp` et `merchant-verify-otp`. |
+| T2.2 | **Profils orphelins sur échec OTP** | `app/api/auth/register-direct/route.ts:74` | Low | Le `customer` est inséré en base avant de vérifier si le `signInWithOtp` (envoi d'email) réussit. En cas d'échec d'envoi, l'utilisateur a une ligne en DB mais pas de compte Auth. **Action :** Reporter la création du `customer` post-vérification (ou via un webhook/trigger Supabase au premier login). |
+
+## Tier 3 — Hardening (backlog)
+
+| # | Item | Path | Effort | Recommandation |
+|---|------|------|--------|----------------|
+| T3.1 | **Validation Zod hétérogène (Auth)** | `app/api/auth/register-direct/route.ts:18` | Faible | L'API valide manuellement (`typeof`, string length) au lieu d'utiliser un schéma Zod robuste (contrairement à `send-otp`). **Action :** Harmoniser en créant un schéma spécifique et faire un `.safeParse()`. Idem pour `merchant-send-otp` et `merchant-verify-otp`. |
+
+---
+
+## Détail par section
+
+### 1. RLS Supabase
+**Verdict : Globalement OK, mais faille critique sur les fonctions RPC.**
+*   **`businesses` / `transactions` / `reward_claims` / `referrals`** : Bien configuré (les réécritures utilisant `(SELECT auth.uid())` de la migration du 27 avril sécurisent et optimisent le tout).
+*   **`claim_requests` / `push_subscriptions`** : RLS activé sans politique publique (Deny All). Accès exclusif par `service_role`. C'est l'implémentation parfaite pour ce cas d'usage.
+*   **`loyalty_cards` / `customers`** : Les accès par les marchands sont bien cadrés. *Attention* cependant, la visibilité du client (owner) sur son propre profil client et sa propre carte n'est pas explicitement visible dans les migrations fournies (à vérifier dans les politiques non extraites par repomix).
+*   **Fonctions RPC** : Faille Tier 1 détaillée plus haut.
+
+### 2. Secrets management
+**Verdict : Très propre.**
+*   Aucun secret codé en dur (les regex `sb_secret_`, JWT prefixes n'ont rien remonté).
+*   `.env.example` liste de manière exhaustive et sécurisée l'ensemble des dépendances (Vapid, Apple, Sentry, Upstash).
+
+### 3. Headers HTTP sécurité
+**Verdict : Excellent.**
+*   `next.config.ts` définit des politiques impressionnantes et très complètes (CSP strict, frame-ancestors none, permissions-policy restreinte). Parfait pour le pilote et la production.
+
+### 4. Validation Zod sur les routes API
+**Verdict : À renforcer.**
+*   `POST /api/auth/send-otp` : ✅ Zod utilisé
+*   `POST /api/auth/verify-otp` : ✅ Zod utilisé
+*   `POST /api/auth/register-direct` : ❌ Validation ad-hoc et manuelle.
+*   `POST /api/auth/merchant-send-otp` : ❌ Validation ad-hoc.
+*   `POST /api/auth/merchant-verify-otp` : ❌ Validation ad-hoc.
+
+### 5. Rate-limiting exhaustif
+**Verdict : Des oublis critiques.**
+*   Les routes sensibles `send-otp` et `add-email` intègrent bien `otpLimiter`.
+*   Cependant, la porte d'entrée principale `register-direct` n'a *aucune* restriction IP, ce qui compromet la validité du dispositif global. La vérification de l'OTP est aussi vulnérable.
+
+### 6. Auth boundaries
+**Verdict : Problème SSR critique.**
+*   La sécurité des API côté backend (`supabase/server` et `supabase/service`) respecte bien l'isolation des privilèges.
+*   Cependant, le manque total de `middleware.ts` signifie que la récupération et le rafraichissement actif des sessions (indispensable pour le "Server-Side Rendering" Next.js) ne se fera pas, causant des bugs d'authentification massifs pour vos utilisateurs en condition réelle.
+
+### 7. SQL injection / RPC safety
+**Verdict : Sécurisé.**
+*   Les fonctions PL/pgSQL sont robustes (`décembre 20260412_atomic_counters.sql`). Les usages `security definer` sont clairs. Le `search_path` a bien été fixé (migration 27 avril), ce qui bloque les usurpations classiques d'exécution locale.
+
+### 8. Anti-fraude scan (cooldown)
+**Verdict : Configuration DB présente.**
+*   La colonne `scan_cooldown_hours` existe sur `businesses` (défaut à 4h).
+*   *Point d'attention:* Non-auditable via ce code partiel, il faut s'assurer que la route `/api/scan` ou `loyalty.service.ts` fait bel et bien le check `last_visit_at + scan_cooldown_hours > now()` et bloque l'ajout.
+
+### 9. Sentry & logging
+**Verdict : Propre.**
+*   `SENTRY_DSN` est exposé de manière safe et correcte (parfaitement autorisé de l'avoir en NEXT_PUBLIC_*).
+
+### 10. Apple Wallet pkpass
+**Verdict : Solide.**
+*   L'utilisation de `timingSafeEqual` depuis `node:crypto` (dans `lib/auth/cardToken.ts`) montre une très bonne compréhension des menaces de timing attacks pour la validation des Webhooks/Requêtes Apple Wallet. 
+
+---
+
+## Checklist actionnable
+
+- [ ] (Tier 1.1) Créer une migration pour injecter un check d'ownership (`auth.uid()`) dans `increment_stamps`, `increment_points`, `deduct_points_safe`.
+- [ ] (Tier 1.2) Éditer `app/api/auth/register-direct/route.ts:67` et supprimer la clé `phone: existing.phone ?? phone` du payload JSON renvoyé.
+- [ ] (Tier 1.3) Ajouter l'import et l'appel `await joinLimiter.limit(getIP(request))` au sommet du `withErrorHandler` dans `register-direct/route.ts`.
+- [ ] (Tier 1.4) Créer un fichier `middleware.ts` à la racine contenant la logique de rafraîchissement des tokens Supabase.
+- [ ] (Tier 2.1) Ajouter `await otpLimiter.limit(getIP(request))` dans les deux routes `verify-otp`.
+- [ ] (Tier 3.1) Ajouter `registerDirectSchema` dans `lib/services/auth.schemas.ts` et nettoyer la route `register-direct`.
+
+---
+
+## Questions ouvertes pour Francis (humain)
+
+1. **Visibilité Customer sur ses cartes :** Comment est gérée la RLS pour que le client connecté (qui a une session OTP Auth) puisse faire un SELECT sur sa propre ligne dans `customers` et `loyalty_cards` ? Est-ce 100% wrappé via des appels API `service_role` ou as-tu une RLS spécifique (ex: `id = auth.uid()`) non incluse dans ce bundle ?
+2. **Implémentation de l'Anti-Fraude :** Je vois bien la configuration du `cooldown_hours` en base. Peux-tu me confirmer que le service métier (`loyalty.service.ts` / `/api/scan`) refuse l'opération si le délai n'est pas écoulé ?

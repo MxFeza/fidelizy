@@ -19,3 +19,9 @@ input, textarea, select {
 input::placeholder, textarea::placeholder {
   color: #9ca3af;
 }
+
+/*
+ * Story 9.1.fix (2026-05-10) — driver.js et son CSS custom ont été supprimés.
+ * Les coachmarks d'onboarding sont maintenant rendus par le composant
+ * components/dashboard/onboarding/Coachmark.tsx (Untitled UI tokens natifs).
+ */

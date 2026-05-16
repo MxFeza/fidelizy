@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { ArrowRight } from '@untitledui/icons'
+import { Emoji, type EmojiName } from '@/lib/emojis'
 import type { Transaction } from '@/lib/types'
 
 interface RecentActivityProps {
@@ -70,16 +71,19 @@ export function ActivityList({ transactions }: { transactions: Transaction[] }) 
 }
 
 function ActivityRow({ transaction }: { transaction: Transaction }) {
-  const { icon, label, accent } = describeTransaction(transaction)
+  const { iconName, label, accent } = describeTransaction(transaction)
 
   return (
     <li className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
       <div
-        className="size-9 shrink-0 rounded-full flex items-center justify-center text-base"
+        className="size-9 shrink-0 rounded-full flex items-center justify-center"
         style={{ backgroundColor: accent.bg }}
-        aria-hidden="true"
       >
-        {icon}
+        {iconName ? (
+          <Emoji name={iconName} size={20} />
+        ) : (
+          <span className="text-base text-tertiary" aria-hidden="true">•</span>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-primary line-clamp-2">{label}</p>
@@ -90,13 +94,13 @@ function ActivityRow({ transaction }: { transaction: Transaction }) {
 }
 
 function describeTransaction(t: Transaction): {
-  icon: string
+  iconName: EmojiName | null
   label: string
   accent: { bg: string }
 } {
   if (t.type === 'redeem') {
     return {
-      icon: '🎁',
+      iconName: 'gift',
       label: t.description || 'Récompense utilisée',
       accent: { bg: 'rgb(254 243 226)' },
     }
@@ -105,7 +109,7 @@ function describeTransaction(t: Transaction): {
   if ((t.stamps_added ?? 0) > 0) {
     const n = t.stamps_added ?? 0
     return {
-      icon: '🎫',
+      iconName: 'ticket',
       label: t.description || `+${n} tampon${n > 1 ? 's' : ''}`,
       accent: { bg: 'rgb(237 233 254)' },
     }
@@ -114,14 +118,14 @@ function describeTransaction(t: Transaction): {
   if ((t.points_added ?? 0) > 0) {
     const n = t.points_added ?? 0
     return {
-      icon: '⭐',
+      iconName: 'star',
       label: t.description || `+${n} point${n > 1 ? 's' : ''}`,
       accent: { bg: 'rgb(254 249 195)' },
     }
   }
 
   return {
-    icon: '•',
+    iconName: null,
     label: t.description || 'Activité',
     accent: { bg: 'rgb(243 244 246)' },
   }

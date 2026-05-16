@@ -1,19 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Mail01, ArrowLeft } from '@untitledui/icons'
+import { Mail01, ArrowLeft, AlertCircle } from '@untitledui/icons'
 import AuthLayout from '../AuthLayout'
 import { Input } from '@/components/ui/base/input/input'
 import { Button } from '@/components/ui/base/buttons/button'
 import { PUBLIC_ASSETS } from '@/lib/assets'
+
+const CALLBACK_ERRORS: Record<string, string> = {
+  invalid_link: 'Le lien de réinitialisation est invalide. Demandez-en un nouveau ci-dessous.',
+  expired_link: 'Le lien de réinitialisation a expiré ou a déjà été utilisé. Demandez-en un nouveau ci-dessous.',
+}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [callbackError, setCallbackError] = useState<string | null>(null)
+
+  // Lit le ?error=... renvoye par /auth/callback en cas d'echec PKCE exchange
+  // (lien expire/invalide). Affiche un message clair au-dessus du form.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (err && CALLBACK_ERRORS[err]) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read URL query post-hydration
+      setCallbackError(CALLBACK_ERRORS[err])
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -27,8 +45,12 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     const supabase = createClient()
+    // Fix bug 2026-05-15 : PKCE flow Supabase requiert un handler intermediaire
+    // qui appelle exchangeCodeForSession avant d'arriver sur reset-password.
+    // Sans /auth/callback, la session n'etait jamais etablie et updateUser
+    // echouait silencieusement.
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleaned, {
-      redirectTo: `${window.location.origin}/dashboard/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/reset-password`,
     })
 
     if (resetError) {
@@ -98,6 +120,12 @@ export default function ForgotPasswordPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {callbackError && (
+              <div className="rounded-md bg-warning-secondary border border-warning text-warning-primary px-4 py-3 text-sm flex items-start gap-2">
+                <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                <span>{callbackError}</span>
+              </div>
+            )}
             {error && (
               <div className="rounded-md bg-error-secondary border border-error text-error-primary px-4 py-3 text-sm">
                 {error}

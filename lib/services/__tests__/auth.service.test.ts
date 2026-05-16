@@ -107,12 +107,21 @@ describe('auth.service', () => {
   })
 
   describe('addEmailAndSendOtp', () => {
-    it('should update email and send OTP', async () => {
-      const chainable = {
+    it('should add email and send OTP when customer has no email', async () => {
+      const selectChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { email: null } }),
+      }
+      const updateChain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockResolvedValue({ error: null }),
       }
-      const supabase = { from: vi.fn().mockReturnValue(chainable) }
+      const supabase = {
+        from: vi.fn()
+          .mockReturnValueOnce(selectChain)
+          .mockReturnValueOnce(updateChain),
+      }
       const supabaseAuth = createMockAuthClient()
 
       const result = await addEmailAndSendOtp(supabase as never, supabaseAuth as never, {
@@ -120,6 +129,56 @@ describe('auth.service', () => {
         email: 'new@gmail.com',
       })
       expect(result.status).toBe('otp_sent')
+    })
+
+    it('should reject if customer already has a different email (account takeover prevention)', async () => {
+      const selectChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { email: 'victim@gmail.com' } }),
+      }
+      const supabase = { from: vi.fn().mockReturnValue(selectChain) }
+      const supabaseAuth = createMockAuthClient()
+
+      await expect(
+        addEmailAndSendOtp(supabase as never, supabaseAuth as never, {
+          phone: '+33612345678',
+          email: 'attacker@evil.com',
+        }),
+      ).rejects.toThrow(/email est déjà associé/)
+    })
+
+    it('should be idempotent if same email is provided', async () => {
+      const selectChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { email: 'same@gmail.com' } }),
+      }
+      const supabase = { from: vi.fn().mockReturnValue(selectChain) }
+      const supabaseAuth = createMockAuthClient()
+
+      const result = await addEmailAndSendOtp(supabase as never, supabaseAuth as never, {
+        phone: '+33612345678',
+        email: 'same@gmail.com',
+      })
+      expect(result.status).toBe('otp_sent')
+    })
+
+    it('should throw 404 when customer not found by phone', async () => {
+      const selectChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+      }
+      const supabase = { from: vi.fn().mockReturnValue(selectChain) }
+      const supabaseAuth = createMockAuthClient()
+
+      await expect(
+        addEmailAndSendOtp(supabase as never, supabaseAuth as never, {
+          phone: '+33600000000',
+          email: 'unknown@gmail.com',
+        }),
+      ).rejects.toThrow(/Compte introuvable/)
     })
   })
 })

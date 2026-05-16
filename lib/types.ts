@@ -11,6 +11,7 @@ export interface Business {
   business_name: string
   logo_url: string | null
   banner_url: string | null
+  card_image_url: string | null
   primary_color: string
   secondary_color: string | null
   loyalty_type: LoyaltyType
@@ -35,8 +36,13 @@ export interface Business {
   phone: string | null
   gmb_url: string | null
   gmb_visible: boolean
+  website_url: string | null
+  booking_url: string | null
   description: string | null
   opening_hours: string | null
+  // Onboarding tracking (Story 9.1 + refonte 2026-05-15)
+  onboarding_started_at: string | null
+  onboarding_completed_at: string | null
   created_at: string
 }
 
@@ -52,12 +58,22 @@ export interface LoyaltyTier {
   threshold: number
 }
 
+export interface NotificationPrefs {
+  push_enabled?: boolean
+  stamps_enabled?: boolean
+  rewards_enabled?: boolean
+  campaigns_enabled?: boolean
+  referrals_enabled?: boolean
+}
+
 export interface Customer {
   id: string
   first_name: string
+  last_name: string | null
   phone: string
   email: string | null
   push_token: string | null
+  notification_prefs: NotificationPrefs
   created_at: string
 }
 

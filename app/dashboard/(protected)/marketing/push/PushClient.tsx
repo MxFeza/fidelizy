@@ -34,6 +34,7 @@ import {
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
 import { Toggle } from '@/components/ui/base/toggle/toggle'
+import { Emoji, type EmojiName } from '@/lib/emojis'
 import { createClient } from '@/lib/supabase/client'
 import type { Business } from '@/lib/types'
 import { cx } from '@/utils/cx'
@@ -42,11 +43,18 @@ import type { PushBroadcast } from './page'
 const TITLE_MAX = 50
 const BODY_MAX = 100
 
-const TEMPLATES = [
-  { label: '🎁 Promotion', title: 'Promotion du jour', body: '−20 % sur toute la carte aujourd\'hui. À ce soir !' },
-  { label: '☕ Café offert', title: 'Une boisson vous attend', body: 'Votre carte de fidélité est complète. Venez chercher votre récompense !' },
-  { label: '⏰ On vous a manqué', title: 'Ça fait longtemps...', body: 'On serait ravis de vous revoir. Une boisson offerte si vous passez avant samedi.' },
-  { label: '🎉 Nouveauté', title: 'Nouveauté à découvrir', body: 'On vient d\'ajouter quelque chose de spécial à la carte. Venez goûter !' },
+interface PushTemplate {
+  iconName: EmojiName
+  label: string
+  title: string
+  body: string
+}
+
+const TEMPLATES: PushTemplate[] = [
+  { iconName: 'gift', label: 'Promotion', title: 'Promotion du jour', body: '−20 % sur toute la carte aujourd\'hui. À ce soir !' },
+  { iconName: 'coffee', label: 'Café offert', title: 'Une boisson vous attend', body: 'Votre carte de fidélité est complète. Venez chercher votre récompense !' },
+  { iconName: 'clock', label: 'On vous a manqué', title: 'Ça fait longtemps...', body: 'On serait ravis de vous revoir. Une boisson offerte si vous passez avant samedi.' },
+  { iconName: 'confetti', label: 'Nouveauté', title: 'Nouveauté à découvrir', body: 'On vient d\'ajouter quelque chose de spécial à la carte. Venez goûter !' },
 ]
 
 interface PushClientProps {
@@ -154,6 +162,13 @@ export default function PushClient({ business, initialBroadcasts }: PushClientPr
       setBody('')
       setScheduleEnabled(false)
       setScheduledAt('')
+
+      // Story 9.x.fix 2026-05-10 : marque la tâche notif_setup de la checklist
+      // d'onboarding comme done. L'envoi d'une push notification est l'action
+      // attendue pour cocher cette tâche, mais avant ce fix, aucun appel API
+      // n'était fait → tâche restait non cochée même après envoi.
+      // Idempotent : safe à ré-appeler à chaque envoi.
+      fetch('/api/business/onboarding/notif-setup', { method: 'POST' }).catch(() => {})
     } catch (err) {
       setSend({ status: 'error', message: err instanceof Error ? err.message : 'Erreur réseau' })
     }
@@ -197,7 +212,14 @@ export default function PushClient({ business, initialBroadcasts }: PushClientPr
             </span>
           </div>
           {view === 'list' ? (
-            <Button color="primary" size="md" iconLeading={Plus} className="flex-1 sm:flex-none" onClick={() => { setSend({ status: 'idle' }); setView('compose') }}>
+            <Button
+              data-tour="push-create"
+              color="primary"
+              size="md"
+              iconLeading={Plus}
+              className="flex-1 sm:flex-none"
+              onClick={() => { setSend({ status: 'idle' }); setView('compose') }}
+            >
               Nouvelle
             </Button>
           ) : (
@@ -266,7 +288,17 @@ export default function PushClient({ business, initialBroadcasts }: PushClientPr
 
       {send.status === 'success' && (
         <Overlay>
-          <div className="bg-primary rounded-2xl p-8 text-center max-w-sm">
+          <div className="relative bg-primary rounded-2xl p-8 text-center max-w-sm">
+            {/* Story 9.x.fix 2026-05-10 : X close button — avant la modal
+                forçait à choisir entre Nouvelle/Historique pour partir. */}
+            <button
+              type="button"
+              onClick={() => setSend({ status: 'idle' })}
+              aria-label="Fermer"
+              className="absolute top-3 right-3 size-8 rounded-full hover:bg-secondary inline-flex items-center justify-center text-quaternary hover:text-primary transition-colors"
+            >
+              <XIcon className="size-4" />
+            </button>
             <div className="size-14 mx-auto mb-4 bg-success-secondary rounded-full flex items-center justify-center">
               <CheckDone01 className="size-7 text-fg-success-primary" />
             </div>
@@ -378,7 +410,7 @@ function ListView({
           <p className="text-sm text-tertiary mb-5">
             Vos campagnes apparaîtront ici. Commencez par créer votre première notification.
           </p>
-          <Button color="primary" size="md" iconLeading={Plus} onClick={onCompose}>
+          <Button data-tour="push-create" color="primary" size="md" iconLeading={Plus} onClick={onCompose}>
             Créer ma première notification
           </Button>
         </div>
@@ -571,12 +603,14 @@ function ComposeView({
   onSend: () => void
 }) {
   // Min datetime = now + 5 min, format YYYY-MM-DDTHH:MM
+  /* eslint-disable react-hooks/purity */
   const minDateTime = useMemo(() => {
     const d = new Date(Date.now() + 5 * 60 * 1000)
     const tzOffset = d.getTimezoneOffset() * 60000
     return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16)
   }, [])
   const scheduledOk = !scheduleEnabled || (scheduledAt && new Date(scheduledAt).getTime() > Date.now())
+  /* eslint-enable react-hooks/purity */
   return (
     <div className="space-y-4">
       <button
@@ -590,7 +624,10 @@ function ComposeView({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7 space-y-6">
-        <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6">
+        <section
+          data-tour="push-templates"
+          className="rounded-xl bg-primary border border-secondary p-5 sm:p-6"
+        >
           <h2 className="text-sm font-semibold text-primary mb-3">Modèles rapides</h2>
           <div className="flex flex-wrap gap-2">
             {TEMPLATES.map((t) => (
@@ -598,15 +635,19 @@ function ComposeView({
                 key={t.label}
                 type="button"
                 onClick={() => applyTemplate(t)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium border border-secondary bg-primary text-secondary hover:bg-primary_hover transition-colors"
+                className="px-3 py-1.5 rounded-full text-xs font-medium border border-secondary bg-primary text-secondary hover:bg-primary_hover transition-colors inline-flex items-center gap-1.5"
               >
-                {t.label}
+                <Emoji name={t.iconName} size={14} />
+                <span>{t.label}</span>
               </button>
             ))}
           </div>
         </section>
 
-        <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-5">
+        <section
+          data-tour="push-config"
+          className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-5"
+        >
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-medium text-secondary">Titre</label>
@@ -663,6 +704,7 @@ function ComposeView({
           <div className="flex items-center justify-between gap-3 pt-2">
             <p className="text-xs text-tertiary">Limite : 5 envois par heure</p>
             <Button
+              data-tour="push-send"
               color="primary"
               size="md"
               iconLeading={scheduleEnabled ? Clock : Rocket01}

@@ -16,12 +16,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Gift01, Stars02, CheckDone01, Loading01, AlertCircle, Plus, Trash01 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
+import NumberFieldDraft from '@/components/ui/NumberFieldDraft'
 import { createClient } from '@/lib/supabase/client'
 import LoyaltyCardVisual from '@/components/dashboard/LoyaltyCardVisual'
+import { EmojiPicker } from '@/lib/emojis'
 import type { Business, LoyaltyTier } from '@/lib/types'
 import { cx } from '@/utils/cx'
-
-const TIER_EMOJI_PRESETS = ['☕', '🥐', '🍰', '🍪', '🍩', '🥪', '🍕', '🍔', '🍟', '🥗', '🍷', '🍺', '🎁', '⭐', '💎', '🏆', '✂️', '💅']
 
 function newTier(): LoyaltyTier {
   return {
@@ -58,6 +58,11 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
   const [stampsReward, setStampsReward] = useState<string>(business.stamps_reward ?? 'Un produit offert')
   const [pointsPerEuro, setPointsPerEuro] = useState<number>(business.points_per_euro ?? 1)
   const [scanCooldownHours, setScanCooldownHours] = useState<number>(business.scan_cooldown_hours ?? 4)
+  // Draft strings — permettent la saisie libre (vider le champ pour passer
+  // de 5 a 15 sans devoir faire 5→55→15). Bug user 2026-05-14.
+  const [stampsRequiredDraft, setStampsRequiredDraft] = useState(String(business.stamps_required ?? 10))
+  const [pointsPerEuroDraft, setPointsPerEuroDraft] = useState(String(business.points_per_euro ?? 1))
+  const [scanCooldownDraft, setScanCooldownDraft] = useState(String(business.scan_cooldown_hours ?? 4))
   const [tiers, setTiers] = useState<LoyaltyTier[]>(business.reward_tiers ?? [])
 
   const [saving, setSaving] = useState(false)
@@ -149,7 +154,10 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
         {/* Form column */}
         <div className="lg:col-span-7 space-y-6">
           {/* 1. Type de programme */}
-          <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6">
+          <section
+            data-tour="loyalty-type"
+            className="rounded-xl bg-primary border border-secondary p-5 sm:p-6"
+          >
             <h2 className="text-lg font-semibold text-primary mb-1">Type de programme</h2>
             <p className="text-sm text-tertiary mb-5">
               Choisissez le système qui correspond à votre activité.
@@ -173,7 +181,10 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
           </section>
 
           {/* 2. Système de récompense — fusion mode-spec + paliers + délai anti-fraude */}
-          <section className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-6">
+          <section
+            data-tour="loyalty-tiers"
+            className="rounded-xl bg-primary border border-secondary p-5 sm:p-6 space-y-6"
+          >
             <div>
               <h2 className="text-lg font-semibold text-primary mb-1">
                 {loyaltyType === 'stamps' ? 'Carte à tampons' : 'Système de points'}
@@ -208,13 +219,20 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                   ))}
                 </div>
                 <Input
-                  type="number"
-                  value={String(stampsRequired)}
+                  type="text"
+                  inputMode="numeric"
+                  value={stampsRequiredDraft}
                   onChange={(v) => {
+                    if (!/^[0-9]*$/.test(v)) return
+                    setStampsRequiredDraft(v)
                     const n = parseInt(v, 10)
-                    if (!isNaN(n) && n >= 1 && n <= 50) setStampsRequired(n)
+                    if (!isNaN(n) && n >= 3 && n <= 30) setStampsRequired(n)
                   }}
-                  hint="Le total visible sur la carte. Les récompenses sont définies par paliers ci-dessous."
+                  onBlur={() => {
+                    const n = parseInt(stampsRequiredDraft, 10)
+                    if (isNaN(n) || n < 3 || n > 30) setStampsRequiredDraft(String(stampsRequired))
+                  }}
+                  hint="Entre 3 et 30 tampons. Les récompenses sont définies par paliers ci-dessous."
                 />
               </div>
             ) : (
@@ -223,11 +241,18 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                   Points par euro dépensé
                 </label>
                 <Input
-                  type="number"
-                  value={String(pointsPerEuro)}
+                  type="text"
+                  inputMode="decimal"
+                  value={pointsPerEuroDraft}
                   onChange={(v) => {
-                    const n = parseFloat(v)
+                    if (!/^[0-9]*[.,]?[0-9]*$/.test(v)) return
+                    setPointsPerEuroDraft(v)
+                    const n = parseFloat(v.replace(',', '.'))
                     if (!isNaN(n) && n > 0 && n <= 100) setPointsPerEuro(n)
+                  }}
+                  onBlur={() => {
+                    const n = parseFloat(pointsPerEuroDraft.replace(',', '.'))
+                    if (isNaN(n) || n <= 0 || n > 100) setPointsPerEuroDraft(String(pointsPerEuro))
                   }}
                   hint={`${pointsPerEuro} point${pointsPerEuro > 1 ? 's' : ''} par € dépensé. Les récompenses sont définies par paliers ci-dessous.`}
                 />
@@ -251,6 +276,7 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                 onChange={setTiers}
                 unit={loyaltyType === 'points' ? 'pts' : 'tampons'}
                 suggestions={suggestions}
+                businessType={business.business_type}
               />
             </div>
 
@@ -261,11 +287,18 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
                 Délai minimum entre deux scans pour le même client. Évite qu&apos;un client ne scanne plusieurs fois d&apos;affilée pour gagner des {loyaltyType === 'stamps' ? 'tampons' : 'points'} sans repasser à la caisse.
               </p>
               <Input
-                type="number"
-                value={String(scanCooldownHours)}
+                type="text"
+                inputMode="numeric"
+                value={scanCooldownDraft}
                 onChange={(v) => {
+                  if (!/^[0-9]*$/.test(v)) return
+                  setScanCooldownDraft(v)
                   const n = parseInt(v, 10)
                   if (!isNaN(n) && n >= 0 && n <= 72) setScanCooldownHours(n)
+                }}
+                onBlur={() => {
+                  const n = parseInt(scanCooldownDraft, 10)
+                  if (isNaN(n) || n < 0 || n > 72) setScanCooldownDraft(String(scanCooldownHours))
                 }}
                 hint={scanCooldownHours === 0 ? 'Aucun délai (scans illimités).' : `${scanCooldownHours} h entre deux scans pour le même client`}
               />
@@ -285,7 +318,9 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
               currentStamps={Math.min(7, stampsRequired)}
               stampsRequired={stampsRequired}
               currentPoints={loyaltyType === 'points' ? Math.round(20 * pointsPerEuro) : 0}
+              businessName={business.business_name}
               businessLogoUrl={business.logo_url}
+              cardImageUrl={business.card_image_url}
             />
             <div className="mt-5 rounded-lg bg-primary border border-secondary p-4">
               <p className="text-sm font-medium text-primary mb-2">
@@ -337,6 +372,7 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
           </span>
         )}
         <Button
+          data-tour="loyalty-save"
           color="primary"
           size="md"
           isDisabled={!isDirty || saving}
@@ -400,11 +436,13 @@ function TiersInline({
   onChange,
   unit,
   suggestions,
+  businessType,
 }: {
   tiers: LoyaltyTier[]
   onChange: (tiers: LoyaltyTier[]) => void
   unit: 'pts' | 'tampons'
   suggestions: string[]
+  businessType: Business['business_type']
 }) {
   function update(id: string, patch: Partial<LoyaltyTier>) {
     onChange(tiers.map((t) => (t.id === id ? { ...t, ...patch } : t)))
@@ -429,6 +467,7 @@ function TiersInline({
               unit={unit}
               suggestions={suggestions}
               isFirst={idx === 0}
+              businessType={businessType}
               onUpdate={(patch) => update(tier.id, patch)}
               onRemove={() => remove(tier.id)}
             />
@@ -437,6 +476,7 @@ function TiersInline({
       )}
 
       <button
+        data-tour="loyalty-add-tier"
         type="button"
         onClick={add}
         className="w-full rounded-lg border border-dashed border-secondary bg-primary hover:bg-secondary/30 text-secondary hover:text-primary py-4 px-4 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
@@ -453,6 +493,7 @@ function TierRow({
   unit,
   suggestions,
   isFirst,
+  businessType,
   onUpdate,
   onRemove,
 }: {
@@ -460,47 +501,20 @@ function TierRow({
   unit: 'pts' | 'tampons'
   suggestions: string[]
   isFirst: boolean
+  businessType: Business['business_type']
   onUpdate: (patch: Partial<LoyaltyTier>) => void
   onRemove: () => void
 }) {
-  const [emojiOpen, setEmojiOpen] = useState(false)
-
   return (
     <div className="rounded-lg border border-secondary bg-primary p-4 hover:bg-secondary/10 transition-colors">
       <div className="flex items-start gap-3 sm:gap-4">
-        {/* Emoji — gros a gauche */}
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setEmojiOpen((o) => !o)}
-            aria-label="Choisir un emoji"
-            className="size-12 sm:size-14 rounded-lg bg-secondary/40 text-3xl sm:text-4xl leading-none flex items-center justify-center hover:bg-secondary transition-colors"
-          >
-            {tier.emoji || '🎁'}
-          </button>
-          {emojiOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="Fermer"
-                onClick={() => setEmojiOpen(false)}
-                className="fixed inset-0 z-10 cursor-default"
-              />
-              <div className="absolute z-20 mt-1 left-0 w-56 rounded-lg border border-secondary bg-primary shadow-lg p-2 grid grid-cols-6 gap-1">
-                {TIER_EMOJI_PRESETS.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => { onUpdate({ emoji: e }); setEmojiOpen(false) }}
-                    className="size-8 rounded-md text-lg hover:bg-secondary transition-colors flex items-center justify-center"
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        {/* Emoji — picker catalogue Izou (Microsoft Fluent Emoji) */}
+        <EmojiPicker
+          value={tier.emoji}
+          onChange={(unicode) => onUpdate({ emoji: unicode })}
+          businessType={businessType}
+          triggerSize="lg"
+        />
 
         {/* Champs : nom au-dessus, seuil en dessous */}
         <div className="flex-1 min-w-0 space-y-2">
@@ -512,14 +526,15 @@ function TierRow({
             className="w-full text-base sm:text-lg font-semibold text-primary bg-transparent border-0 outline-none focus:ring-0 placeholder:text-quaternary placeholder:font-normal px-0"
           />
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={String(tier.threshold)}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10)
-                if (!isNaN(n) && n >= 1 && n <= 9999) onUpdate({ threshold: n })
+            <NumberFieldDraft
+              value={tier.threshold}
+              onChange={(n) => onUpdate({ threshold: n })}
+              min={1}
+              max={9999}
+              inputProps={{
+                className:
+                  'w-16 sm:w-20 px-2 py-1 rounded-md bg-secondary/40 border border-secondary text-sm text-primary text-center focus:outline-none focus:ring-2 focus:ring-brand',
               }}
-              className="w-16 sm:w-20 px-2 py-1 rounded-md bg-secondary/40 border border-secondary text-sm text-primary text-center focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <span className="text-sm text-tertiary">{unit}</span>
           </div>

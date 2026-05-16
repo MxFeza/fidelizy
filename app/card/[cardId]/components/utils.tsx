@@ -1,13 +1,3 @@
-/**
- * Onglets locaux geres par CardPageClient (state-based, sans changement de route).
- * Les onglets Entreprise / Scanner / Parrainage sont des routes separees.
- *
- * 2026-05-01 : Onglet 'history' retire de la nav (decision user — peu utile).
- *              L'activite recente est integree dans le CardTab. L'onglet
- *              'Entreprise' (route /business) prend sa place dans la nav v4.
- */
-export type Tab = 'card' | 'profile'
-
 export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>

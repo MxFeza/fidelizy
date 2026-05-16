@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { setPendingWalletAction } from '@/lib/wallet/generatePass'
 import { notifyClient } from './notification.service'
+import { resolveClientTiers } from './loyalty.tiers'
 import { AppError } from '@/lib/errors'
 import type { LoyaltyCard, Customer } from '@/lib/types'
 import type { AddToCardInput, DeductFromCardInput, ClaimRewardInput, ResetCardInput } from './loyalty.schemas'
@@ -135,10 +136,20 @@ export async function addToCard(
     points_per_euro: params.pointsPerEuro,
   }
 
+  // Anti-abuse (audit local 2026-05-08, finding T1-3) : clamp business-aware
+  // pour empêcher un employé malveillant de créditer 1000 tampons d'un coup.
+  // - stamps : max = 1 carte complète (= stamps_required) par opération
+  // - points : max = 500 (couvre les gros tickets, bloque les abus extrêmes)
+  // Le schéma Zod côté API limite déjà à 1000, ce clamp est une 2e barrière.
+  const stampsCap = business.stamps_required ?? 10
+  const cappedAmount = type === 'stamps'
+    ? Math.min(amount, stampsCap)
+    : Math.min(amount, 500)
+
   if (type === 'stamps') {
-    return earnStampsInternal(supabase, { card, business, amount, incrementVisits: true })
+    return earnStampsInternal(supabase, { card, business, amount: cappedAmount, incrementVisits: true })
   } else {
-    return earnPointsInternal(supabase, { card, business, amount, incrementVisits: true })
+    return earnPointsInternal(supabase, { card, business, amount: cappedAmount, incrementVisits: true })
   }
 }
 
@@ -231,21 +242,32 @@ export async function claimReward(
     throw new AppError('Carte introuvable', 404)
   }
 
-  const { data: tier } = await supabase
-    .from('reward_tiers')
-    .select('id, reward_name, points_required')
-    .eq('id', rewardTierId)
-    .eq('business_id', businessId)
+  // Lit le tier depuis business.reward_tiers JSONB (Story 4.4 — table legacy
+  // reward_tiers n'est plus consultee). resolveClientTiers gere aussi le palier
+  // virtuel single-tier en mode stamps.
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('loyalty_type, reward_tiers, stamps_required, stamps_reward')
+    .eq('id', businessId)
     .single()
+
+  if (!business) {
+    throw new AppError('Commerce introuvable', 404)
+  }
+
+  const tiers = resolveClientTiers(business)
+  const tier = tiers.find((t) => t.id === rewardTierId)
 
   if (!tier) {
     throw new AppError('Palier de récompense introuvable', 404)
   }
 
+  const pointsRequired = tier.threshold
+
   // Atomic deduction via RPC — prevents spending more than available
   const { data: deductResult, error: deductError } = await supabase.rpc('deduct_points', {
     p_card_id: card.id,
-    p_amount: tier.points_required,
+    p_amount: pointsRequired,
   }).single() as { data: { new_points: number; success: boolean } | null; error: unknown }
 
   if (deductError || !deductResult) {
@@ -253,16 +275,16 @@ export async function claimReward(
   }
 
   if (!deductResult.success) {
-    throw new AppError(`Points insuffisants (${card.current_points ?? 0}/${tier.points_required})`, 400)
+    throw new AppError(`Points insuffisants (${card.current_points ?? 0}/${pointsRequired})`, 400)
   }
 
   const newPoints = deductResult.new_points
 
   await supabase.from('reward_claims').insert({
     loyalty_card_id: card.id,
-    reward_tier_id: tier.id,
-    reward_name: tier.reward_name,
-    points_spent: tier.points_required,
+    reward_tier_id: tier.id, // UUID JSONB — plus de FK strict depuis Story 4.4
+    reward_name: tier.name,
+    points_spent: pointsRequired,
   }).throwOnError()
 
   await supabase.from('transactions').insert({
@@ -271,18 +293,18 @@ export async function claimReward(
     type: 'redeem',
     stamps_added: null,
     points_added: null,
-    description: `Récompense : ${tier.reward_name} (-${tier.points_required} pts)`,
+    description: `Récompense : ${tier.name} (-${pointsRequired} pts)`,
   }).throwOnError()
 
   setPendingWalletAction(card.qr_code_id, 'claim-reward')
   notifyClient(card.id, card.qr_code_id, {
     title: 'Récompense !',
-    body: `${tier.reward_name} — montre ta carte au comptoir.`,
+    body: `${tier.name} — montre ta carte au comptoir.`,
   }).catch(() => {})
 
   return {
     success: true,
-    message: `${tier.reward_name} accordé ! (-${tier.points_required} pts, reste ${newPoints} pts)`,
+    message: `${tier.name} accordé ! (-${pointsRequired} pts, reste ${newPoints} pts)`,
     newPoints,
   }
 }
@@ -378,20 +400,20 @@ async function earnStampsInternal(
   let message: string
 
   if (isComplete) {
-    await supabase.from('transactions').insert({
-      loyalty_card_id: card.id,
-      business_id: business.id,
-      type: 'redeem',
-      stamps_added: null,
-      points_added: null,
-      description: `Récompense accordée — carte réinitialisée (${stampsRequired}/${stampsRequired})`,
-    }).throwOnError()
-    message = `+${amount} tampon${amount > 1 ? 's' : ''} — Carte complète ! Récompense : ${business.stamps_reward}. Carte remise à 0.`
+    // Story 9.x.fix 2026-05-10 : on N'INSERT PLUS la transaction redeem ici
+    // et on NE RESET PLUS la carte à 0. La RPC `increment_stamps` cap maintenant
+    // la carte au seuil. Le claim de récompense se fait explicitement par le
+    // client via le flow claim_requests (code 6 chars présenté au merchant
+    // qui valide via /api/scan/validate-claim).
+    //
+    // On notifie juste le client qu'une récompense est disponible.
+    message = `+${amount} tampon${amount > 1 ? 's' : ''} — Carte complète ! Récompense ${business.stamps_reward} disponible. Le client peut la réclamer depuis son app.`
 
+    // Wallet : badge à 0 restant, indique au client que c'est claimable.
     setPendingWalletAction(card.qr_code_id, 'add', 0)
     notifyClient(card.id, card.qr_code_id, {
       title: business.business_name,
-      body: 'Récompense débloquée ! Montre ta carte au comptoir.',
+      body: `Récompense ${business.stamps_reward} débloquée ! Réclame-la depuis ton app.`,
     }).catch(() => {})
   } else {
     const remaining = stampsRequired - finalStamps

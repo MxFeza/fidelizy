@@ -234,10 +234,15 @@ describe('loyalty.service', () => {
         qr_code_id: 'qr-123',
       }
 
-      const tier = {
-        id: 'tier-1',
-        reward_name: 'Café gratuit',
-        points_required: 10,
+      // Story 4.4 : claimReward lit maintenant business.reward_tiers JSONB
+      // au lieu de la table legacy reward_tiers.
+      const business = {
+        loyalty_type: 'points' as const,
+        reward_tiers: [
+          { id: 'tier-1', name: 'Café gratuit', emoji: '🎁', threshold: 10 },
+        ],
+        stamps_required: 10,
+        stamps_reward: '',
       }
 
       let fromCallCount = 0
@@ -247,7 +252,7 @@ describe('loyalty.service', () => {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
-            single: vi.fn().mockResolvedValue({ data: fromCallCount === 1 ? card : tier }),
+            single: vi.fn().mockResolvedValue({ data: fromCallCount === 1 ? card : business }),
           }
         }),
         rpc: vi.fn().mockReturnValue({

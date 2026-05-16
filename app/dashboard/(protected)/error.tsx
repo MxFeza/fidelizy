@@ -1,5 +1,7 @@
 'use client'
 
+import { AlertCircle } from '@untitledui/icons'
+
 export default function DashboardError({
   error,
   reset,
@@ -10,7 +12,7 @@ export default function DashboardError({
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] p-8">
       <div className="bg-white rounded-2xl shadow-sm p-8 max-w-md w-full text-center">
-        <div className="text-4xl mb-4">😕</div>
+        <div className="mb-4 flex justify-center"><AlertCircle className="size-12 text-error-primary" aria-hidden="true" /></div>
         <h2 className="text-lg font-bold text-gray-900 mb-2">
           Une erreur est survenue
         </h2>

@@ -21,7 +21,6 @@ import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import {
   Bell01,
   Download01,
@@ -38,11 +37,25 @@ import {
 import type { Business } from '@/lib/types'
 import { joinUrl } from '@/lib/config'
 import { Button } from '@/components/ui/base/buttons/button'
+import { Emoji, type EmojiName } from '@/lib/emojis'
 import { PUBLIC_ASSETS } from '@/lib/assets'
 import { cx } from '@/utils/cx'
+import PendingClaimRequests from '@/components/dashboard/PendingClaimRequests'
+
+const TOP_RANK_EMOJIS: EmojiName[] = ['medal-gold', 'medal-silver', 'medal-bronze']
 
 const QrScanner = dynamic(() => import('@/app/components/QrScanner'), { ssr: false })
 const WelcomeModal = dynamic(() => import('@/components/dashboard/WelcomeModal'), { ssr: false })
+// Recharts pese ~80KB gz — lazy-load pour alleger le bundle initial dashboard
+// (cf. AUDIT_FLUIDITE_2026-05-13 reco 3, mergee 2026-05-15).
+const WeeklyVisitsChart = dynamic(() => import('@/components/dashboard/WeeklyVisitsChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[260px] flex items-center justify-center text-quaternary text-sm">
+      Chargement du graphique…
+    </div>
+  ),
+})
 
 type RecentScan = {
   id: string
@@ -110,6 +123,51 @@ function formatRelativeDay(iso: string): string {
   if (d.toDateString() === today.toDateString()) return `Aujourd'hui à ${formatTime(iso)}`
   if (d.toDateString() === yesterday.toDateString()) return `Hier à ${formatTime(iso)}`
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' à ' + formatTime(iso)
+}
+
+/**
+ * Mini-bouton "J'ai imprimé mon QR" — coche la tâche d'onboarding qr_printed.
+ * Idempotent côté serveur. Cache lui-même après succès. Ciblé par le coachmark
+ * step 2 du flow qr_printed (data-tour="qr-confirm-printed").
+ */
+function QrPrintedConfirmButton() {
+  const [confirmed, setConfirmed] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleClick() {
+    if (loading || confirmed) return
+    setLoading(true)
+    try {
+      await fetch('/api/business/onboarding/qr-printed', { method: 'POST' })
+    } catch {
+      // Best-effort
+    } finally {
+      setConfirmed(true)
+      setLoading(false)
+    }
+  }
+
+  if (confirmed) {
+    return (
+      <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-success-primary">
+        <CheckDone01 className="size-3.5" />
+        Confirmé — tâche cochée dans la checklist.
+      </p>
+    )
+  }
+
+  return (
+    <button
+      data-tour="qr-confirm-printed"
+      type="button"
+      onClick={handleClick}
+      disabled={loading}
+      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-fg-brand-secondary hover:text-fg-brand-secondary_hover transition-colors disabled:opacity-50"
+    >
+      <CheckDone01 className="size-3.5" />
+      {loading ? '...' : "J'ai imprimé mon QR"}
+    </button>
+  )
 }
 
 function StatCard({
@@ -255,14 +313,40 @@ export default function DashboardClient({
 
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const qrCodeId = manualInput.trim()
-    if (!qrCodeId) return
+    const raw = manualInput.trim()
+    if (!raw) return
     setManualState({ status: 'processing' })
+
+    // Auto-detection : code de réclamation 6 chars charset sans ambiguïté
+    // (Story 4.4) vs QR code carte standard. Le claim code prime — si le format
+    // matche on appelle validate-claim et on tombe sur le scan classique sinon.
+    const claimInput = raw.replace(/[\s-]/g, '').toUpperCase()
+    const isClaimCode = /^[A-HJKMNPQRSTUVWXYZ23456789]{6}$/.test(claimInput)
+
     try {
+      if (isClaimCode) {
+        const res = await fetch('/api/scan/validate-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: claimInput }),
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          const who = data.customerName ? ` à ${data.customerName}` : ''
+          setManualState({
+            status: 'success',
+            message: `Récompense "${data.rewardName}"${who} validée. La carte du client a été mise à jour.`,
+          })
+        } else {
+          setManualState({ status: 'error', message: data.error ?? 'Code de réclamation invalide.' })
+        }
+        return
+      }
+
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qr_code_id: qrCodeId }),
+        body: JSON.stringify({ qr_code_id: raw }),
       })
       const data = await res.json()
       if (data.success) setManualState({ status: 'success', message: data.message })
@@ -337,6 +421,12 @@ export default function DashboardClient({
           </div>
         </div>
 
+        {/* Demandes de récompenses en attente — widget interactif (1-clic
+            Accepter) qui remplace le besoin de scanner / taper le code 6 chars
+            à chaque récompense (refonte UX 2026-05-13 demandée par user).
+            Masqué automatiquement si aucune demande pending. */}
+        <PendingClaimRequests />
+
         {/* Section : Visites hebdo + Code commerce */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8 rounded-xl bg-primary border border-secondary p-6">
@@ -344,19 +434,7 @@ export default function DashboardClient({
               <h2 className="text-lg font-semibold text-primary">Visites hebdomadaires</h2>
             </div>
             {weekData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={weekData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAECF0" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#667085' }} tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#667085' }} tickLine={false} axisLine={false} width={40} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #EAECF0', fontSize: '13px' }}
-                    labelStyle={{ fontWeight: 600 }}
-                    formatter={(v) => [v, 'Visites']}
-                  />
-                  <Bar dataKey="count" fill="#7F56D9" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <WeeklyVisitsChart data={weekData} />
             ) : (
               <div className="h-[260px] flex items-center justify-center text-quaternary text-sm">
                 Aucune donnée de visite cette semaine.
@@ -364,7 +442,10 @@ export default function DashboardClient({
             )}
           </div>
 
-          <div className="lg:col-span-4 rounded-xl bg-primary border border-secondary p-6 flex flex-col">
+          <div
+            data-tour="qr-section"
+            className="lg:col-span-4 rounded-xl bg-primary border border-secondary p-6 flex flex-col"
+          >
             <h2 className="text-lg font-semibold text-primary mb-4">Code commerce</h2>
             <div className="flex flex-col items-center text-center flex-1">
               {qrDataUrl ? (
@@ -387,6 +468,7 @@ export default function DashboardClient({
             </div>
             <div className="mt-4 flex gap-2">
               <Button
+                data-tour="qr-pdf"
                 color="primary"
                 size="sm"
                 className="flex-1"
@@ -400,11 +482,12 @@ export default function DashboardClient({
                 {linkCopied ? 'Copié' : 'Lien'}
               </Button>
             </div>
+            <QrPrintedConfirmButton />
           </div>
         </div>
 
         {/* KPIs principaux row 1 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div data-tour="dashboard-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Clients inscrits" value={clientsTotal} />
           <StatCard label="Visites du mois" value={visitsCount} />
           <StatCard label={distributedLabel} value={kpis?.distributedMonth ?? 0} />
@@ -431,14 +514,16 @@ export default function DashboardClient({
             ) : (
               <ul className="space-y-2">
                 {topClients.slice(0, 3).map((c, i) => {
-                  const ranks = ['🥇', '🥈', '🥉']
+                  const rankEmoji = TOP_RANK_EMOJIS[i]
                   return (
                     <li
                       key={c.id}
                       onClick={() => router.push(`/dashboard/clients/${c.id}`)}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-primary_hover cursor-pointer transition-colors"
                     >
-                      <span className="text-lg w-6 text-center">{ranks[i]}</span>
+                      <span className="w-6 flex justify-center">
+                        {rankEmoji && <Emoji name={rankEmoji} size={20} />}
+                      </span>
                       <div className="size-8 bg-brand-secondary rounded-full flex items-center justify-center shrink-0">
                         <span className="text-xs font-semibold text-fg-brand-primary">
                           {c.customers?.first_name?.[0]?.toUpperCase() ?? '?'}

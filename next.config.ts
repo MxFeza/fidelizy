@@ -27,6 +27,13 @@ const csp = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  // View Transitions API (Next 16 + React 19) — lissage perceptuel des
+  // navigations cross-page via le browser API natif. Fallback automatique
+  // sur les navigateurs sans support (iOS Safari partiel). Audit fluidite
+  // reco 2 (2026-05-13). Activable globalement, sans wrapper specifique.
+  experimental: {
+    viewTransition: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -35,6 +42,17 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
+  },
+  // `@resvg/resvg-js` a un binding natif (.node) que Turbopack ne sait pas
+  // bundler en ESM. On le marque comme external pour que Next.js l'expose
+  // via require() au runtime (Node native module loader).
+  serverExternalPackages: ['@resvg/resvg-js'],
+  // Force Next.js a inclure les .ttf fonts dans la lambda Vercel — sans ca,
+  // `fs.readFileSync('lib/fonts/Inter-*.ttf')` echoue en serverless car les
+  // fichiers ne sont pas detectes par le tracing automatique (pas d'import
+  // direct dans le code TS).
+  outputFileTracingIncludes: {
+    '/api/share-card/**': ['./lib/fonts/**/*'],
   },
   async headers() {
     return [

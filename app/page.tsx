@@ -1,89 +1,136 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { redirect } from 'next/navigation'
 import { Building02, CreditCard02, ArrowRight } from '@untitledui/icons'
+import HeroBalloon from '@/components/client/HeroBalloon'
+import IzouBulletLogo from '@/components/client/IzouBulletLogo'
+import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export const metadata = {
   title: 'Izou — Cartes de fidélité digitales',
 }
 
 /**
- * Home / — Page d'accueil avec 2 espaces : commercant et client.
+ * Home / — 2 espaces : client et commerçant.
  *
- * En production future, les 2 espaces seront sur des subdomains
- * differents. Pendant les phases de dev/test, cette home sert de
- * point d'entree unique vers /dashboard/login (commercant) et /me
- * (client).
+ * Bug fix 2026-05-10 : si l'utilisateur a déjà une session valide
+ * (cookie Supabase non expiré), on redirige automatiquement vers son
+ * espace (/dashboard pour merchant, /me pour customer) au lieu de
+ * réafficher la page de sélection. Sinon, sur PWA installée, à chaque
+ * réouverture après suspension iOS/Android (~5 min), l'utilisateur
+ * tombait sur cette page de sélection et avait l'impression d'être
+ * déconnecté alors que son cookie était encore valide.
  *
- * Decision user 2026-05-01.
+ * Reprend le pattern visuel des écrans onboarding `/join/[shortCode]`.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  // Detection auth + role pour redirect transparent quand session valide.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user?.email) {
+    const service = createServiceClient()
+
+    // 1) Merchant ? business.id === user.id (Supabase Auth UID est aussi le PK businesses)
+    const { data: business } = await service
+      .from('businesses')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (business) redirect('/dashboard')
+
+    // 2) Customer ? lookup par email
+    const { data: customer } = await service
+      .from('customers')
+      .select('id')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (customer) redirect('/me')
+
+    // Sinon (cas edge : session sans business ni customer) — on affiche la
+    // selection comme fallback, l'utilisateur peut choisir son espace.
+  }
+
+  return <HomePageView />
+}
+
+function HomePageView() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col">
-      <main className="flex-1 flex items-center justify-center px-5 py-12">
-        <div className="w-full max-w-md">
-          {/* Logo + tagline */}
-          <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-brand-solid rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
+    <div className="min-h-screen flex flex-col bg-primary">
+      <header className="px-5 py-4 border-b border-secondary">
+        <Image
+          src="/izou-logo.svg"
+          alt="Izou"
+          width={80}
+          height={24}
+          priority
+          className="h-6 w-auto"
+        />
+      </header>
+
+      <HeroBalloon />
+
+      <main className="flex-1 flex flex-col px-5 py-8">
+        <div className="w-full max-w-sm mx-auto space-y-6">
+          {/* Bullets logo + heading */}
+          <div className="space-y-3 text-center">
+            <IzouBulletLogo />
+            <div className="space-y-1.5">
+              <h1 className="text-display-xs font-bold text-primary">
+                Bienvenue sur Izou
+              </h1>
+              <p className="text-md text-tertiary">
+                La fidélité digitale, simple et premium.
+              </p>
             </div>
-            <h1 className="text-4xl font-black text-gray-900">Izou</h1>
-            <p className="text-gray-500 mt-2 text-sm">
-              La fidélité digitale, simple et premium.
-            </p>
           </div>
 
-          {/* 2 cards : commerçant + client */}
+          {/* 2 espaces : client + commerçant */}
           <div className="space-y-3">
             <Link
-              href="/dashboard/login"
-              className="group flex items-center gap-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-brand-secondary/40 p-5"
-            >
-              <div className="size-12 rounded-xl bg-brand-solid flex items-center justify-center shrink-0">
-                <Building02 className="size-6 text-white" aria-hidden="true" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-base">Je suis commerçant</p>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Gérer mon programme et mes clients
-                </p>
-              </div>
-              <ArrowRight className="size-5 text-gray-400 shrink-0 group-hover:text-brand-secondary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
-            </Link>
-
-            <Link
               href="/me"
-              className="group flex items-center gap-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-brand-secondary/40 p-5"
+              className="group flex items-center gap-4 bg-secondary hover:bg-secondary_hover transition-colors rounded-2xl border border-secondary p-5"
             >
               <div className="size-12 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
                 <CreditCard02 className="size-6 text-white" aria-hidden="true" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-base">Je suis client</p>
-                <p className="text-sm text-gray-500 mt-0.5">
+              <div className="flex-1 min-w-0 text-left">
+                <p className="font-bold text-primary text-base">Je suis client</p>
+                <p className="text-sm text-tertiary mt-0.5">
                   Accéder à mes cartes fidélité
                 </p>
               </div>
-              <ArrowRight className="size-5 text-gray-400 shrink-0 group-hover:text-brand-secondary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+              <ArrowRight className="size-5 text-quaternary shrink-0 group-hover:text-brand-secondary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+            </Link>
+
+            <Link
+              href="/dashboard/login"
+              className="group flex items-center gap-4 bg-secondary hover:bg-secondary_hover transition-colors rounded-2xl border border-secondary p-5"
+            >
+              <div className="size-12 rounded-xl bg-brand-solid flex items-center justify-center shrink-0">
+                <Building02 className="size-6 text-white" aria-hidden="true" />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="font-bold text-primary text-base">Je suis commerçant</p>
+                <p className="text-sm text-tertiary mt-0.5">
+                  Gérer mon programme et mes clients
+                </p>
+              </div>
+              <ArrowRight className="size-5 text-quaternary shrink-0 group-hover:text-brand-secondary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
             </Link>
           </div>
-
-          {/* Helper text */}
-          <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
-            En phase de test, les deux espaces sont accessibles depuis cette page.
-            <br />
-            Une fois en production, ils auront des points d&apos;entrée distincts.
-          </p>
         </div>
       </main>
 
-      <footer className="py-6 text-center text-[11px] text-gray-400 space-x-2">
-        <Link href="/privacy" className="hover:text-gray-600 underline">Confidentialité</Link>
+      <footer className="py-6 text-center text-xs text-quaternary space-x-2">
+        <Link href="/privacy" className="hover:text-tertiary underline">Confidentialité</Link>
         <span>·</span>
-        <Link href="/terms" className="hover:text-gray-600 underline">CGU</Link>
+        <Link href="/terms" className="hover:text-tertiary underline">CGU</Link>
         <span>·</span>
-        <Link href="/legal" className="hover:text-gray-600 underline">Mentions légales</Link>
+        <Link href="/legal" className="hover:text-tertiary underline">Mentions légales</Link>
       </footer>
     </div>
   )

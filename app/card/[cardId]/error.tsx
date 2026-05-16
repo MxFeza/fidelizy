@@ -1,5 +1,7 @@
 'use client'
 
+import { AlertCircle } from '@untitledui/icons'
+
 export default function CardError({
   reset,
 }: {
@@ -9,12 +11,12 @@ export default function CardError({
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="bg-white rounded-2xl shadow-sm p-8 max-w-sm w-full text-center">
-        <div className="text-4xl mb-4">😕</div>
+        <div className="mb-4 flex justify-center"><AlertCircle className="size-12 text-error-primary" aria-hidden="true" /></div>
         <h2 className="text-lg font-bold text-gray-900 mb-2">
           Carte introuvable
         </h2>
         <p className="text-sm text-gray-500 mb-6">
-          Cette carte n'existe pas ou n'est plus disponible.
+          Cette carte n&apos;existe pas ou n&apos;est plus disponible.
         </p>
         <button
           onClick={reset}

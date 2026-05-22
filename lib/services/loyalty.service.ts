@@ -419,6 +419,13 @@ async function earnStampsInternal(
     const remaining = stampsRequired - finalStamps
     message = `+${amount} tampon${amount > 1 ? 's' : ''} (${finalStamps}/${stampsRequired})`
     setPendingWalletAction(card.qr_code_id, 'add', remaining)
+    // Retour user 2026-05-22 : notif systematique a chaque ajout (pas seulement
+    // au milestone). S'applique aussi au scan QR comptoir car earnStampsInternal
+    // est partagee — choix produit assume.
+    notifyClient(card.id, card.qr_code_id, {
+      title: business.business_name,
+      body: `+${amount} tampon${amount > 1 ? 's' : ''} ajouté${amount > 1 ? 's' : ''} (${finalStamps}/${stampsRequired})`,
+    }).catch(() => {})
   }
 
   return { success: true, message, updatedCard: updatedCard ?? {} as Partial<LoyaltyCard>, customer: null, newValue: finalStamps }
@@ -484,6 +491,14 @@ async function earnPointsInternal(
     notifyClient(card.id, card.qr_code_id, {
       title: business.business_name,
       body: 'Récompense débloquée ! Montre ta carte au comptoir.',
+    }).catch(() => {})
+  } else {
+    // Retour user 2026-05-22 : notif systematique a chaque ajout (pas
+    // seulement au palier). S'applique au scan QR comptoir et a l'ajout
+    // manuel merchant — choix produit assume.
+    notifyClient(card.id, card.qr_code_id, {
+      title: business.business_name,
+      body: `+${amount} point${amount > 1 ? 's' : ''} ajouté${amount > 1 ? 's' : ''} (total : ${newPoints})`,
     }).catch(() => {})
   }
 

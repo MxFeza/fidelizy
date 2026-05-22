@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import * as Sentry from '@sentry/nextjs'
 import {
   ArrowLeft, ArrowRight, Eye, X as XIcon, CreditCard02, BarChartSquareUp, Bell01,
   Heart, Star01, Sun, Lightning01, Scissors01, Stars02,
@@ -131,6 +132,32 @@ export default function OnboardingWizard({ initialBusiness }: OnboardingWizardPr
   const businessShortCode = initialBusiness.short_code
   const businessId = initialBusiness.id
 
+  // ── Sentry instrumentation ────────────────────────────────────────────
+  // Identifie le merchant pour filtrer les issues wizard par compte.
+  // Les breadcrumbs/exceptions sont posees au fil des actions ci-dessous.
+  useEffect(() => {
+    Sentry.setUser({ id: businessId, username: businessName })
+    return () => {
+      Sentry.setUser(null)
+    }
+  }, [businessId, businessName])
+
+  function captureWizardError(err: unknown, action: string) {
+    Sentry.withScope((scope) => {
+      scope.setTag('error_kind', 'onboarding_wizard')
+      scope.setTag('onboarding.step', String(step))
+      scope.setTag('onboarding.action', action)
+      scope.setContext('onboarding_state', {
+        businessType,
+        stampsRequired,
+        tiersCount: tiers.length,
+        hasLogo: Boolean(logoUrl),
+        hasCardImage: Boolean(cardImageUrl),
+      })
+      Sentry.captureException(err)
+    })
+  }
+
   // Suggestions selon metier (defaut si pas encore choisi)
   const rewardSuggestions = useMemo(() => {
     const key = (businessType ?? 'default') as keyof typeof REWARD_SUGGESTIONS
@@ -156,6 +183,7 @@ export default function OnboardingWizard({ initialBusiness }: OnboardingWizardPr
       setBusinessType(type)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de sauvegarder.')
+      captureWizardError(e, 'persist_business_type')
       throw e
     } finally {
       setSaving(false)
@@ -176,6 +204,7 @@ export default function OnboardingWizard({ initialBusiness }: OnboardingWizardPr
       if (dbError) throw dbError
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de sauvegarder.')
+      captureWizardError(e, 'persist_card_config')
       throw e
     } finally {
       setSaving(false)
@@ -204,6 +233,7 @@ export default function OnboardingWizard({ initialBusiness }: OnboardingWizardPr
       if (dbError) throw dbError
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de sauvegarder.')
+      captureWizardError(e, 'persist_tiers')
       throw e
     } finally {
       setSaving(false)
@@ -223,10 +253,21 @@ export default function OnboardingWizard({ initialBusiness }: OnboardingWizardPr
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('izou.post-onboarding-tour', '1')
       }
+      Sentry.addBreadcrumb({
+        category: 'onboarding',
+        message: 'wizard completed',
+        level: 'info',
+        data: {
+          businessType,
+          stampsRequired,
+          tiersCount: tiers.length,
+        },
+      })
       router.push('/dashboard?tour=welcome')
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de finaliser.')
+      captureWizardError(e, 'complete_onboarding')
       setSaving(false)
     }
   }
@@ -235,6 +276,12 @@ export default function OnboardingWizard({ initialBusiness }: OnboardingWizardPr
 
   async function goNext() {
     setError(null)
+    Sentry.addBreadcrumb({
+      category: 'onboarding',
+      message: `goNext from step ${step}`,
+      level: 'info',
+      data: { fromStep: step, businessType, stampsRequired, tiersCount: tiers.length },
+    })
     try {
       if (step === 1) {
         setStep(2)
@@ -742,53 +789,35 @@ function Step3Card({
   onStampsChange: (n: number) => void
 }) {
   return (
-    <div className="space-y-8">
-      <div className="space-y-2">
-        <h2 className="text-display-sm sm:text-display-md font-semibold text-primary tracking-tight">
-          Configure ta carte
-        </h2>
-        <p className="text-md text-tertiary">
-          Ces trois éléments donnent à ta carte son identité visuelle. Tu pourras tout modifier plus tard.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <h2 className="text-display-sm sm:text-display-md font-semibold text-primary tracking-tight">
+        Configure ta carte
+      </h2>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-md font-semibold text-primary">1. Logo de ton commerce</h3>
-          <p className="text-sm text-tertiary mt-0.5">
-            Affiché en bas à droite de la carte. PNG ou SVG avec fond transparent recommandé.
-          </p>
-        </div>
+        <h3 className="text-md font-semibold text-primary">1. Logo</h3>
         <AssetUploader
           kind="logo"
           currentUrl={logoUrl}
           onUploaded={onLogoChange}
           onDeleted={() => onLogoChange(null)}
+          hideHint
         />
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-md font-semibold text-primary">2. Image bandeau de la carte</h3>
-          <p className="text-sm text-tertiary mt-0.5">
-            Une photo de ton commerce ou produit phare — apparaît en haut de la carte.
-          </p>
-        </div>
+        <h3 className="text-md font-semibold text-primary">2. Image bandeau</h3>
         <AssetUploader
           kind="card"
           currentUrl={cardImageUrl}
           onUploaded={onCardImageChange}
           onDeleted={() => onCardImageChange(null)}
+          hideHint
         />
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-md font-semibold text-primary">3. Nombre de tampons pour la récompense</h3>
-          <p className="text-sm text-tertiary mt-0.5">
-            Combien de visites avant que ton client ne reçoive sa récompense ? Tu pourras ajouter des paliers intermédiaires juste après.
-          </p>
-        </div>
+        <h3 className="text-md font-semibold text-primary">3. Nombre de tampons</h3>
         <div className="flex flex-wrap gap-2">
           {STAMPS_PRESETS.map((n) => (
             <button

@@ -1,8 +1,10 @@
+import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import JoinFlow from './JoinFlow'
 import { joinUrl } from '@/lib/config'
+import { scanCard } from '@/lib/services/loyalty.service'
 
 interface PageProps {
   params: Promise<{ businessId: string }>
@@ -82,6 +84,54 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
   const business = await fetchBusiness(businessId)
 
   if (!business) notFound()
+
+  // Retour user 2026-05-22 : si le client a deja une session active ET deja
+  // une carte chez ce commerce, on declenche un scan auto (+1 tampon/point
+  // si pas en cooldown) au lieu de re-derouler le flow d'inscription. Sans
+  // ce shortcut, le client doit refaire toute l'inscription pour le meme
+  // commerce — friction inacceptable sur le flow core "scan QR du commercant".
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user?.email) {
+    const service = createServiceClient()
+    const { data: customer } = await service
+      .from('customers')
+      .select('id')
+      .eq('email', user.email)
+      .maybeSingle<{ id: string }>()
+
+    if (customer) {
+      const { data: existingCard } = await service
+        .from('loyalty_cards')
+        .select('id, qr_code_id')
+        .eq('customer_id', customer.id)
+        .eq('business_id', business.id)
+        .maybeSingle<{ id: string; qr_code_id: string }>()
+
+      if (existingCard) {
+        // Cooldown anti-fraude (4h par defaut) gere par scanCard ; on swallow
+        // l'erreur pour que le client soit toujours redirige vers sa carte
+        // meme si pas de nouveau tampon credite.
+        try {
+          await scanCard(service, {
+            qrCodeId: existingCard.qr_code_id,
+            business: {
+              id: business.id,
+              business_name: business.business_name,
+              loyalty_type: business.loyalty_type,
+              stamps_required: business.stamps_required,
+              stamps_reward: business.stamps_reward ?? '',
+              points_per_euro: business.points_per_euro,
+            },
+          })
+        } catch {
+          // cooldown actif ou autre erreur metier : on redirige quand meme
+        }
+        redirect(`/card/${existingCard.id}?scanned=1`)
+      }
+    }
+  }
 
   return <JoinFlow business={business} initialReferralCode={referralCode} />
 }

@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { joinUrl } from '@/lib/config'
-import { buildShareCard } from '@/lib/share-card'
+import { buildShareCard, buildPlaceholderShareCard } from '@/lib/share-card'
 import { z } from 'zod'
+import * as Sentry from '@sentry/nextjs'
 
 /**
  * GET /api/share-card/[shortCode]
@@ -92,12 +93,34 @@ export async function GET(request: NextRequest, context: { params: Promise<{ sho
     })
   } catch (e) {
     console.error('[share-card] generation failed:', e)
-    return NextResponse.json(
-      {
-        error: 'share-card generation failed',
-        details: e instanceof Error ? e.message : String(e),
-      },
-      { status: 500 },
-    )
+    // Sentry capture pour avoir le stack trace en prod — retour user 2026-05-22
+    // (compte test DHAYQE casse en boucle, cause inconnue sans stack).
+    Sentry.withScope((scope) => {
+      scope.setTag('error_kind', 'share_card_generation')
+      scope.setTag('route', '/api/share-card/[shortCode]')
+      Sentry.captureException(e)
+    })
+    // Retourne un placeholder PNG au lieu d'un 500 JSON pour eviter le
+    // broken image icon cote client (retour user mobile 2026-05-22).
+    try {
+      const placeholder = await buildPlaceholderShareCard()
+      return new NextResponse(new Uint8Array(placeholder), {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/png',
+          // Pas de cache : on veut re-essayer la vraie image au prochain load.
+          'Cache-Control': 'no-store',
+        },
+      })
+    } catch {
+      // Si meme le placeholder fail, on retombe sur le 500 historique.
+      return NextResponse.json(
+        {
+          error: 'share-card generation failed',
+          details: e instanceof Error ? e.message : String(e),
+        },
+        { status: 500 },
+      )
+    }
   }
 }

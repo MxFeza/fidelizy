@@ -415,3 +415,30 @@ export async function buildShareCard(opts: ShareCardOptions): Promise<Buffer> {
   })
   return Buffer.from(resvg.render().asPng())
 }
+
+// ── Placeholder fallback ──────────────────────────────────────────────────────
+
+/**
+ * Genere un PNG placeholder ultra-simple sans Satori (text + IZOU branding).
+ * Utilise quand buildShareCard fail — evite le broken image icon cote client.
+ * Retour user 2026-05-22 (compte test DHAYQE casse en boucle).
+ */
+export async function buildPlaceholderShareCard(): Promise<Buffer> {
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <rect width="1080" height="1350" fill="#F5F4FF"/>
+  <text x="540" y="640" font-family="sans-serif" font-size="42" font-weight="600" fill="#1E1E1E" text-anchor="middle">Aperçu en cours de génération</text>
+  <text x="540" y="710" font-family="sans-serif" font-size="28" fill="#666" text-anchor="middle">Réessayez dans quelques instants.</text>
+  <g transform="translate(490, 800)">
+    <path d="M47.409 16.6021C46.1894 16.6021 45.1088 16.3378 44.1673 15.8091C43.2473 15.2592 42.5198 14.4873 41.9848 13.4934C41.4713 12.4994 41.2145 11.3469 41.2145 10.0357V0.646059H44.9697V9.75022C44.9697 10.9979 45.28 11.9285 45.9005 12.5417C46.521 13.155 47.409 13.4617 48.5645 13.4617C49.8483 13.4617 50.8539 13.0387 51.5815 12.1928C52.3304 11.3469 52.7048 10.152 52.7048 8.60824V0.646059H56.46L56.6215 16.5698H52.9305L52.769 14.1913H52.2234C51.9452 14.7411 51.4424 15.2804 50.7149 15.8091C49.9874 16.3378 48.8854 16.6021 47.409 16.6021Z" fill="#1E1E1E" transform="scale(2)"/>
+    <path d="M30.5074 16.6021C28.8923 16.6021 27.441 16.2846 26.1533 15.6498C24.8875 15.0149 23.8836 14.0943 23.1415 12.888C22.3995 11.6818 22.0285 10.2321 22.0285 8.53913V8.06297C22.0285 6.39112 22.3995 4.95207 23.1415 3.7458C23.8836 2.53953 24.8875 1.61896 26.1533 0.984078C27.441 0.328038 28.8923 1.7643e-05 30.5074 1.7643e-05C32.1224 1.7643e-05 33.5628 0.328038 34.8287 0.984078C36.1163 1.61896 37.1203 2.53953 37.8405 3.7458C38.5825 4.95207 38.9535 6.39112 38.9535 8.06297V8.53913C38.9535 10.2321 38.5825 11.6818 37.8405 12.888C37.1203 14.0943 36.1163 15.0149 34.8287 15.6498C33.5628 16.2846 32.1224 16.6021 30.5074 16.6021ZM30.5074 13.3007C31.8387 13.3007 32.9408 12.8775 33.8138 12.031C34.6868 11.1845 35.1233 9.99935 35.1233 8.47564V8.1582C35.1233 6.61333 34.6868 5.41764 33.8138 4.57114C32.9627 3.72464 31.8605 3.30138 30.5074 3.30138C29.1542 3.30138 28.0412 3.72464 27.1682 4.57114C26.2952 5.41764 25.8587 6.61333 25.8587 8.1582V8.47564C25.8587 9.99935 26.2952 11.1845 27.1682 12.031C28.0412 12.8775 29.1542 13.3007 30.5074 13.3007Z" fill="#1E1E1E" transform="scale(2)"/>
+    <path d="M6.78301 16.6021V12.0571L15.5123 4.28856V3.80504H7.09589V0.646059H19.5172V5.19112L10.7566 12.9919V13.4754H19.7675V16.6021H6.78301Z" fill="#1E1E1E" transform="scale(2)"/>
+    <path d="M0 16.6021V0.646059H3.94057V16.6021H0Z" fill="#1E1E1E" transform="scale(2)"/>
+  </g>
+</svg>`
+  const resvg = new Resvg(svg, {
+    background: 'white',
+    fitTo: { mode: 'width', value: 1080 },
+  })
+  return Buffer.from(resvg.render().asPng())
+}

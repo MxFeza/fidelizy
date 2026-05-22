@@ -13,7 +13,9 @@ const broadcastInputSchema = z.object({
   body: z.string().trim().min(1).max(100),
   // scheduledAt : ISO 8601 (Date.parse-compatible). Validation temporelle
   // (>= maintenant - 60s) faite après le parse pour message d'erreur clair.
-  scheduledAt: z.string().datetime({ offset: true }).optional(),
+  // .nullable() : le client envoie `null` pour les envois immediats (cf.
+  // PushClient.doSend) — sinon Zod fail avec "Paramètres invalides".
+  scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
 })
 
 export const GET = withErrorHandler(async () => {

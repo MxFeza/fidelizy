@@ -132,15 +132,17 @@ export default function Sidebar({ businessName, businessEmail, businessLogoUrl }
         <div data-onboarding-slot />
 
         {/* Feedback CTA — simple lien violet. Version complete dans le profil utilisateur (v2). */}
+        {/* data-tour="feedback-cta" : cible du PostOnboardingTour step 6 — signale aux beta-testeurs ce canal de remontee. */}
         {!feedbackOpen ? (
           <button
+            data-tour="feedback-cta"
             onClick={() => setFeedbackOpen(true)}
             className="self-start px-2 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover transition duration-100 ease-linear"
           >
             Proposer une amelioration
           </button>
         ) : (
-          <div className="space-y-2 px-2">
+          <div data-tour="feedback-cta" className="space-y-2 px-2">
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}

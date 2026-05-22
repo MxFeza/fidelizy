@@ -789,53 +789,35 @@ function Step3Card({
   onStampsChange: (n: number) => void
 }) {
   return (
-    <div className="space-y-8">
-      <div className="space-y-2">
-        <h2 className="text-display-sm sm:text-display-md font-semibold text-primary tracking-tight">
-          Configure ta carte
-        </h2>
-        <p className="text-md text-tertiary">
-          Ces trois éléments donnent à ta carte son identité visuelle. Tu pourras tout modifier plus tard.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <h2 className="text-display-sm sm:text-display-md font-semibold text-primary tracking-tight">
+        Configure ta carte
+      </h2>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-md font-semibold text-primary">1. Logo de ton commerce</h3>
-          <p className="text-sm text-tertiary mt-0.5">
-            Affiché en bas à droite de la carte. PNG ou SVG avec fond transparent recommandé.
-          </p>
-        </div>
+        <h3 className="text-md font-semibold text-primary">1. Logo</h3>
         <AssetUploader
           kind="logo"
           currentUrl={logoUrl}
           onUploaded={onLogoChange}
           onDeleted={() => onLogoChange(null)}
+          hideHint
         />
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-md font-semibold text-primary">2. Image bandeau de la carte</h3>
-          <p className="text-sm text-tertiary mt-0.5">
-            Une photo de ton commerce ou produit phare — apparaît en haut de la carte.
-          </p>
-        </div>
+        <h3 className="text-md font-semibold text-primary">2. Image bandeau</h3>
         <AssetUploader
           kind="card"
           currentUrl={cardImageUrl}
           onUploaded={onCardImageChange}
           onDeleted={() => onCardImageChange(null)}
+          hideHint
         />
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-md font-semibold text-primary">3. Nombre de tampons pour la récompense</h3>
-          <p className="text-sm text-tertiary mt-0.5">
-            Combien de visites avant que ton client ne reçoive sa récompense ? Tu pourras ajouter des paliers intermédiaires juste après.
-          </p>
-        </div>
+        <h3 className="text-md font-semibold text-primary">3. Nombre de tampons</h3>
         <div className="flex flex-wrap gap-2">
           {STAMPS_PRESETS.map((n) => (
             <button

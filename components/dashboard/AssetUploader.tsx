@@ -3,10 +3,12 @@
 /**
  * AssetUploader — upload de logo, bannière ou image carte commerçant.
  *
- * Logo : preview cercle, object-contain (préserve le ratio uploadé). Pas de crop.
+ * Logo : preview cercle, crop forcé 1:1 cropShape=round (depuis 2026-05-22),
+ *        affiché en object-cover pour remplir le cercle (style Instagram).
+ *        Avant : object-contain sans crop → images rectangulaires apparaissaient
+ *        droites dans le cercle, retour user.
  * Banniere : preview ratio 3:1, crop forcé 3:1 via react-easy-crop.
- * Card : preview carrée, crop forcé 1:1 (sera affichée côté droit de la carte
- *        loyalty client via object-cover, ratio adapté automatiquement).
+ * Card : preview carrée, crop forcé 2:1.
  */
 
 import type { ReactNode } from 'react'
@@ -35,6 +37,9 @@ interface AssetUploaderProps {
   className?: string
   /** Default 'block'. Use 'overlay' for LinkedIn-style hero (banner + logo). */
   variant?: Variant
+  /** Cache le bloc HINT (titre + specs + help). Utilise dans l'onboarding pour
+   * alleger la page Step 3 — retour user 2026-05-22. */
+  hideHint?: boolean
 }
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml'
@@ -75,6 +80,10 @@ const CROP_RATIO: Partial<Record<Kind, number>> = {
   // (refonte carte 2026-05-13). Avant : 1, ce qui causait un crop centre
   // imprevisible quand l'image carree etait stretch en 2:1 via object-cover.
   card: 2 / 1,
+  // Logo : crop carre + cropShape=round (style Instagram) — retour user
+  // 2026-05-22. Avant : pas de crop + object-contain → image rectangulaire
+  // apparaissait droite dans le cercle avec du vide autour.
+  logo: 1,
 }
 
 async function fileToDataUrl(file: File): Promise<string> {
@@ -112,7 +121,7 @@ async function cropImageToBlob(src: string, area: Area): Promise<Blob> {
   })
 }
 
-export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPreview, className, variant = 'block' }: AssetUploaderProps) {
+export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPreview, className, variant = 'block', hideHint = false }: AssetUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -246,7 +255,9 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
       ? 'aspect-[3/1] w-full rounded-lg bg-secondary flex items-center justify-center overflow-hidden ring-1 ring-secondary'
       : 'aspect-square w-32 sm:w-40 rounded-lg bg-secondary flex items-center justify-center overflow-hidden ring-1 ring-secondary'
 
-  const objectFit = kind === 'logo' ? 'object-contain p-3' : 'object-cover'
+  // Logo : cover (depuis crop 1:1 + cropShape round) pour remplir le cercle.
+  // Avant : object-contain + padding (image affichee droite avec vide autour).
+  const objectFit = 'object-cover'
 
   // Crop modal partagé entre les 2 variants — extrait dans une variable pour éviter la duplication.
   const cropModal = pendingSrc && cropRatio && (
@@ -260,7 +271,7 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
         <p className="text-sm font-semibold text-primary mb-1">Recadrez votre image</p>
         <p className="text-xs text-tertiary mb-3">Glissez pour repositionner, utilisez le slider pour zoomer.</p>
         <div className="relative w-full bg-gray-900 rounded-lg overflow-hidden"
-             style={{ aspectRatio: kind === 'card' ? '2 / 1' : '3 / 1' }}>
+             style={{ aspectRatio: kind === 'card' ? '2 / 1' : kind === 'logo' ? '1 / 1' : '3 / 1' }}>
           <Cropper
             image={pendingSrc}
             crop={crop}
@@ -269,8 +280,8 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={onCropComplete}
-            cropShape="rect"
-            showGrid
+            cropShape={kind === 'logo' ? 'round' : 'rect'}
+            showGrid={kind !== 'logo'}
             objectFit="cover"
           />
         </div>
@@ -481,15 +492,17 @@ export function AssetUploader({ kind, currentUrl, onUploaded, onDeleted, cardPre
         </div>
       </div>
 
-      <div className="rounded-lg bg-secondary px-4 py-3">
-        <p className="text-xs font-semibold text-secondary mb-1">{hint.title}</p>
-        <ul className="text-xs text-tertiary space-y-0.5">
-          {hint.specs.map((s) => (
-            <li key={s}>• {s}</li>
-          ))}
-        </ul>
-        <p className="text-xs text-tertiary mt-2 italic">{hint.help}</p>
-      </div>
+      {!hideHint && (
+        <div className="rounded-lg bg-secondary px-4 py-3">
+          <p className="text-xs font-semibold text-secondary mb-1">{hint.title}</p>
+          <ul className="text-xs text-tertiary space-y-0.5">
+            {hint.specs.map((s) => (
+              <li key={s}>• {s}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-tertiary mt-2 italic">{hint.help}</p>
+        </div>
+      )}
 
       {cropModal}
     </div>

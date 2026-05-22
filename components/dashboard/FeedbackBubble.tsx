@@ -50,6 +50,7 @@ export default function FeedbackBubble() {
       {/* FAB bubble — mobile only */}
       <button
         type="button"
+        data-tour="feedback-cta"
         onClick={() => setOpen(true)}
         aria-label="Proposer une amélioration"
         className="md:hidden fixed bottom-20 right-4 z-40 size-12 rounded-full bg-brand-solid text-white shadow-lg flex items-center justify-center hover:bg-brand-solid_hover active:scale-95 transition-all"

@@ -50,8 +50,17 @@ interface BottomNavProps {
 export default function BottomNav(_props: BottomNavProps) {
   const pathname = usePathname()
 
+  // data-tour : cibles du PostOnboardingTour version mobile (retour user 2026-05-22)
+  const tourKeyByHref: Record<string, string> = {
+    '/dashboard': 'bottomnav-dashboard',
+    '/dashboard/clients': 'bottomnav-clients',
+    '/dashboard/marketing': 'bottomnav-marketing',
+    '/dashboard/settings': 'bottomnav-settings',
+  }
+
   return (
     <nav
+      data-tour="bottomnav"
       className="fixed bottom-0 left-0 right-0 z-50 bg-primary border-t border-secondary md:hidden"
       style={{
         paddingLeft: 'env(safe-area-inset-left)',
@@ -68,6 +77,7 @@ export default function BottomNav(_props: BottomNavProps) {
             <li key={tab.href} className="flex-1 p-1">
               <Link
                 href={tab.href}
+                data-tour={tourKeyByHref[tab.href]}
                 aria-current={active ? 'page' : undefined}
                 className={cx(
                   'group/tab flex h-full flex-col items-center justify-center gap-1 rounded-md px-0.5 py-2 transition-colors duration-100 ease-linear outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2',

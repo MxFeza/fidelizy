@@ -96,19 +96,83 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
 
   if (user?.email) {
     const service = createServiceClient()
-    const { data: customer } = await service
+
+    // Lookup customer par email. Si auth sans customer record (cas legitime
+    // pilote 2026-05-23 : user cree un compte commercant puis scanne en
+    // client avec le meme email auth -> aucun profil customer associe),
+    // on auto-cree pour eviter de remontrer le JoinFlow d'inscription.
+    let customer = (await service
       .from('customers')
       .select('id')
       .eq('email', user.email)
-      .maybeSingle<{ id: string }>()
+      .maybeSingle<{ id: string }>()).data
+
+    if (!customer) {
+      const metadata = (user.user_metadata ?? {}) as {
+        first_name?: string
+        name?: string
+        full_name?: string
+      }
+      const firstName =
+        metadata.first_name?.trim() ||
+        metadata.name?.trim() ||
+        metadata.full_name?.trim().split(' ')[0] ||
+        user.email.split('@')[0]
+
+      const { data: newCustomer, error } = await service
+        .from('customers')
+        .insert({
+          first_name: firstName,
+          email: user.email,
+          phone: user.phone || null,
+        })
+        .select('id')
+        .single<{ id: string }>()
+
+      if (error) {
+        console.error('[join] auto-create customer failed:', error.message)
+      } else {
+        customer = newCustomer
+      }
+    }
 
     if (customer) {
-      const { data: existingCard } = await service
+      // Lookup carte. Si aucune (user authentifie + customer existant mais
+      // pas encore inscrit chez ce commerce specifique), on auto-cree pour
+      // que le scan credite immediatement +1 tampon plutot que de forcer
+      // un re-onboarding via JoinFlow.
+      let existingCard = (await service
         .from('loyalty_cards')
         .select('id, qr_code_id')
         .eq('customer_id', customer.id)
         .eq('business_id', business.id)
-        .maybeSingle<{ id: string; qr_code_id: string }>()
+        .maybeSingle<{ id: string; qr_code_id: string }>()).data
+
+      if (!existingCard) {
+        const gamification = business.gamification as Record<string, unknown> | null
+        const initialStamps =
+          business.loyalty_type === 'stamps'
+            ? Number(gamification?.initial_stamps ?? 0) || 0
+            : 0
+
+        const { data: newCard, error } = await service
+          .from('loyalty_cards')
+          .insert({
+            customer_id: customer.id,
+            business_id: business.id,
+            current_stamps: initialStamps,
+            current_points: 0,
+            total_visits: 0,
+          })
+          .select('id, qr_code_id')
+          .single<{ id: string; qr_code_id: string }>()
+
+        if (error) {
+          console.error('[join] auto-create card failed:', error.message)
+        } else {
+          existingCard = newCard
+        }
+      }
 
       if (existingCard) {
         // Cooldown anti-fraude (4h par defaut) gere par scanCard. Au lieu de

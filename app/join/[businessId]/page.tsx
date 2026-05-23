@@ -128,7 +128,7 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
         } catch {
           // cooldown actif ou autre erreur metier : on redirige quand meme
         }
-        redirect(`/card/${existingCard.id}?scanned=1`)
+        redirect(`/card/${existingCard.qr_code_id}?scanned=1`)
       }
     }
   }

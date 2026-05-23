@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Bell01, Grid01 } from '@untitledui/icons'
 import Link from 'next/link'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import type { Business, LoyaltyCard, Customer, Transaction, LoyaltyTier } from '@/lib/types'
 import { isIOS } from './components/utils'
 import CardTab from './components/CardTab'
@@ -47,6 +48,13 @@ export default function CardPageClient({
 }: Props) {
   const [notification, setNotification] = useState<string | null>(null)
   const [walletAvailable, setWalletAvailable] = useState(false)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  // Source unique : on lit directement le search param. Le toast est affiche
+  // tant qu'il est present dans l'URL. L'effet ci-dessous clean l'URL apres
+  // 5s, ce qui demonte le toast naturellement (pas de state intermediaire).
+  const scanInfo = searchParams.get('scan_error')
   const [showPushBanner, setShowPushBanner] = useState(false)
   const [liveTiers, setLiveTiers] = useState(tiers)
   const [wheelStatus, setWheelStatus] = useState<{ enabled: boolean; cost: number; eligible: boolean } | null>(null)
@@ -79,6 +87,22 @@ export default function CardPageClient({
     if (pointsBalance === 0) return 'Scannez votre premier QR pour démarrer'
     return `${pointsBalance} pts cumulés chez ${business.business_name}`
   })()
+
+  // Apres 5s, clean l'URL pour eviter le re-trigger du toast au refresh +
+  // demonter naturellement le Toast (scanInfo redevient null car le param
+  // disparait des searchParams). variant=info, pas error : le systeme n'a
+  // pas plante, c'est juste une regle metier (cooldown, carte introuvable).
+  useEffect(() => {
+    if (!scanInfo) return
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete('scan_error')
+      params.delete('scanned')
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [scanInfo, searchParams, router, pathname])
 
   // Wallet availability — iOS uniquement (Android = Epic 6 a venir)
   // SSR-safe init via effect.
@@ -295,6 +319,22 @@ export default function CardPageClient({
           }}
         >
           <Toast variant="success" title={notification} />
+        </div>
+      )}
+
+      {/* Scan info toast — message metier de scanCard (cooldown, etc.) propage
+          depuis /join via search param. Variant info pour ne pas alarmer. */}
+      {scanInfo && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '4.5rem',
+            left: '50%',
+            zIndex: 60,
+            animation: 'slideDownNotif 5s ease-in-out forwards',
+          }}
+        >
+          <Toast variant="info" title={scanInfo} />
         </div>
       )}
 

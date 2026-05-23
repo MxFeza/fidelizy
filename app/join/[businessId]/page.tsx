@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import JoinFlow from './JoinFlow'
 import { joinUrl } from '@/lib/config'
 import { scanCard } from '@/lib/services/loyalty.service'
+import { AppError } from '@/lib/errors'
 
 interface PageProps {
   params: Promise<{ businessId: string }>
@@ -110,9 +111,12 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
         .maybeSingle<{ id: string; qr_code_id: string }>()
 
       if (existingCard) {
-        // Cooldown anti-fraude (4h par defaut) gere par scanCard ; on swallow
-        // l'erreur pour que le client soit toujours redirige vers sa carte
-        // meme si pas de nouveau tampon credite.
+        // Cooldown anti-fraude (4h par defaut) gere par scanCard. Au lieu de
+        // swallow silencieusement (UX confuse : client atterit sur sa carte
+        // sans aucun feedback), on extrait le message de l'AppError pour le
+        // passer en search param a /card. Le CardPageClient affiche un Toast
+        // info pour expliquer pourquoi aucun tampon n'a ete ajoute.
+        let scanErrorMessage: string | null = null
         try {
           await scanCard(service, {
             qrCodeId: existingCard.qr_code_id,
@@ -125,10 +129,17 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
               points_per_euro: business.points_per_euro,
             },
           })
-        } catch {
-          // cooldown actif ou autre erreur metier : on redirige quand meme
+        } catch (e) {
+          if (e instanceof AppError) {
+            scanErrorMessage = e.message
+          }
+          // Sinon (erreur infra inattendue) : on swallow et on redirige quand
+          // meme. Le client voit sa carte ; l'erreur est trackee server-side.
         }
-        redirect(`/card/${existingCard.qr_code_id}?scanned=1`)
+        const target = scanErrorMessage
+          ? `/card/${existingCard.qr_code_id}?scanned=1&scan_error=${encodeURIComponent(scanErrorMessage)}`
+          : `/card/${existingCard.qr_code_id}?scanned=1`
+        redirect(target)
       }
     }
   }

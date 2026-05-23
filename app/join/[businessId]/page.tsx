@@ -13,7 +13,7 @@ interface PageProps {
 }
 
 const SELECT_COLUMNS =
-  'id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro, logo_url, banner_url, gamification, short_code, description'
+  'id, business_name, primary_color, loyalty_type, stamps_required, stamps_reward, points_per_euro, scan_cooldown_hours, logo_url, banner_url, gamification, short_code, description'
 
 async function fetchBusiness(businessId: string) {
   const supabase = createServiceClient()
@@ -127,6 +127,7 @@ export default async function JoinPage({ params, searchParams }: PageProps) {
               stamps_required: business.stamps_required,
               stamps_reward: business.stamps_reward ?? '',
               points_per_euro: business.points_per_euro,
+              scan_cooldown_hours: business.scan_cooldown_hours,
             },
           })
         } catch (e) {

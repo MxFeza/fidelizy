@@ -603,7 +603,7 @@ function ComposeView({
   onSend: () => void
 }) {
   // Min datetime = now + 5 min, format YYYY-MM-DDTHH:MM
-  /* eslint-disable react-hooks/purity */
+  /* eslint-disable react-hooks/purity -- Date.now() lecture systeme : OK pour calcul d'un MIN affichage (idempotent par render mais reference temporelle live attendue). Le useMemo capture la valeur initiale, on accepte qu'elle se decale avec le temps reel. */
   const minDateTime = useMemo(() => {
     const d = new Date(Date.now() + 5 * 60 * 1000)
     const tzOffset = d.getTimezoneOffset() * 60000

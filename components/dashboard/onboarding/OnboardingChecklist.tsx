@@ -73,14 +73,14 @@ export default function OnboardingChecklist({
   // Initial load
   useEffect(() => {
     void fetchStatus(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only fetch, fetchStatus capture via closure
   }, [])
 
   // Force refresh quand version change (parent indique qu'une action user vient
   // de se produire et qu'il faut re-checker les tâches).
   useEffect(() => {
     if (version > 0) void fetchStatus(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on ne veut re-trigger QUE quand version change, pas quand fetchStatus identity change
   }, [version])
 
   // Loading initial → on n'affiche rien (évite un flash entre login et fetch).

@@ -2,6 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
+import { z } from 'zod'
+
+const deleteDataSchema = z.object({
+  card_id: z.string().uuid('card_id invalide.'),
+})
 
 export async function DELETE(request: NextRequest) {
   const { success } = await cardWriteLimiter.limit(getIP(request))
@@ -18,11 +23,15 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 
-  const { card_id } = await request.json()
-
-  if (!card_id) {
-    return NextResponse.json({ error: 'card_id requis' }, { status: 400 })
+  const body = await request.json().catch(() => ({}))
+  const parsed = deleteDataSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'card_id requis' },
+      { status: 400 },
+    )
   }
+  const { card_id } = parsed.data
 
   const serviceClient = createServiceClient()
 

@@ -2,7 +2,15 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
 import crypto from 'crypto'
+
+// short_code business : 6 chars alphanum (generes par /api/business). On
+// accepte 4-12 pour conserver de la marge defensive si le format evolue,
+// mais l'usage actuel est 6 strict (cf. lib/services/business.service.ts).
+const addCardSchema = z.object({
+  short_code: z.string().trim().toUpperCase().min(4, 'Code commerçant invalide.').max(12),
+})
 
 /**
  * POST /api/me/add-card — Ajouter une carte fidelite via code court commercant
@@ -18,11 +26,11 @@ import crypto from 'crypto'
  */
 export const POST = withErrorHandler(async (request) => {
   const body = await request.json().catch(() => ({}))
-  const code = typeof body.short_code === 'string' ? body.short_code.trim().toUpperCase() : ''
-
-  if (!code || code.length < 4) {
-    throw AppError.validation('Code commerçant invalide.')
+  const parsed = addCardSchema.safeParse(body)
+  if (!parsed.success) {
+    throw AppError.validation(parsed.error.issues[0]?.message ?? 'Code commerçant invalide.')
   }
+  const code = parsed.data.short_code
 
   // Auth check
   const supabase = await createServerClient()

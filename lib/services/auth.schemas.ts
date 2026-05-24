@@ -48,3 +48,17 @@ export const registerDirectSchema = z.object({
   email: z.string().trim().toLowerCase().email('Email valide requis.'),
 })
 export type RegisterDirectInput = z.infer<typeof registerDirectSchema>
+
+/**
+ * Login commercant : email + password. Apres verification du password,
+ * un OTP est envoye pour double check (2FA-like). Cf. /api/auth/merchant-send-otp.
+ *
+ * Password limite a 72 chars car bcrypt natif tronque au-dessus, donc on
+ * coupe explicitement pour eviter qu'un user pense pouvoir set un mdp de
+ * 100 chars dont seuls les 72 premiers comptent.
+ */
+export const merchantSignInSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Email valide requis.').max(254),
+  password: z.string().min(1, 'Mot de passe requis.').max(72),
+})
+export type MerchantSignInInput = z.infer<typeof merchantSignInSchema>

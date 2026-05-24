@@ -2,13 +2,18 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { merchantOtpLimiter, getIP } from '@/lib/ratelimit'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { merchantSignInSchema } from '@/lib/services/auth.schemas'
 
 export const POST = withErrorHandler(async (request) => {
   const { success } = await merchantOtpLimiter.limit(getIP(request))
   if (!success) throw AppError.rateLimit('Trop de tentatives. Réessayez dans quelques minutes.')
 
-  const { email, password } = await request.json()
-  if (!email || !password) throw AppError.validation('Email et mot de passe requis')
+  const body = await request.json().catch(() => ({}))
+  const parsed = merchantSignInSchema.safeParse(body)
+  if (!parsed.success) {
+    throw AppError.validation(parsed.error.issues[0]?.message ?? 'Email et mot de passe requis')
+  }
+  const { email, password } = parsed.data
 
   const supabaseAuth = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

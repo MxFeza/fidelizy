@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ArrowLeft } from '@untitledui/icons'
 import { PUBLIC_ASSETS } from '@/lib/assets'
+import type { Html5Qrcode } from 'html5-qrcode'
 
 type Status = 'starting' | 'scanning' | 'redirecting' | 'error'
 
@@ -31,8 +32,7 @@ export default function ScanClient() {
   const router = useRouter()
   const [status, setStatus] = useState<Status>('starting')
   const [errorMessage, setErrorMessage] = useState('')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scannerRef = useRef<any>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannedRef = useRef(false)
 
   const stopScanner = useCallback(async () => {
@@ -62,8 +62,7 @@ export default function ScanClient() {
   )
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let scanner: any = null
+    let scanner: Html5Qrcode | null = null
 
     import('html5-qrcode')
       .then(({ Html5Qrcode }) => {

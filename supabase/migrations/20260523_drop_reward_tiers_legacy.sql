@@ -1,0 +1,23 @@
+-- Drop la table legacy reward_tiers — remplacee par la colonne JSONB
+-- businesses.reward_tiers depuis Story 4.3.b (2026-05-02) cote client et
+-- Story 4.4 (2026-05-12) cote merchant. Cleanup code finalise par les
+-- commits 2026-05-23 sur develop (a9fb536) : retrait du delete dans
+-- /api/account/delete et de la mention dans /api/account/export.
+--
+-- Etat avant DROP (snapshot 2026-05-23 13:00 UTC, audit autopilote) :
+--  total = 4 rows, toutes sur business_id = 1a3fa0ac-3b84-4b6c-97eb-8c417e752f8b
+--  (compte commercant ebellafrancis@gmail.com, donnees test mars 2026).
+--
+-- Archive textuelle des 4 rows pour rollback / audit :
+--   id, business_id, points_required, reward_name, sort_order, created_at
+--   f0cf2b82..., 1a3fa0ac..., 30,  'Café offert',        0, 2026-03-10
+--   ce7f0d89..., 1a3fa0ac..., 40,  'Cookie',             1, 2026-03-10
+--   3c0c7a58..., 1a3fa0ac..., 50,  '5% de réduction',    2, 2026-03-10
+--   74f30199..., 1a3fa0ac..., 100, 'Menu offert',        3, 2026-03-10
+--
+-- Aucun code en production ne lit cette table apres 2026-05-12. La RLS
+-- policy survit ne consommera aucune ressource (table inexistante).
+-- Pour reverter : recreate via les migrations historiques + reinsert les
+-- 4 rows ci-dessus.
+
+DROP TABLE IF EXISTS public.reward_tiers CASCADE;

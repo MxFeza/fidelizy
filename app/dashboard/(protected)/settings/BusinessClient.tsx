@@ -74,6 +74,14 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
   const [description, setDescription] = useState(business.description ?? '')
   const [openingHours, setOpeningHours] = useState(business.opening_hours ?? '')
 
+  // U2.C (2026-05-23) : tabs horizontaux au lieu de scroll vertical long.
+  // Reduit la hauteur perceptuelle et permet au merchant de retrouver
+  // rapidement la section voulue. 3 onglets = 3 sous-ensembles fonctionnels :
+  //  - business : identite visuelle + localisation (priorite onboarding)
+  //  - public   : ce que le client voit (coordonnees + horaires + description)
+  //  - account  : infos perso configurees une fois
+  const [activeTab, setActiveTab] = useState<'business' | 'public' | 'account'>('business')
+
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -312,12 +320,16 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           </div>
         )}
 
-        {/* U2.B2 (2026-05-23) : ordre des sections optimise pour la frequence
-            d'usage. Mon entreprise + Coordonnees + Presence client sont les
-            sections retouchees regulierement (logo, horaires, description).
-            Infos personnelles configuree une fois, deplacee en bas. */}
+        {/* U2.C (2026-05-23) : tabs horizontaux. Au lieu d'un long scroll
+            vertical (5+ sections), le merchant navigue par groupes
+            fonctionnels. Save bar et sticky banner restent globaux. */}
+        <TabsNav active={activeTab} onChange={setActiveTab} />
 
-        {/* Section 1 : Mon entreprise */}
+        {/* Tab business : Mon entreprise (logo + image carte + nom + adresse).
+            Sections hidden via display:none, le state des inputs est preserve
+            au switch. Wrapper interne en flex pour conserver gap entre
+            sous-sections d'un meme tab. */}
+        <div hidden={activeTab !== 'business'} className="flex flex-col gap-8 md:gap-12">
         <SettingsSection
           title="Mon entreprise"
           subtitle="Identité visuelle et localisation de votre commerce."
@@ -375,8 +387,10 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           </div>
 
         </SettingsSection>
+        </div>
 
-        {/* Section 2 : Coordonnees (U2.B1 split du gros bloc Details) */}
+        {/* Tab public : tout ce que le client voit (coordonnees + presence). */}
+        <div hidden={activeTab !== 'public'} className="flex flex-col gap-8 md:gap-12">
         <SettingsSection
           title="Coordonnées"
           subtitle="Comment vos clients vous contactent et vous trouvent en ligne."
@@ -478,10 +492,10 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           {/* Apercu cartographique : OpenStreetMap embed (pas de cle API) */}
           <MapPreview address={address} />
         </SettingsSection>
+        </div>
 
-        {/* Section 4 : Infos personnelles (deplacee en bas — U2.B2). Le user
-            la configure une fois, donc moins prioritaire que les sections
-            qu'il retouchera regulierement. */}
+        {/* Tab account : infos personnelles (configurees une fois) */}
+        <div hidden={activeTab !== 'account'} className="flex flex-col gap-8 md:gap-12">
         <SettingsSection
           title="Infos personnelles"
           subtitle="Le prénom est utilisé pour les salutations dans l’app."
@@ -507,6 +521,7 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
             </p>
           </div>
         </SettingsSection>
+        </div>
 
         {/* Save bar globale : 1 seul Enregistrer pour toute la page (static, pas sticky — feedback user 2026-05-01) */}
         <div className="mt-2 flex items-center justify-end gap-3 px-0 py-0">
@@ -614,6 +629,61 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
       </div>
     )}
     </>
+  )
+}
+
+/**
+ * TabsNav — onglets horizontaux entre le hero et les sections (U2.C, 2026-05-23).
+ *
+ * Pattern visuel Untitled UI standard : border-bottom segmente, onglet actif
+ * souligne en couleur brand. Scrollable horizontal sur mobile si jamais on
+ * ajoute des onglets. `role=tablist` + `aria-selected` pour l'accessibilite.
+ *
+ * Le tab actif n'est pas reflete dans l'URL volontairement : pas de back/
+ * forward inutile, isolation cote settings (page longue qui se replie). Si
+ * besoin de deeplink dans le futur, ajouter un searchParam `?tab=public`.
+ */
+function TabsNav({
+  active,
+  onChange,
+}: {
+  active: 'business' | 'public' | 'account'
+  onChange: (t: 'business' | 'public' | 'account') => void
+}) {
+  const tabs: Array<{ id: 'business' | 'public' | 'account'; label: string }> = [
+    { id: 'business', label: 'Mon entreprise' },
+    { id: 'public', label: 'Détails publics' },
+    { id: 'account', label: 'Compte' },
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Sections des reglages"
+      className="border-b border-secondary -mx-4 md:-mx-8 px-4 md:px-8 overflow-x-auto"
+    >
+      <div className="flex gap-1 max-w-[1080px] mx-auto">
+        {tabs.map((tab) => {
+          const isActive = active === tab.id
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => onChange(tab.id)}
+              className={cx(
+                'px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors cursor-pointer',
+                isActive
+                  ? 'border-brand text-brand-secondary'
+                  : 'border-transparent text-tertiary hover:text-secondary hover:border-secondary',
+              )}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

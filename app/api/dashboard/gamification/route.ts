@@ -3,6 +3,13 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
+
+// 0-3 tampons offerts a l'inscription. Au-dela on entre dans une mecanique
+// de bonus de bienvenue qui n'est pas encore exposee cote merchant.
+const gamificationUpdateSchema = z.object({
+  initial_stamps: z.number().int().min(0).max(3),
+})
 
 export const GET = withErrorHandler(async () => {
   const supabase = await createClient()
@@ -27,13 +34,12 @@ export const PUT = withErrorHandler(async (request) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw AppError.auth('Non autorisé')
 
-  const body = await request.json()
-  const initialStamps =
-    typeof body.initial_stamps === 'number'
-      ? Math.max(0, Math.min(3, Math.floor(body.initial_stamps)))
-      : undefined
-
-  if (initialStamps === undefined) throw AppError.validation('initial_stamps requis (0-3)')
+  const body = await request.json().catch(() => ({}))
+  const parsed = gamificationUpdateSchema.safeParse(body)
+  if (!parsed.success) {
+    throw AppError.validation(parsed.error.issues[0]?.message ?? 'initial_stamps requis (0-3)')
+  }
+  const initialStamps = parsed.data.initial_stamps
 
   await supabase
     .from('businesses')

@@ -4,13 +4,40 @@ import { pushLimiter, getIP } from '@/lib/ratelimit'
 import { sendPushToCard } from '@/lib/push/sendPush'
 import { cardUrl } from '@/lib/config'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
+
+// Subscription Web Push : seul `endpoint` est strictement requis cote API.
+// Les keys VAPID p256dh/auth + expirationTime sont passthrough vers JSONB
+// sans validation profonde (browser-controlled, contenu opaque pour nous).
+const pushSubscriptionSchema = z.object({
+  endpoint: z.string().url(),
+  expirationTime: z.number().nullable().optional(),
+  keys: z.object({
+    p256dh: z.string(),
+    auth: z.string(),
+  }).optional(),
+}).passthrough()
+
+const subscribePostSchema = z.object({
+  cardId: z.string().uuid(),
+  subscription: pushSubscriptionSchema,
+})
+
+const subscribeDeleteSchema = z.object({
+  cardId: z.string().uuid(),
+  endpoint: z.string().url(),
+})
 
 export const POST = withErrorHandler(async (request) => {
   const { success } = await pushLimiter.limit(getIP(request))
   if (!success) throw AppError.rateLimit('Trop de requêtes.')
 
-  const { cardId, subscription } = await request.json()
-  if (!cardId || !subscription?.endpoint) throw AppError.validation('Paramètres manquants')
+  const body = await request.json().catch(() => ({}))
+  const parsed = subscribePostSchema.safeParse(body)
+  if (!parsed.success) {
+    throw AppError.validation(parsed.error.issues[0]?.message ?? 'Paramètres manquants')
+  }
+  const { cardId, subscription } = parsed.data
 
   const supabase = createServiceClient()
 
@@ -77,8 +104,12 @@ export const DELETE = withErrorHandler(async (request) => {
   const { success } = await pushLimiter.limit(getIP(request))
   if (!success) throw AppError.rateLimit('Trop de requêtes.')
 
-  const { cardId, endpoint } = await request.json()
-  if (!cardId || !endpoint) throw AppError.validation('Paramètres manquants')
+  const body = await request.json().catch(() => ({}))
+  const parsed = subscribeDeleteSchema.safeParse(body)
+  if (!parsed.success) {
+    throw AppError.validation(parsed.error.issues[0]?.message ?? 'Paramètres manquants')
+  }
+  const { cardId, endpoint } = parsed.data
 
   const supabase = createServiceClient()
 

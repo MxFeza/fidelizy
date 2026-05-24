@@ -8,7 +8,7 @@ import crypto from 'crypto'
 // short_code business : 6 chars alphanum (generes par /api/business). On
 // accepte 4-12 pour conserver de la marge defensive si le format evolue,
 // mais l'usage actuel est 6 strict (cf. lib/services/business.service.ts).
-const addCardSchema = z.object({
+export const addCardSchema = z.object({
   short_code: z.string().trim().toUpperCase().min(4, 'Code commerçant invalide.').max(12),
 })
 

@@ -136,6 +136,136 @@ export async function registerCustomer(
   return { qrCodeId: newCard.qr_code_id, cardId: newCard.id }
 }
 
+// ── Auto-provisioning customer + carte pour un user authentifie ──
+
+/**
+ * Shape minimal d'un Supabase auth user (cf. supabase.auth.getUser()).
+ * Reproduit ici pour eviter d'importer le type complet de @supabase/supabase-js
+ * dans les tests (le type est defini comme `User` avec ~30 champs).
+ */
+export interface AuthUserLike {
+  email: string
+  phone?: string | null
+  user_metadata?: {
+    first_name?: string
+    name?: string
+    full_name?: string
+  } | null
+}
+
+/**
+ * Shape minimal du business pour ensureCustomerAndCard. On extrait juste
+ * ce qu'il faut pour l'auto-create de carte (gamification.initial_stamps
+ * en mode stamps).
+ */
+export interface BusinessForProvisioning {
+  id: string
+  loyalty_type: string
+  gamification?: Record<string, unknown> | null
+}
+
+/**
+ * Garantit qu'un user authentifie a un customer record + une loyalty_card
+ * chez le business cible. Cree ce qui manque (idempotent).
+ *
+ * Cas pilote 2026-05-23 :
+ *  - User cree un compte commercant (auth.users) puis scanne en client avec
+ *    le meme email → aucun profil customer associe → sans auto-create on
+ *    re-deroule JoinFlow d'inscription, friction inacceptable.
+ *  - User authentifie sur Izou (autre commerce) qui scanne le QR d'un
+ *    nouveau commerce → customer existe, mais pas de carte → on auto-cree
+ *    la carte avec initial_stamps (gamification) pour que le scanCard qui
+ *    suit credite immediatement +1.
+ *
+ * Retourne :
+ *  - { id, qr_code_id } : carte prete a recevoir scanCard / redirect /card
+ *  - null : auto-create echoue (RLS, contrainte, schema drift). L'appelant
+ *    doit alors fallback sur JoinFlow d'inscription.
+ *
+ * Logs des erreurs en console.error pour Vercel debugging mais ne throw
+ * pas — la page parent doit pouvoir continuer son rendu sans crasher.
+ */
+export async function ensureCustomerAndCard(
+  supabase: SupabaseClient,
+  params: { user: AuthUserLike; business: BusinessForProvisioning },
+): Promise<{ id: string; qr_code_id: string } | null> {
+  const { user, business } = params
+
+  // 1. Lookup customer par email
+  let customer = (
+    await supabase
+      .from('customers')
+      .select('id')
+      .eq('email', user.email)
+      .maybeSingle()
+  ).data as { id: string } | null
+
+  // 2. Auto-create customer si manquant (auth orpheline)
+  if (!customer) {
+    const meta = user.user_metadata ?? {}
+    const firstName =
+      meta.first_name?.trim() ||
+      meta.name?.trim() ||
+      meta.full_name?.trim().split(' ')[0] ||
+      user.email.split('@')[0]
+
+    const { data: newCustomer, error } = await supabase
+      .from('customers')
+      .insert({
+        first_name: firstName,
+        email: user.email,
+        phone: user.phone || null,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('[ensureCustomerAndCard] auto-create customer failed:', error.message)
+      return null
+    }
+    customer = newCustomer as { id: string }
+  }
+
+  // 3. Lookup loyalty_card pour ce customer + business
+  let card = (
+    await supabase
+      .from('loyalty_cards')
+      .select('id, qr_code_id')
+      .eq('customer_id', customer.id)
+      .eq('business_id', business.id)
+      .maybeSingle()
+  ).data as { id: string; qr_code_id: string } | null
+
+  // 4. Auto-create carte si manquante. initial_stamps tire de la
+  // gamification merchant uniquement en mode stamps.
+  if (!card) {
+    const initialStamps =
+      business.loyalty_type === 'stamps'
+        ? Number(business.gamification?.initial_stamps ?? 0) || 0
+        : 0
+
+    const { data: newCard, error } = await supabase
+      .from('loyalty_cards')
+      .insert({
+        customer_id: customer.id,
+        business_id: business.id,
+        current_stamps: initialStamps,
+        current_points: 0,
+        total_visits: 0,
+      })
+      .select('id, qr_code_id')
+      .single()
+
+    if (error) {
+      console.error('[ensureCustomerAndCard] auto-create card failed:', error.message)
+      return null
+    }
+    card = newCard as { id: string; qr_code_id: string }
+  }
+
+  return card
+}
+
 /**
  * Find all loyalty cards for a customer by phone number.
  */

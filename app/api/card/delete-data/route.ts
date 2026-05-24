@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 import { z } from 'zod'
 
-const deleteDataSchema = z.object({
+export const deleteDataSchema = z.object({
   card_id: z.string().uuid('card_id invalide.'),
 })
 

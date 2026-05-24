@@ -8,7 +8,7 @@ import { z } from 'zod'
 
 // Soit un code court tape par le merchant, soit un claimId d'une notif push
 // (lien direct vers la validation). On exige l'un OU l'autre via refine.
-const validateClaimSchema = z
+export const validateClaimSchema = z
   .object({
     code: z.string().trim().min(1).optional(),
     claimId: z.string().trim().min(1).optional(),

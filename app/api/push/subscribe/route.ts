@@ -9,7 +9,7 @@ import { z } from 'zod'
 // Subscription Web Push : seul `endpoint` est strictement requis cote API.
 // Les keys VAPID p256dh/auth + expirationTime sont passthrough vers JSONB
 // sans validation profonde (browser-controlled, contenu opaque pour nous).
-const pushSubscriptionSchema = z.object({
+export const pushSubscriptionSchema = z.object({
   endpoint: z.string().url(),
   expirationTime: z.number().nullable().optional(),
   keys: z.object({
@@ -18,12 +18,12 @@ const pushSubscriptionSchema = z.object({
   }).optional(),
 }).passthrough()
 
-const subscribePostSchema = z.object({
+export const subscribePostSchema = z.object({
   cardId: z.string().uuid(),
   subscription: pushSubscriptionSchema,
 })
 
-const subscribeDeleteSchema = z.object({
+export const subscribeDeleteSchema = z.object({
   cardId: z.string().uuid(),
   endpoint: z.string().url(),
 })

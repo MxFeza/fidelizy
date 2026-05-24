@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 // 0-3 tampons offerts a l'inscription. Au-dela on entre dans une mecanique
 // de bonus de bienvenue qui n'est pas encore exposee cote merchant.
-const gamificationUpdateSchema = z.object({
+export const gamificationUpdateSchema = z.object({
   initial_stamps: z.number().int().min(0).max(3),
 })
 

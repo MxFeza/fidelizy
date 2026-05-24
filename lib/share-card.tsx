@@ -33,7 +33,10 @@ function tryReadFont(filename: string): Buffer | null {
     try {
       const buf = readFileSync(p)
       if (buf.length > 1000) {
-        console.log(`[share-card] font loaded from ${p} (${buf.length} bytes)`)
+        // debug only — kept for build investigation, not user-facing
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug(`[share-card] font loaded from ${p} (${buf.length} bytes)`)
+        }
         return buf
       }
     } catch {

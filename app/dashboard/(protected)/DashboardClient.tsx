@@ -57,7 +57,7 @@ const WeeklyVisitsChart = dynamic(() => import('@/components/dashboard/WeeklyVis
   ),
 })
 
-type RecentScan = {
+export type RecentScan = {
   id: string
   type: string
   stamps_added: number | null

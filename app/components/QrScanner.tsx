@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import type { Html5Qrcode } from 'html5-qrcode'
 
 interface ScanResult {
   success: boolean
@@ -17,7 +18,7 @@ export default function QrScanner({ onClose, onSuccess }: QrScannerProps) {
   const [status, setStatus] = useState<'scanning' | 'processing' | 'done' | 'error'>('scanning')
   const [message, setMessage] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
-  const scannerRef = useRef<{ isScanning: boolean; stop: () => Promise<void> } | null>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannedRef = useRef(false)
 
   const stopScanner = useCallback(async () => {
@@ -58,8 +59,7 @@ export default function QrScanner({ onClose, onSuccess }: QrScannerProps) {
   )
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let scanner: any = null
+    let scanner: Html5Qrcode | null = null
 
     import('html5-qrcode').then(({ Html5Qrcode }) => {
       scanner = new Html5Qrcode('qr-reader-container')

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import DashboardClient from './DashboardClient'
+import DashboardClient, { type RecentScan } from './DashboardClient'
 import type { Business } from '@/lib/types'
 
 function generateShortCode(): string {
@@ -76,8 +76,7 @@ export default async function DashboardPage() {
       business={business as Business}
       totalCustomers={totalCustomers ?? 0}
       visitsToday={visitsToday ?? 0}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recentScans={(recentScans ?? []) as any}
+      recentScans={(recentScans ?? []) as unknown as RecentScan[]}
       showWelcome={showWelcome}
     />
   )

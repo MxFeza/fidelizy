@@ -8,11 +8,16 @@ import { AppError, withErrorHandler } from '@/lib/errors'
  *
  * Cascade explicite (independante des FK ON DELETE) :
  *   wallet_registrations → push_subscriptions → reward_claims → referrals
- *   → transactions → loyalty_cards → reward_tiers → businesses → auth user
+ *   → transactions → loyalty_cards → businesses → auth user
  *
  * Les enfants sont supprimes en premier pour ne dependre d'aucune contrainte
  * implicite : ainsi le test de pilote ne peut pas se planter sur des FK
  * mal configurees.
+ *
+ * Note : les paliers de recompense sont stockes dans la colonne JSONB
+ * `businesses.reward_tiers` (depuis Story 4.3.b/4.4) ; ils disparaissent
+ * automatiquement avec la suppression de la row business. La table legacy
+ * `reward_tiers` n'est plus consultee par le code (cf. cleanup 2026-05-23).
  */
 export const DELETE = withErrorHandler(async () => {
   const supabase = await createClient()
@@ -59,13 +64,12 @@ export const DELETE = withErrorHandler(async () => {
   // 5. Transactions du commerce
   await service.from('transactions').delete().eq('business_id', user.id).throwOnError()
 
-  // 6. Reward tiers du commerce
-  await service.from('reward_tiers').delete().eq('business_id', user.id).throwOnError()
-
-  // 7. Loyalty cards du commerce
+  // 6. Loyalty cards du commerce. Paliers de recompense (JSONB
+  // businesses.reward_tiers) seront purges automatiquement avec la
+  // suppression de la row business en etape 8.
   await service.from('loyalty_cards').delete().eq('business_id', user.id).throwOnError()
 
-  // 8. Customers orphelins (n'ont plus aucune carte)
+  // 7. Customers orphelins (n'ont plus aucune carte)
   if (customerIds.length > 0) {
     const { data: remaining } = await service
       .from('loyalty_cards')
@@ -79,7 +83,7 @@ export const DELETE = withErrorHandler(async () => {
     }
   }
 
-  // 9. Business (puis auth user)
+  // 8. Business (puis auth user)
   await service.from('businesses').delete().eq('id', user.id).throwOnError()
 
   const { error: authDeleteError } = await service.auth.admin.deleteUser(user.id)

@@ -8,7 +8,12 @@ export const dynamic = 'force-dynamic'
 /**
  * Export RGPD du commercant (Story 8.3, FR48).
  * Genere un ZIP contenant des CSV: business, customers, transactions,
- * loyalty_cards, reward_tiers, reward_claims, referrals.
+ * loyalty_cards, reward_claims, referrals.
+ *
+ * Les paliers de recompense sont stockes dans la colonne JSONB
+ * `businesses.reward_tiers` (depuis Story 4.3.b/4.4) ; ils sont donc
+ * inclus dans business.csv. La table legacy `reward_tiers` n'est plus
+ * exportee (cleanup 2026-05-23).
  */
 export const GET = withErrorHandler(async () => {
   const supabase = await createClient()

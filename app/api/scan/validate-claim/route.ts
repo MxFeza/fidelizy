@@ -4,6 +4,18 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { cardWriteLimiter, getIP } from '@/lib/ratelimit'
 import { validateClaim } from '@/lib/services/claim.service'
 import { AppError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
+
+// Soit un code court tape par le merchant, soit un claimId d'une notif push
+// (lien direct vers la validation). On exige l'un OU l'autre via refine.
+const validateClaimSchema = z
+  .object({
+    code: z.string().trim().min(1).optional(),
+    claimId: z.string().trim().min(1).optional(),
+  })
+  .refine((d) => d.code || d.claimId, {
+    message: 'Code ou identifiant de demande requis',
+  })
 
 /**
  * POST /api/scan/validate-claim
@@ -24,9 +36,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   if (!user || authError) throw AppError.auth('Non autorisé')
 
   const body = await request.json().catch(() => ({}))
-  const code = typeof body?.code === 'string' ? body.code.trim() : ''
-  const claimId = typeof body?.claimId === 'string' ? body.claimId.trim() : ''
-  if (!code && !claimId) throw AppError.validation('Code ou identifiant de demande requis')
+  const parsed = validateClaimSchema.safeParse(body)
+  if (!parsed.success) {
+    throw AppError.validation(parsed.error.issues[0]?.message ?? 'Code ou identifiant de demande requis')
+  }
+  const { code = '', claimId = '' } = parsed.data
 
   // Verifie que l'user est bien un commerce
   const { data: business } = await supabase

@@ -891,7 +891,7 @@ function Step4Tiers({
         threshold: stampsRequired,
       }])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init seed onboarding step UNIQUEMENT au mount, dependencies stamps/tiers ne doivent pas re-trigger
   }, [])
 
   const sorted = [...tiers].sort((a, b) => a.threshold - b.threshold)

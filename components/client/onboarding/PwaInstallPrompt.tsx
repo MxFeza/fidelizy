@@ -75,9 +75,9 @@ export function usePwaInstallState() {
   const [isIOS, setIsIOS] = useState(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- detection PWA standalone + iOS via window/navigator, exclusivement client-side
     setIsStandalone(isInStandaloneMode())
-     
+
     setIsIOS(isIOSDevice())
   }, [])
 
@@ -125,7 +125,7 @@ export default function PwaInstallPrompt({
     if (mode !== 'banner') return
     if (typeof window === 'undefined') return
     if (sessionStorage.getItem('pwa_install_dismissed') === '1') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture sessionStorage cote client uniquement, sync apres hydration
       setBannerDismissed(true)
     }
   }, [mode])

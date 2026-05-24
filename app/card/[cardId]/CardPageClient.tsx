@@ -108,11 +108,11 @@ export default function CardPageClient({
   // SSR-safe init via effect.
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- platform detection requiert window, SSR-safe via effect
       setWalletAvailable(true)
     }
     if (isIOS()) {
-       
+
       setWalletAvailable(true)
     }
   }, [])
@@ -125,7 +125,7 @@ export default function CardPageClient({
     if (Notification.permission === 'granted') return
     if (Notification.permission === 'denied') return
     if (localStorage.getItem('fidelizy_push_dismissed')) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture window/Notification API + localStorage, exclusivement client-side
     setShowPushBanner(true)
   }, [])
 
@@ -197,7 +197,7 @@ export default function CardPageClient({
 
     if (lastStamps !== null && stampsCount > lastStamps) {
       const diff = stampsCount - lastStamps
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- comparaison stamps localStorage vs SSR (diff detection apres hydration)
       setNotification(`+${diff} tampon${diff > 1 ? 's' : ''} ajouté${diff > 1 ? 's' : ''} ! 🎫`)
       setTimeout(() => setNotification(null), 4000)
     }

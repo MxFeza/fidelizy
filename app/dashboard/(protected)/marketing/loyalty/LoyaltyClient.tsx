@@ -99,7 +99,7 @@ export default function LoyaltyClient({ business }: LoyaltyClientProps) {
         threshold: loyaltyType === 'stamps' ? business.stamps_required : 100,
       }])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed initial tiers UNIQUEMENT au mount depuis le business prop (data fetchee SSR), pas de re-sync souhaitee
   }, [])
 
   async function handleSave() {

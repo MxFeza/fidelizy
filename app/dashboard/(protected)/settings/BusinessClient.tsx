@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation'
 import {
   Building07, MarkerPin01, Phone, Clock, Share04,
   CheckDone01, AlertCircle, Globe01, User01, LinkExternal01,
-  Download01, Copy01, X as XIcon,
+  Download01, Copy01, X as XIcon, Eye,
 } from '@untitledui/icons'
 import { Button } from '@/components/ui/base/buttons/button'
 import { Input } from '@/components/ui/base/input/input'
@@ -299,34 +299,25 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
           </div>
         )}
 
-        {/* Section 1 : Infos personnelles */}
-        <SettingsSection
-          title="Infos personnelles"
-          subtitle="Le prénom est utilisé pour les salutations dans l’app."
-          icon={User01}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Prénom" value={firstName} onChange={setFirstName} placeholder="Marie" />
-            <Input label="Nom" value={lastName} onChange={setLastName} placeholder="Dupont" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary mb-1.5">Email</label>
-            <div className="px-3.5 py-2.5 rounded-lg ring-1 ring-secondary bg-secondary text-md text-tertiary">
-              {email}
-            </div>
-            <p className="text-xs text-tertiary mt-1.5">
-              Pour modifier votre email, allez dans{' '}
-              <Link
-                href="/dashboard/security"
-                className="font-medium text-brand-secondary hover:text-brand-secondary_hover underline"
-              >
-                Sécurité
-              </Link>.
+        {/* U2.B3 (2026-05-23) : sticky banner mobile-only quand isDirty.
+            Sert sur les pages longues a ne pas perdre de vue qu'il faut
+            sauvegarder en bas. Hidden md:hidden -> desktop voit la save bar
+            statique en bas, mobile a l'indicateur sticky en complement. */}
+        {isDirty && (
+          <div className="md:hidden sticky top-0 z-30 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 py-2 bg-warning-primary border-b border-warning-secondary">
+            <p className="text-sm font-medium text-warning-primary flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+              Modifications non sauvegardées
             </p>
           </div>
-        </SettingsSection>
+        )}
 
-        {/* Section 2 : Mon entreprise */}
+        {/* U2.B2 (2026-05-23) : ordre des sections optimise pour la frequence
+            d'usage. Mon entreprise + Coordonnees + Presence client sont les
+            sections retouchees regulierement (logo, horaires, description).
+            Infos personnelles configuree une fois, deplacee en bas. */}
+
+        {/* Section 1 : Mon entreprise */}
         <SettingsSection
           title="Mon entreprise"
           subtitle="Identité visuelle et localisation de votre commerce."
@@ -385,11 +376,11 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
 
         </SettingsSection>
 
-        {/* Section 3 : Details du commerce */}
+        {/* Section 2 : Coordonnees (U2.B1 split du gros bloc Details) */}
         <SettingsSection
-          title="Détails du commerce"
-          subtitle="Ces informations sont visibles par vos clients sur leur carte de fidélité."
-          icon={Globe01}
+          title="Coordonnées"
+          subtitle="Comment vos clients vous contactent et vous trouvent en ligne."
+          icon={Phone}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -435,7 +426,14 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
               <TestLink value={bookingUrl} label="Tester la réservation" />
             </div>
           </div>
+        </SettingsSection>
 
+        {/* Section 3 : Presence client (U2.B1 split — visibilite cote client) */}
+        <SettingsSection
+          title="Présence client"
+          subtitle="Ce que vos clients voient sur leur carte de fidélité et sur votre fiche."
+          icon={Eye}
+        >
           <div>
             <label className="block text-sm font-medium text-secondary mb-1.5">Horaires d&apos;ouverture</label>
             <Input
@@ -479,6 +477,35 @@ export default function BusinessClient({ business, email }: BusinessClientProps)
 
           {/* Apercu cartographique : OpenStreetMap embed (pas de cle API) */}
           <MapPreview address={address} />
+        </SettingsSection>
+
+        {/* Section 4 : Infos personnelles (deplacee en bas — U2.B2). Le user
+            la configure une fois, donc moins prioritaire que les sections
+            qu'il retouchera regulierement. */}
+        <SettingsSection
+          title="Infos personnelles"
+          subtitle="Le prénom est utilisé pour les salutations dans l’app."
+          icon={User01}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Prénom" value={firstName} onChange={setFirstName} placeholder="Marie" />
+            <Input label="Nom" value={lastName} onChange={setLastName} placeholder="Dupont" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1.5">Email</label>
+            <div className="px-3.5 py-2.5 rounded-lg ring-1 ring-secondary bg-secondary text-md text-tertiary">
+              {email}
+            </div>
+            <p className="text-xs text-tertiary mt-1.5">
+              Pour modifier votre email, allez dans{' '}
+              <Link
+                href="/dashboard/security"
+                className="font-medium text-brand-secondary hover:text-brand-secondary_hover underline"
+              >
+                Sécurité
+              </Link>.
+            </p>
+          </div>
         </SettingsSection>
 
         {/* Save bar globale : 1 seul Enregistrer pour toute la page (static, pas sticky — feedback user 2026-05-01) */}
